@@ -1,0 +1,8 @@
+{
+  "name": "ระบบบริหารบุคคลและบัญชี (HR & Accounting System)",
+  "description": "ระบบบริหารจัดการทรัพยากรบุคคล การคิดเงินเดือน และบัญชีรายรับ-รายจ่ายแบบครบวงจร พร้อมผู้ช่วยวิเคราะห์การเงินอัจฉริยะ",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
