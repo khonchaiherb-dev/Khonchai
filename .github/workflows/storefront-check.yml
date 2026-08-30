@@ -27,6 +27,7 @@ jobs:
               Path('db/migrations/0001_init.sql'),
               Path('db/migrations/0002_production_hardening.sql'),
               Path('db/migrations/0003_social_commerce.sql'),
+              Path('db/migrations/0004_attribution_analytics.sql'),
               Path('db/seed.sql'),
               Path('db/seed-social.sql'),
           ]:
@@ -36,5 +37,9 @@ jobs:
           assert db.execute('select count(*) from creators').fetchone()[0] >= 3
           assert db.execute('select count(*) from social_contents').fetchone()[0] >= 5
           assert db.execute('select count(*) from content_products').fetchone()[0] > 0
-          print('Database migrations, social-commerce schema and seed: OK')
+          cols={row[1] for row in db.execute('pragma table_info(orders)')}
+          assert {'source_channel','creator_id','content_id'} <= cols
+          db.execute("insert into commerce_events(event_type,source_channel,creator_id,content_id,product_id) values('content_view','video',1,2,1)")
+          assert db.execute('select count(*) from commerce_events').fetchone()[0] == 1
+          print('Database migrations, social-commerce schema, attribution and analytics: OK')
           PY
