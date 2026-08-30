@@ -48,7 +48,14 @@ jobs:
           assert {'payout_ref','updated_at'} <= commission_cols
           tables={row[0] for row in db.execute("select name from sqlite_master where type='table'")}
           assert {'review_media','promotions','customer_auth_challenges','customer_sessions','customer_recent_products','creator_commissions','shipment_events','return_requests'} <= tables
-          db.execute("insert into return_requests(order_id,customer_id,product_id,qty,reason_code,detail) values(1,1,1,1,'other','test request')")
+
+          # Create a valid relational fixture before testing the return workflow.
+          db.execute("insert into customers(phone,full_name) values('0899999999','QA Customer')")
+          customer_id=db.execute("select id from customers where phone='0899999999'").fetchone()[0]
+          product_id=db.execute('select id from products order by id limit 1').fetchone()[0]
+          db.execute("insert into orders(order_no,customer_id,customer_name,phone,address_json,subtotal,discount_total,shipping_total,total,payment_method,payment_status,fulfillment_status,status) values('KCH-QA-RETURN',?,'QA Customer','0899999999','{}',100,0,0,100,'COD','cod_collected','delivered','completed')",(customer_id,))
+          order_id=db.execute("select id from orders where order_no='KCH-QA-RETURN'").fetchone()[0]
+          db.execute("insert into return_requests(order_id,customer_id,product_id,qty,reason_code,detail) values(?,?,?,?,?,?)",(order_id,customer_id,product_id,1,'other','test request'))
           assert db.execute('select count(*) from return_requests').fetchone()[0] == 1
           print('Database migrations, v0.9 customer service, returns, sessions, commissions and growth engine: OK')
           PY
