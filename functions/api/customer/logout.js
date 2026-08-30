@@ -1,0 +1,2 @@
+import {json,cookieValue,hashSession,clearSessionCookie,sameOrigin} from '../../_lib/customer-auth.js';
+export async function onRequestPost({request,env}){if(!sameOrigin(request))return json({error:'invalid_origin'},403);const token=cookieValue(request,'kch_customer_session');if(token&&env.DB&&env.AUTH_PEPPER){const h=await hashSession(token,env);await env.DB.prepare("UPDATE customer_sessions SET revoked_at=datetime('now') WHERE token_hash=?").bind(h).run().catch(()=>{})}return json({ok:true},200,{'Set-Cookie':clearSessionCookie()})}
