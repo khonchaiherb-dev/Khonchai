@@ -1,10 +1,11 @@
 function json(data,status=200){return Response.json(data,{status,headers:{'Cache-Control':'no-store'}})}
 const digits=s=>String(s||'').replace(/\D/g,'');
+function phones(value){const d=digits(value);if(d.startsWith('66')&&d.length>=11){const local=`0${d.slice(2)}`;return [local,d]}if(d.startsWith('0')&&d.length>=9)return [d,`66${d.slice(1)}`];return [d,d]}
 export async function onRequestGet({env,request}){
   if(!env.DB) return json({error:'database_not_bound'},503);
-  const url=new URL(request.url),orderNo=String(url.searchParams.get('orderNo')||'').trim(),phone=digits(url.searchParams.get('phone'));
-  if(!/^KCH[A-Z0-9-]{6,30}$/i.test(orderNo)||phone.length<9) return json({error:'invalid_lookup'},400);
-  const order=await env.DB.prepare("SELECT id,order_no,total,payment_method,payment_status,fulfillment_status,status,created_at FROM orders WHERE order_no=? AND REPLACE(REPLACE(REPLACE(phone,'-',''),' ',''),'+66','0')=?").bind(orderNo,phone).first();
+  const url=new URL(request.url),orderNo=String(url.searchParams.get('orderNo')||'').trim(),[phoneLocal,phoneIntl]=phones(url.searchParams.get('phone'));
+  if(!/^KCH[A-Z0-9-]{6,30}$/i.test(orderNo)||phoneLocal.length<9) return json({error:'invalid_lookup'},400);
+  const order=await env.DB.prepare("SELECT id,order_no,total,payment_method,payment_status,fulfillment_status,status,created_at FROM orders WHERE order_no=? AND phone IN (?,?)").bind(orderNo,phoneLocal,phoneIntl).first();
   if(!order) return json({error:'order_not_found'},404);
   const [items,shipment,events]=await Promise.all([
     env.DB.prepare("SELECT product_id,product_name,unit_price,qty,line_total FROM order_items WHERE order_id=? ORDER BY id").bind(order.id).all(),
