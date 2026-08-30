@@ -1,20 +1,16 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# KHONCHAIHERB Commerce v0.2
 
-# Run and deploy your AI Studio app
+Mobile-first social-commerce storefront for **KHONCHAIHERB**. The UX borrows familiar marketplace interaction patterns (fast discovery, deals, coupons, short checkout, order tracking) while keeping the brand and source code independent.
 
-This contains everything you need to run your app locally.
+## Current storefront
+- Home shopping feed
+- Flash Deal and coupons
+- Product detail + reviews
+- Cart and local persistence
+- Short checkout with COD
+- Customer orders/account
+- Seller Center demo
+- Cloudflare Pages-ready configuration
 
-View your app in AI Studio: https://ai.studio/apps/8051b3d6-39ab-4d27-b2e9-546d2ad95b3c
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Cloudflare Pages
+Use branch `storefront-social-commerce`, framework preset None, no build command, and output directory `public`.
