@@ -32,15 +32,6 @@ export async function onRequestPost({env,request}){
       env.DB.prepare("UPDATE shipments SET status='delivered',delivered_at=COALESCE(delivered_at,datetime('now')) WHERE order_id=?").bind(order.id),
       env.DB.prepare("INSERT INTO order_events(order_id,event_type,note) VALUES(?,'delivered','ขนส่งยืนยันการจัดส่งสำเร็จ')").bind(order.id)
     ]);
-  }else if(action==='cod_collected'){
-    if(order.payment_method!=='COD') return json({error:'not_cod_order'},409);
-    if(order.status==='cancelled') return json({error:'invalid_state'},409);
-    await env.DB.batch([
-      env.DB.prepare("UPDATE orders SET payment_status='cod_collected',updated_at=datetime('now') WHERE id=?").bind(order.id),
-      env.DB.prepare("UPDATE payments SET status='paid',paid_at=COALESCE(paid_at,datetime('now')) WHERE order_id=? AND method='COD'").bind(order.id),
-      env.DB.prepare("UPDATE shipments SET cod_collected_at=COALESCE(cod_collected_at,datetime('now')) WHERE order_id=?").bind(order.id),
-      env.DB.prepare("INSERT INTO order_events(order_id,event_type,note) VALUES(?,'cod_collected','ยืนยันรับเงินเก็บปลายทางสำเร็จ')").bind(order.id)
-    ]);
   }else if(action==='cancelled'){
     if(order.status==='cancelled') return json({ok:true,orderNo,action,reused:true});
     if(['shipping','delivered'].includes(order.fulfillment_status)||order.status==='completed') return json({error:'cannot_cancel_after_shipping'},409);
