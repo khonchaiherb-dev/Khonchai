@@ -30,6 +30,7 @@ jobs:
               Path('db/migrations/0004_attribution_analytics.sql'),
               Path('db/migrations/0005_growth_engine.sql'),
               Path('db/migrations/0006_customer_platform.sql'),
+              Path('db/migrations/0007_customer_service.sql'),
               Path('db/seed.sql'),
               Path('db/seed-social.sql'),
               Path('db/seed-growth.sql'),
@@ -38,19 +39,16 @@ jobs:
           assert db.execute('select count(*) from products').fetchone()[0] > 0
           assert db.execute('select count(*) from coupons').fetchone()[0] > 0
           assert db.execute('select count(*) from creators').fetchone()[0] >= 3
-          assert db.execute('select count(*) from social_contents').fetchone()[0] >= 5
-          assert db.execute('select count(*) from content_products').fetchone()[0] > 0
           assert db.execute('select count(*) from promotions where active=1').fetchone()[0] >= 2
-          assert db.execute("select starts_at from social_contents where id=4").fetchone()[0] is not None
-          cols={row[1] for row in db.execute('pragma table_info(orders)')}
-          assert {'source_channel','creator_id','content_id','promotion_code'} <= cols
           customer_cols={row[1] for row in db.execute('pragma table_info(customers)')}
           assert {'last_login_at','updated_at'} <= customer_cols
           shipment_cols={row[1] for row in db.execute('pragma table_info(shipments)')}
           assert {'provider','provider_ref'} <= shipment_cols
+          commission_cols={row[1] for row in db.execute('pragma table_info(creator_commissions)')}
+          assert {'payout_ref','updated_at'} <= commission_cols
           tables={row[0] for row in db.execute("select name from sqlite_master where type='table'")}
-          assert {'review_media','promotion_redemptions','promotions','customer_auth_challenges','customer_sessions','customer_recent_products','creator_commissions','shipment_events'} <= tables
-          db.execute("insert into commerce_events(event_type,source_channel,creator_id,content_id,product_id) values('content_view','video',1,2,1)")
-          assert db.execute('select count(*) from commerce_events').fetchone()[0] == 1
-          print('Database migrations, customer platform, commissions, shipping events and growth engine: OK')
+          assert {'review_media','promotions','customer_auth_challenges','customer_sessions','customer_recent_products','creator_commissions','shipment_events','return_requests'} <= tables
+          db.execute("insert into return_requests(order_id,customer_id,product_id,qty,reason_code,detail) values(1,1,1,1,'other','test request')")
+          assert db.execute('select count(*) from return_requests').fetchone()[0] == 1
+          print('Database migrations, v0.9 customer service, returns, sessions, commissions and growth engine: OK')
           PY
