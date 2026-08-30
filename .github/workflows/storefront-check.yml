@@ -29,6 +29,7 @@ jobs:
               Path('db/migrations/0003_social_commerce.sql'),
               Path('db/migrations/0004_attribution_analytics.sql'),
               Path('db/migrations/0005_growth_engine.sql'),
+              Path('db/migrations/0006_customer_platform.sql'),
               Path('db/seed.sql'),
               Path('db/seed-social.sql'),
               Path('db/seed-growth.sql'),
@@ -43,9 +44,13 @@ jobs:
           assert db.execute("select starts_at from social_contents where id=4").fetchone()[0] is not None
           cols={row[1] for row in db.execute('pragma table_info(orders)')}
           assert {'source_channel','creator_id','content_id','promotion_code'} <= cols
+          customer_cols={row[1] for row in db.execute('pragma table_info(customers)')}
+          assert {'last_login_at','updated_at'} <= customer_cols
+          shipment_cols={row[1] for row in db.execute('pragma table_info(shipments)')}
+          assert {'provider','provider_ref'} <= shipment_cols
           tables={row[0] for row in db.execute("select name from sqlite_master where type='table'")}
-          assert {'review_media','promotion_redemptions','promotions'} <= tables
+          assert {'review_media','promotion_redemptions','promotions','customer_auth_challenges','customer_sessions','customer_recent_products','creator_commissions','shipment_events'} <= tables
           db.execute("insert into commerce_events(event_type,source_channel,creator_id,content_id,product_id) values('content_view','video',1,2,1)")
           assert db.execute('select count(*) from commerce_events').fetchone()[0] == 1
-          print('Database migrations, growth engine, reviews, promotions and social analytics: OK')
+          print('Database migrations, customer platform, commissions, shipping events and growth engine: OK')
           PY
