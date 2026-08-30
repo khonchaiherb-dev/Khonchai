@@ -26,10 +26,15 @@ jobs:
           for path in [
               Path('db/migrations/0001_init.sql'),
               Path('db/migrations/0002_production_hardening.sql'),
+              Path('db/migrations/0003_social_commerce.sql'),
               Path('db/seed.sql'),
+              Path('db/seed-social.sql'),
           ]:
               db.executescript(path.read_text())
           assert db.execute('select count(*) from products').fetchone()[0] > 0
           assert db.execute('select count(*) from coupons').fetchone()[0] > 0
-          print('Database migrations and seed: OK')
+          assert db.execute('select count(*) from creators').fetchone()[0] >= 3
+          assert db.execute('select count(*) from social_contents').fetchone()[0] >= 5
+          assert db.execute('select count(*) from content_products').fetchone()[0] > 0
+          print('Database migrations, social-commerce schema and seed: OK')
           PY
