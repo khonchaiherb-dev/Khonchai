@@ -1,0 +1,35 @@
+name: Storefront Quality Check
+
+on:
+  push:
+    branches: [storefront-social-commerce]
+  pull_request:
+    branches: [storefront-social-commerce]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check storefront JavaScript
+        run: npm run check
+      - name: Validate D1 migrations and seed
+        run: |
+          python3 - <<'PY'
+          import sqlite3
+          from pathlib import Path
+          db = sqlite3.connect(':memory:')
+          for path in [
+              Path('db/migrations/0001_init.sql'),
+              Path('db/migrations/0002_production_hardening.sql'),
+              Path('db/seed.sql'),
+          ]:
+              db.executescript(path.read_text())
+          assert db.execute('select count(*) from products').fetchone()[0] > 0
+          assert db.execute('select count(*) from coupons').fetchone()[0] > 0
+          print('Database migrations and seed: OK')
+          PY
