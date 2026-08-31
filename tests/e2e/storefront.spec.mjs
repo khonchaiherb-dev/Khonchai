@@ -51,10 +51,11 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
   }
 
   const productCard=page.locator('#product-grid [data-product="rang-jued-tea"]');
+  const productTitle=productCard.locator('.tshop-card-title');
   await expect(productCard.locator('.tshop-card-info')).toBeVisible();
-  await expect(productCard.locator('.tshop-card-title')).toContainText('ชารางจืดดีท็อกซ์');
+  await expect(productTitle).toContainText('ชารางจืดดีท็อกซ์');
   if(viewport.width<=390){
-    await productCard.evaluate(el=>el.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'}));
+    await productTitle.evaluate(el=>el.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'}));
     await page.waitForTimeout(120);
     await page.evaluate(()=>{
       window.__KCH_E2E_TOUCH_TRACE__=[];
@@ -73,20 +74,24 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
         });
       },true));
     });
-    const hit=await page.evaluate(()=>{
-      const card=document.querySelector('#product-grid [data-product="rang-jued-tea"]');
-      const title=card?.querySelector('.tshop-card-title');
-      if(!card||!title)return {ok:false,reason:'missing-card-or-title'};
-      const r=title.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2,target=document.elementFromPoint(x,y),interactive=target?.closest?.('button,a,input,select,textarea,label');
-      return {ok:!!target&&(target===card||card.contains(target)),interactive:!!interactive,x,y,target:target?.className||target?.tagName||''};
-    });
-    expect(hit.ok,`mobile product title should be tappable: ${JSON.stringify(hit)}`).toBe(true);
+    const titleBox=await productTitle.boundingBox();
+    expect(titleBox,'mobile product title should have a visible bounding box').not.toBeNull();
+    const x=titleBox.x+titleBox.width/2,y=titleBox.y+titleBox.height/2;
+    expect(x,'mobile tap x must be inside the physical viewport').toBeGreaterThanOrEqual(0);
+    expect(x,'mobile tap x must be inside the physical viewport').toBeLessThanOrEqual(viewport.width);
+    expect(y,'mobile tap y must be inside the physical viewport').toBeGreaterThanOrEqual(0);
+    expect(y,'mobile tap y must be inside the physical viewport').toBeLessThanOrEqual(viewport.height);
+    const hit=await page.evaluate(({x,y})=>{
+      const target=document.elementFromPoint(x,y),card=target?.closest?.('[data-product]'),interactive=target?.closest?.('button,a,input,select,textarea,label');
+      return {ok:card?.dataset?.product==='rang-jued-tea',interactive:!!interactive,x,y,target:target?.className||target?.tagName||'',slug:card?.dataset?.product||''};
+    },{x,y});
+    expect(hit.ok,`mobile visible product title should resolve to the product card: ${JSON.stringify(hit)}`).toBe(true);
     expect(hit.interactive,`mobile product title must not resolve to an interactive child: ${JSON.stringify(hit)}`).toBe(false);
-    await page.touchscreen.tap(hit.x,hit.y);
+    await page.touchscreen.tap(x,y);
     await page.waitForTimeout(250);
     const touchTrace=await page.evaluate(()=>window.__KCH_E2E_TOUCH_TRACE__||[]);
-    await testInfo.attach('mobile-touch-trace',{body:Buffer.from(JSON.stringify({hit,touchTrace},null,2)),contentType:'application/json'});
-    if(await page.locator('.pdp-title').count()===0)throw new Error(`mobile touch did not open PDP: ${JSON.stringify({hit,touchTrace})}`);
+    await testInfo.attach('mobile-touch-trace',{body:Buffer.from(JSON.stringify({titleBox,hit,touchTrace},null,2)),contentType:'application/json'});
+    if(await page.locator('.pdp-title').count()===0)throw new Error(`mobile touch did not open PDP: ${JSON.stringify({titleBox,hit,touchTrace})}`);
   }else{
     await productCard.click();
   }
