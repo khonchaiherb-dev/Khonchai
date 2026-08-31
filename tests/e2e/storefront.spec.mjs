@@ -65,7 +65,7 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
     });
     expect(hit.ok,`mobile product title should be tappable: ${JSON.stringify(hit)}`).toBe(true);
     expect(hit.interactive,`mobile product title must not resolve to an interactive child: ${JSON.stringify(hit)}`).toBe(false);
-    await page.mouse.click(hit.x,hit.y);
+    await page.touchscreen.tap(hit.x,hit.y);
   }else{
     await productCard.click();
   }
