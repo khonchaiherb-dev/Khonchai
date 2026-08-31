@@ -8,7 +8,8 @@ export async function onRequestGet({request,env}){
     const [items,shipmentEvents,orderEvents]=await Promise.all([
       env.DB.prepare(`SELECT oi.id order_item_id,oi.product_id,oi.variant_id,oi.sku,oi.product_name,oi.unit_price,oi.qty,oi.line_total,p.slug,
         CASE WHEN oi.variant_id IS NOT NULL THEN MAX(0,COALESCE(v.stock,0)-COALESCE(v.reserved_stock,0)) ELSE MAX(0,COALESCE(p.stock,0)-COALESCE(p.reserved_stock,0)) END stock,
-        CASE WHEN oi.variant_id IS NOT NULL THEN v.active ELSE p.active END active,v.option_name,v.option_value
+        CASE WHEN oi.variant_id IS NOT NULL THEN v.active ELSE p.active END active,v.option_name,v.option_value,
+        EXISTS(SELECT 1 FROM reviews rr WHERE rr.order_id=oi.order_id AND rr.product_id=oi.product_id) reviewed
         FROM order_items oi LEFT JOIN products p ON p.id=oi.product_id LEFT JOIN product_variants v ON v.id=oi.variant_id WHERE oi.order_id=? ORDER BY oi.id`).bind(o.id).all(),
       env.DB.prepare("SELECT se.event_code,se.status,se.note,se.occurred_at,se.provider FROM shipment_events se JOIN shipments s ON s.id=se.shipment_id WHERE s.order_id=? ORDER BY se.occurred_at DESC LIMIT 20").bind(o.id).all(),
       env.DB.prepare("SELECT event_type,note,created_at FROM order_events WHERE order_id=? ORDER BY id DESC LIMIT 20").bind(o.id).all()

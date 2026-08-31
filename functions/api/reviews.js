@@ -4,6 +4,19 @@ const clean=s=>String(s||'').trim();
 const variants=s=>{const d=digits(s);const a=new Set([d]);if(d.startsWith('66'))a.add('0'+d.slice(2));else if(d.startsWith('0'))a.add('66'+d.slice(1));return [...a].filter(Boolean)};
 const mask=s=>{const t=clean(s);if(!t)return 'ผู้ซื้อที่ยืนยันแล้ว';return `${t.slice(0,1)}***${t.length>4?t.slice(-1):''}`};
 const safeMedia=a=>Array.isArray(a)?a.map(x=>clean(x)).filter(x=>/^reviews\/\d+\/\d+\/[a-f0-9-]+\.(jpg|jpeg|png|webp|mp4|webm)$/i.test(x)).slice(0,4):[];
+const clamp=(n,min,max)=>Math.max(min,Math.min(max,Number(n)||0));
+async function issueRewardCoupon(env,reviewId,customerId){
+  if(!customerId)return null;
+  const value=clamp(env.REVIEW_REWARD_VALUE||50,1,500),minSpend=clamp(env.REVIEW_REWARD_MIN_SPEND||399,0,100000),days=clamp(env.REVIEW_REWARD_DAYS||30,1,365);
+  const suffix=crypto.randomUUID().replace(/-/g,'').slice(0,12).toUpperCase(),code=`RVW${Number(reviewId)}-${suffix}`,modifier=`+${days} days`;
+  try{
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO coupons(code,type,value,min_spend,max_discount,new_customer_only,usage_limit,used_count,active,starts_at,ends_at) VALUES(?,'fixed',?,?,?,0,1,0,1,datetime('now'),datetime('now',?))").bind(code,value,minSpend,value,modifier),
+      env.DB.prepare("UPDATE reviews SET reward_coupon_issued=1 WHERE id=? AND reward_coupon_issued=0").bind(reviewId)
+    ]);
+    return {code,type:'fixed',value,minSpend,maxDiscount:value,expiresAt:new Date(Date.now()+days*86400000).toISOString(),usageLimit:1};
+  }catch{return null}
+}
 export async function onRequestGet({request,env}){
   if(!env.DB)return json({error:'database_not_bound'},503);
   const u=new URL(request.url),productId=Number(u.searchParams.get('productId')),limit=Math.max(1,Math.min(30,Number(u.searchParams.get('limit'))||12));
@@ -30,5 +43,6 @@ export async function onRequestPost({request,env}){
   const review=await env.DB.prepare("INSERT INTO reviews(product_id,order_id,customer_id,rating,body,media_json,verified_purchase) VALUES(?,?,?,?,?,?,1) RETURNING id").bind(productId,order.id,order.customer_id,rating,body,JSON.stringify(mediaKeys.map(k=>`/media/${k}`))).first();
   if(mediaKeys.length){const mph=mediaKeys.map(()=>'?').join(',');await env.DB.prepare(`UPDATE review_media SET review_id=?,status='published' WHERE order_id=? AND product_id=? AND object_key IN (${mph})`).bind(review.id,order.id,productId,...mediaKeys).run()}
   const summary=await env.DB.prepare("SELECT AVG(rating) avg FROM reviews WHERE product_id=?").bind(productId).first();await env.DB.prepare("UPDATE products SET rating=?,updated_at=datetime('now') WHERE id=?").bind(Math.round(Number(summary?.avg||rating)*10)/10,productId).run();
-  return json({ok:true,reviewId:Number(review.id)});
+  const rewardCoupon=await issueRewardCoupon(env,Number(review.id),Number(order.customer_id)||null);
+  return json({ok:true,reviewId:Number(review.id),rewardCoupon});
 }
