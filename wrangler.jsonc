@@ -5,7 +5,8 @@
   "vars": {
     "LEGACY_ADMIN_ENABLED": "false",
     "STAFF_CSRF_ENFORCE": "true",
-    "PACKING_REQUIRE_VERIFICATION": "true"
+    "PACKING_REQUIRE_VERIFICATION": "true",
+    "ORDER_IDEMPOTENCY_REQUIRED": "true"
   },
   "d1_databases": [
     {
