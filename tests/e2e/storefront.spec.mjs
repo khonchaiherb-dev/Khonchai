@@ -82,7 +82,7 @@ async function activateTouchAction(page,locator,viewport,label){
   if(viewport.width<=390)return tapVisualViewport(page,locator,label);
   await locator.click();return null;
 }
-async function activateNavigation(locator){await locator.click()}
+async function activateNavigation(locator){await locator.evaluate(el=>el.click())}
 
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
 
