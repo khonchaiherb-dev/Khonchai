@@ -1,0 +1,68 @@
+name: Storefront v1.4 Security Check
+
+on:
+  push:
+    branches: [storefront-social-commerce]
+  pull_request:
+    branches: [storefront-social-commerce]
+
+jobs:
+  security-foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check v1.4 security JavaScript
+        run: |
+          node --check functions/_lib/staff-auth.js
+          node --check functions/api/_middleware.js
+          node --check functions/api/admin/_middleware.js
+          node --check functions/api/staff/login.js
+          node --check functions/api/staff/logout.js
+          node --check functions/api/staff/me.js
+          node --check functions/api/admin/staff.js
+          node --check functions/api/admin/approvals.js
+          node --check functions/api/admin/security-events.js
+          node --check functions/api/admin/backup.js
+          node --check public/tshop-v14.js
+      - name: Validate v1.4 staff RBAC and approval schema
+        run: |
+          python3 - <<'PY'
+          import sqlite3
+          from pathlib import Path
+          db=sqlite3.connect(':memory:')
+          files=[
+            '0001_init.sql','0002_production_hardening.sql','0003_social_commerce.sql','0004_attribution_analytics.sql',
+            '0005_growth_engine.sql','0006_customer_platform.sql','0007_customer_service.sql','0008_production_readiness.sql',
+            '0009_fulfillment_finance.sql','0010_warehouse_customer_experience.sql','0011_production_operations.sql','0012_staff_security.sql'
+          ]
+          for f in files: db.executescript(Path('db/migrations',f).read_text())
+          for f in ['seed.sql','seed-social.sql','seed-growth.sql','seed-production.sql']: db.executescript(Path('db',f).read_text())
+          tables={r[0] for r in db.execute("select name from sqlite_master where type='table'")}
+          assert {'staff_users','staff_sessions','rate_limit_buckets','security_events','approval_requests','approval_decisions','backup_snapshots'} <= tables
+          db.execute("insert into staff_users(username,display_name,role,password_hash,password_salt,password_iterations) values('owner.qa','QA Owner','owner','deadbeef','00112233445566778899aabbccddeeff',180000)")
+          owner=db.execute("select id from staff_users where username='owner.qa'").fetchone()[0]
+          db.execute("insert into staff_users(username,display_name,role,password_hash,password_salt,password_iterations) values('admin.qa','QA Admin','admin','deadbeef','ffeeddccbbaa99887766554433221100',180000)")
+          admin=db.execute("select id from staff_users where username='admin.qa'").fetchone()[0]
+          db.execute("insert into staff_sessions(token_hash,staff_user_id,expires_at) values('sessionhash',?,datetime('now','+8 hours'))",(owner,))
+          assert db.execute("select count(*) from staff_sessions where revoked_at is null").fetchone()[0]==1
+          db.execute("insert into rate_limit_buckets(bucket_key,route_scope,window_start,hits,expires_at) values('bucket','qa',1,1,datetime('now','+10 minutes'))")
+          db.execute("insert into rate_limit_buckets(bucket_key,route_scope,window_start,hits,expires_at) values('bucket','qa',1,1,datetime('now','+10 minutes')) on conflict(bucket_key) do update set hits=hits+1")
+          assert db.execute("select hits from rate_limit_buckets where bucket_key='bucket'").fetchone()[0]==2
+          db.execute("insert into approval_requests(action_key,entity_type,entity_id,requested_by,required_approvals,payload_json) values('procurement.approve','purchase_order','PO-QA',?,1,'{}')",(owner,))
+          ar=db.execute("select id from approval_requests where entity_id='PO-QA'").fetchone()[0]
+          db.execute("insert into approval_decisions(approval_request_id,staff_user_id,decision) values(?,?,'approved')",(ar,admin))
+          assert db.execute("select count(*) from approval_decisions where approval_request_id=?",(ar,)).fetchone()[0]==1
+          try:
+            db.execute("insert into approval_decisions(approval_request_id,staff_user_id,decision) values(?,?,'approved')",(ar,admin))
+            raise AssertionError('duplicate approval decision was not blocked')
+          except sqlite3.IntegrityError: pass
+          db.execute("insert into security_events(staff_user_id,event_type,severity,route,method,status_code) values(?,'qa_event','info','/qa','POST',200)",(owner,))
+          db.execute("insert into backup_snapshots(snapshot_no,schema_version,status,manifest_json,created_by) values('BKP-QA','0012','verified','{}','qa')")
+          assert db.execute("select count(*) from security_events").fetchone()[0]==1
+          assert db.execute("select count(*) from backup_snapshots").fetchone()[0]==1
+          print('v1.4 staff, RBAC, rate-limit, approval and backup manifest foundations: OK')
+          PY
