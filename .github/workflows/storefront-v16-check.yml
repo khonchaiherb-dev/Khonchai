@@ -15,7 +15,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Check storefront JavaScript
+      - name: Check storefront JavaScript and interaction smoke
         run: npm run check
       - name: Validate v1.6 schema and integrity queries
         run: |
@@ -68,9 +68,13 @@ jobs:
           grep -q "scanIntegrity" functions/api/admin/backup.js
           grep -q "Resilience & recovery schema" functions/api/admin/launch-readiness.js
           grep -q "Integrity & Recovery Center" public/tshop-v16.js
-      - name: Validate v1.6 browser assets
+      - name: Validate v1.6.2 storefront assets
         run: |
-          grep -q "khonchaiherb-v1.6.0" public/sw.js
+          grep -q "khonchaiherb-v1.6.2" public/sw.js
+          grep -q "networkFirst" public/sw.js
           grep -q "tshop-v16.js" public/index.html
           grep -q "tshop-v16.css" public/index.html
-          grep -q '"version": "1.6.0"' package.json
+          grep -q "tshop-v161-hotfix.js?v=1.6.2" public/index.html
+          grep -q "__KCH_INTERACTION_HOTFIX__='1.6.2'" public/tshop-v161-hotfix.js
+          grep -q '"version": "1.6.2"' package.json
+          test -f tests/storefront-interaction-smoke.mjs
