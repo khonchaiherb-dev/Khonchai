@@ -1,5 +1,17 @@
-const CACHE='khonchaiherb-v1.6.1';
-const CORE=['/','/index.html','/styles.css','/v03.css','/v031.css','/tshop-v04.css','/tshop-v05.css','/tshop-v06.css','/tshop-v07.css','/tshop-v08.css','/tshop-v09.css','/tshop-v10.css','/tshop-v11.css','/tshop-v12.css','/tshop-v13.css','/tshop-v14.css','/tshop-v15.css','/tshop-v16.css','/app-core.js','/app-shop.js','/app-account.js','/app-admin-actions.js','/tshop-v04.js','/tshop-v05.js','/tshop-v06.js','/tshop-v07.js','/tshop-v08.js','/tshop-v09.js','/tshop-v10.js','/tshop-v11.js','/tshop-v12.js','/tshop-v121.js','/tshop-v13.js','/tshop-v14.js','/tshop-v15.js','/tshop-v16.js','/tshop-v161-hotfix.js','/privacy.html','/terms.html','/shipping-returns.html','/manifest.webmanifest'];
+const CACHE='khonchaiherb-v1.6.2';
+const CORE=['/','/index.html','/styles.css','/v03.css','/v031.css','/tshop-v04.css','/tshop-v05.css','/tshop-v06.css','/tshop-v07.css','/tshop-v08.css','/tshop-v09.css','/tshop-v10.css','/tshop-v11.css','/tshop-v12.css','/tshop-v13.css','/tshop-v14.css','/tshop-v15.css','/tshop-v16.css','/app-core.js','/app-shop.js','/app-account.js','/app-admin-actions.js','/tshop-v04.js','/tshop-v05.js','/tshop-v06.js','/tshop-v07.js','/tshop-v08.js','/tshop-v09.js','/tshop-v10.js','/tshop-v11.js','/tshop-v12.js','/tshop-v121.js','/tshop-v13.js','/tshop-v14.js','/tshop-v15.js','/tshop-v16.js','/tshop-v161-hotfix.js?v=1.6.2','/privacy.html','/terms.html','/shipping-returns.html','/manifest.webmanifest'];
+
+const put=async(request,response)=>{if(response?.ok){const c=await caches.open(CACHE);await c.put(request,response.clone())}return response};
+const networkFirst=async request=>{try{return await put(request,await fetch(request,{cache:'no-store'}))}catch{return (await caches.match(request))||(request.mode==='navigate'?await caches.match('/index.html'):Response.error())}};
+const cacheFirst=async request=>{const cached=await caches.match(request);if(cached)return cached;try{return await put(request,await fetch(request))}catch{return Response.error()}};
+
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
-self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url);if(u.pathname.startsWith('/api/')||u.pathname.startsWith('/media/'))return;e.respondWith(caches.match(e.request).then(cached=>{const network=fetch(e.request).then(r=>{if(r.ok){const copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy))}return r}).catch(()=>cached||caches.match('/index.html'));return cached||network}))});
+self.addEventListener('fetch',e=>{
+  if(e.request.method!=='GET')return;
+  const u=new URL(e.request.url);
+  if(u.origin!==self.location.origin)return;
+  if(u.pathname.startsWith('/api/')||u.pathname.startsWith('/media/'))return;
+  const dynamic=e.request.mode==='navigate'||u.pathname==='/'||/\.(?:html|js|css|webmanifest)$/.test(u.pathname);
+  e.respondWith(dynamic?networkFirst(e.request):cacheFirst(e.request));
+});
