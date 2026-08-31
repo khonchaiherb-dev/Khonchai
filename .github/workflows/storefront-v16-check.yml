@@ -1,4 +1,4 @@
-name: Storefront v1.6 Resilience Check
+name: Storefront v1.6+ Resilience Check
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Check storefront JavaScript and interaction smoke
+      - name: Check storefront JavaScript and commerce smoke tests
         run: npm run check
       - name: Validate v1.6 schema and integrity queries
         run: |
@@ -32,7 +32,7 @@ jobs:
           for f in files: db.executescript(Path('db/migrations',f).read_text())
           for f in ['seed.sql','seed-social.sql','seed-growth.sql','seed-production.sql']: db.executescript(Path('db',f).read_text())
           tables={r[0] for r in db.execute("select name from sqlite_master where type='table'")}
-          assert {'order_request_registry','maintenance_runs','system_integrity_snapshots'} <= tables
+          assert {'order_request_registry','maintenance_runs','system_integrity_snapshots','product_variants'} <= tables
           queries=[
             "SELECT COUNT(*) c FROM orders o WHERE NOT EXISTS(SELECT 1 FROM order_items i WHERE i.order_id=o.id)",
             "SELECT COUNT(*) c FROM orders o WHERE NOT EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id)",
@@ -54,7 +54,7 @@ jobs:
           db.execute("insert into maintenance_runs(run_no,job_key,status,affected_rows) values('MNT-TEST','safe_cleanup','completed',0)")
           db.execute("insert into system_integrity_snapshots(status,score,anomalies_count,detail_json) values('healthy',100,0,'{}')")
           assert db.execute("select score from system_integrity_snapshots order by id desc limit 1").fetchone()[0]==100
-          print('v1.6 resilience schema and integrity SQL: OK')
+          print('v1.6+ resilience schema and integrity SQL: OK')
           PY
       - name: Validate production resilience source contracts
         run: |
@@ -68,13 +68,18 @@ jobs:
           grep -q "scanIntegrity" functions/api/admin/backup.js
           grep -q "Resilience & recovery schema" functions/api/admin/launch-readiness.js
           grep -q "Integrity & Recovery Center" public/tshop-v16.js
-      - name: Validate v1.6.2 storefront assets
+      - name: Validate forward-compatible storefront assets
         run: |
-          grep -q "khonchaiherb-v1.6.2" public/sw.js
+          grep -q "khonchaiherb-v1." public/sw.js
           grep -q "networkFirst" public/sw.js
           grep -q "tshop-v16.js" public/index.html
-          grep -q "tshop-v16.css" public/index.html
-          grep -q "tshop-v161-hotfix.js?v=1.6.2" public/index.html
-          grep -q "__KCH_INTERACTION_HOTFIX__='1.6.2'" public/tshop-v161-hotfix.js
-          grep -q '"version": "1.6.2"' package.json
-          test -f tests/storefront-interaction-smoke.mjs
+          grep -q "tshop-v17.js" public/index.html
+          grep -q "tshop-v17.css" public/index.html
+          grep -q "v17Purchase" public/tshop-v17.js
+          grep -q "variantId" public/tshop-v17.js
+          grep -q "__KCH_INTERACTION_HOTFIX__='1.7.0'" public/tshop-v161-hotfix.js
+          node - <<'NODE'
+          const v=require('./package.json').version.split('.').map(Number);
+          if(v[0]<1||(v[0]===1&&v[1]<7))throw new Error(`Expected storefront >=1.7.0, got ${v.join('.')}`);
+          console.log('forward-compatible storefront version:',v.join('.'));
+          NODE

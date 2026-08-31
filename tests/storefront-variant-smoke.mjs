@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const source=fs.readFileSync(new URL('../public/tshop-v17.js',import.meta.url),'utf8');
+const document={addEventListener(){},querySelector(){return null},querySelectorAll(){return []}};
+const cart=[{id:1,variantId:11,qty:2,variantOptionName:'ขนาด',variantOptionValue:'100 กรัม'},{id:2,qty:1}];
+const context={console,document,window:null,setTimeout(){return 0},Map,PRODUCTS:[],cart,current:'home',selected:null,qty:1,claimed:[],COUPONS:[],activeCoupon:'',ordersLocal:[],checkoutKey:'',api:async()=>({}),M:n=>`฿${n}`,I:n=>n,esc:s=>String(s),toast(){},save(){},saveOrders(){},count(){return 0},subtotal(){return 0},shippingInfo(){return {remaining:0,threshold:699,progress:100,ship:0}},chrome:s=>s,bind(){},home(){},product(){},add(){return true},cartPage(){},checkout(){},placeOrder(){},orderErrorMessage(){return 'error'},success(){},v06CurrentAttr(){return {source:'shop',creatorId:null,contentId:null}},v06ClearAttr(){},app:{innerHTML:''}};context.window=context;
+vm.createContext(context);vm.runInContext(source,context,{filename:'tshop-v17.js'});
+const h=context.__KCH_VARIANT_HELPERS__;assert.ok(h,'variant helpers must be exposed');
+assert.equal(h.lineKey(cart[0]),'1:11');assert.equal(h.lineKey(cart[1]),'2:0');
+assert.equal(h.variantLabel(cart[0]),'ขนาด: 100 กรัม');
+assert.deepEqual(JSON.parse(JSON.stringify(h.orderItems())),[{id:1,qty:2,variantId:11},{id:2,qty:1}]);
+assert.match(source,/product-detail/);assert.match(source,/variantId/);assert.match(source,/needsVariant/);assert.match(source,/v17Purchase/);
+console.log('storefront variant smoke: OK');
