@@ -27,6 +27,41 @@ async function mockCommerce(page,state){
   });
 }
 
+async function tapStableCard(page,locator){
+  const point=await locator.evaluate(async el=>{
+    const frames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+    let previous=null;
+    for(let attempt=0;attempt<24;attempt++){
+      el.scrollIntoView({block:'center',inline:'nearest'});
+      await frames();
+      const r=el.getBoundingClientRect();
+      const geometry=[r.left,r.top,r.width,r.height];
+      const stable=previous&&geometry.every((v,i)=>Math.abs(v-previous[i])<1);
+      previous=geometry;
+      if(r.width>0&&r.height>0&&stable){
+        const candidates=[
+          [r.left+r.width*.5,r.top+r.height*.68],
+          [r.left+r.width*.5,r.top+r.height*.45],
+          [r.left+r.width*.28,r.top+r.height*.68],
+          [r.left+r.width*.72,r.top+r.height*.68]
+        ];
+        for(const [x,y] of candidates){
+          if(x<1||y<1||x>=innerWidth-1||y>=innerHeight-1)continue;
+          const hit=document.elementFromPoint(x,y);
+          if(hit&&(hit===el||el.contains(hit)))return {x,y,hit:hit.className||hit.tagName,rect:geometry,viewport:[innerWidth,innerHeight]};
+        }
+      }
+      await wait(35);
+    }
+    const r=el.getBoundingClientRect(),x=Math.max(1,Math.min(innerWidth-2,r.left+r.width/2)),y=Math.max(1,Math.min(innerHeight-2,r.top+r.height/2)),hit=document.elementFromPoint(x,y);
+    throw new Error(`mobile card has no stable touch hit target: rect=${JSON.stringify([r.left,r.top,r.width,r.height])} viewport=${innerWidth}x${innerHeight} hit=${hit?.className||hit?.tagName||'none'}`);
+  });
+  expect(point.x).toBeGreaterThan(0);expect(point.y).toBeGreaterThan(0);
+  await page.touchscreen.tap(point.x,point.y);
+  return point;
+}
+
 test.beforeEach(async({page})=>{
   await page.addInitScript(()=>localStorage.clear());
 });
@@ -55,7 +90,8 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
   await expect(productCard.locator('.tshop-card-info')).toBeVisible();
   await expect(productTitle).toContainText('ชารางจืดดีท็อกซ์');
   if(viewport.width<=390){
-    await productCard.tap();
+    const touchPoint=await tapStableCard(page,productCard);
+    await testInfo.attach('mobile-touch-hit',{body:Buffer.from(JSON.stringify(touchPoint)),contentType:'application/json'});
   }else{
     await productCard.click();
   }
