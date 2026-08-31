@@ -33,33 +33,16 @@ async function installMobileTouchTrace(page){
     const describe=target=>{
       const el=target&&target.nodeType===1?target:null;
       const card=el?.closest?.('.tshop-card[data-product]');
-      return {
-        tag:el?.tagName||null,
-        className:typeof el?.className==='string'?el.className:null,
-        product:card?.dataset?.product||null
-      };
+      return {tag:el?.tagName||null,className:typeof el?.className==='string'?el.className:null,product:card?.dataset?.product||null};
     };
-    const state=()=>({
-      current:typeof current!=='undefined'?current:null,
-      hotfix:window.__KCH_INTERACTION_HOTFIX__||null,
-      build:document.documentElement.dataset.kchBuild||null,
-      productType:typeof product,
-      pdp:!!document.querySelector('.pdp-title')
+    const viewport=()=>({
+      scrollX:window.scrollX,scrollY:window.scrollY,innerWidth:window.innerWidth,innerHeight:window.innerHeight,
+      visualViewport:window.visualViewport?{offsetLeft:visualViewport.offsetLeft,offsetTop:visualViewport.offsetTop,pageLeft:visualViewport.pageLeft,pageTop:visualViewport.pageTop,width:visualViewport.width,height:visualViewport.height,scale:visualViewport.scale}:null
     });
+    const state=()=>({current:typeof current!=='undefined'?current:null,hotfix:window.__KCH_INTERACTION_HOTFIX__||null,build:document.documentElement.dataset.kchBuild||null,productType:typeof product,pdp:!!document.querySelector('.pdp-title'),...viewport()});
     const record=e=>{
       const t=e.changedTouches?.[0]||e.touches?.[0]||null;
-      window.__kchTouchTrace.push({
-        type:e.type,
-        ...describe(e.target),
-        pointerType:e.pointerType||null,
-        pointerId:e.pointerId??null,
-        clientX:t?.clientX??e.clientX??null,
-        clientY:t?.clientY??e.clientY??null,
-        touches:e.touches?.length??null,
-        changedTouches:e.changedTouches?.length??null,
-        defaultPrevented:e.defaultPrevented,
-        ...state()
-      });
+      window.__kchTouchTrace.push({type:e.type,...describe(e.target),pointerType:e.pointerType||null,pointerId:e.pointerId??null,clientX:t?.clientX??e.clientX??null,clientY:t?.clientY??e.clientY??null,touches:e.touches?.length??null,changedTouches:e.changedTouches?.length??null,defaultPrevented:e.defaultPrevented,...state()});
     };
     ['touchstart','touchmove','touchend','touchcancel','pointerdown','pointermove','pointerup','pointercancel','click'].forEach(type=>document.addEventListener(type,record,true));
     window.__kchTouchTrace.push({type:'trace-installed',...state()});
@@ -69,14 +52,7 @@ async function installMobileTouchTrace(page){
 async function readMobileTouchTrace(page){
   return page.evaluate(()=>({
     events:Array.isArray(window.__kchTouchTrace)?window.__kchTouchTrace:[],
-    final:{
-      current:typeof current!=='undefined'?current:null,
-      hotfix:window.__KCH_INTERACTION_HOTFIX__||null,
-      build:document.documentElement.dataset.kchBuild||null,
-      productType:typeof product,
-      pdp:!!document.querySelector('.pdp-title'),
-      bodyClass:document.body.className||null
-    }
+    final:{current:typeof current!=='undefined'?current:null,hotfix:window.__KCH_INTERACTION_HOTFIX__||null,build:document.documentElement.dataset.kchBuild||null,productType:typeof product,pdp:!!document.querySelector('.pdp-title'),bodyClass:document.body.className||null,scrollX:window.scrollX,scrollY:window.scrollY,innerWidth:window.innerWidth,innerHeight:window.innerHeight,visualViewport:window.visualViewport?{offsetLeft:visualViewport.offsetLeft,offsetTop:visualViewport.offsetTop,pageLeft:visualViewport.pageLeft,pageTop:visualViewport.pageTop,width:visualViewport.width,height:visualViewport.height,scale:visualViewport.scale}:null}
   }));
 }
 
@@ -93,31 +69,28 @@ async function tapStableCard(page,locator){
       const stable=previous&&geometry.every((v,i)=>Math.abs(v-previous[i])<1);
       previous=geometry;
       if(r.width>0&&r.height>0&&stable){
-        const candidates=[
-          [r.left+r.width*.5,r.top+r.height*.68],
-          [r.left+r.width*.5,r.top+r.height*.45],
-          [r.left+r.width*.28,r.top+r.height*.68],
-          [r.left+r.width*.72,r.top+r.height*.68]
-        ];
+        const candidates=[[r.left+r.width*.5,r.top+r.height*.68],[r.left+r.width*.5,r.top+r.height*.45],[r.left+r.width*.28,r.top+r.height*.68],[r.left+r.width*.72,r.top+r.height*.68]];
         for(const [x,y] of candidates){
           if(x<1||y<1||x>=innerWidth-1||y>=innerHeight-1)continue;
           const hit=document.elementFromPoint(x,y);
-          if(hit&&(hit===el||el.contains(hit)))return {x,y,hit:hit.className||hit.tagName,rect:geometry,viewport:[innerWidth,innerHeight]};
+          if(hit&&(hit===el||el.contains(hit))){
+            const sx=window.scrollX||0,sy=window.scrollY||0,vv=window.visualViewport;
+            const inputX=x-sx,inputY=y-sy;
+            return {x,y,inputX,inputY,scrollX:sx,scrollY:sy,hit:hit.className||hit.tagName,rect:geometry,layoutViewport:[innerWidth,innerHeight],visualViewport:vv?{offsetLeft:vv.offsetLeft,offsetTop:vv.offsetTop,pageLeft:vv.pageLeft,pageTop:vv.pageTop,width:vv.width,height:vv.height,scale:vv.scale}:null};
+          }
         }
       }
       await wait(35);
     }
     const r=el.getBoundingClientRect(),x=Math.max(1,Math.min(innerWidth-2,r.left+r.width/2)),y=Math.max(1,Math.min(innerHeight-2,r.top+r.height/2)),hit=document.elementFromPoint(x,y);
-    throw new Error(`mobile card has no stable touch hit target: rect=${JSON.stringify([r.left,r.top,r.width,r.height])} viewport=${innerWidth}x${innerHeight} hit=${hit?.className||hit?.tagName||'none'}`);
+    throw new Error(`mobile card has no stable touch hit target: rect=${JSON.stringify([r.left,r.top,r.width,r.height])} viewport=${innerWidth}x${innerHeight} scroll=${scrollX},${scrollY} hit=${hit?.className||hit?.tagName||'none'}`);
   });
-  expect(point.x).toBeGreaterThan(0);expect(point.y).toBeGreaterThan(0);
-  await page.touchscreen.tap(point.x,point.y);
+  expect(point.inputX).toBeGreaterThan(0);expect(point.inputY).toBeGreaterThan(0);
+  await page.touchscreen.tap(point.inputX,point.inputY);
   return point;
 }
 
-test.beforeEach(async({page})=>{
-  await page.addInitScript(()=>localStorage.clear());
-});
+test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
 
 test('browse → variant-safe cart → checkout → COD confirmation on real browser',async({page},testInfo)=>{
   const state={orderPayload:null};
@@ -127,60 +100,37 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
 
   const viewport=page.viewportSize();
   const shell=await page.locator('.shell').first().boundingBox();
-  expect(shell).not.toBeNull();
-  expect(shell.width).toBeLessThanOrEqual(viewport.width+1);
-  if(viewport.width>=1024){
-    expect(shell.width).toBeGreaterThan(900);
-    await expect(page.locator('.v115-desktop-nav')).toBeVisible();
-    await expect(page.locator('nav.tshop-bottom')).toBeHidden();
-  }else{
-    await expect(page.locator('nav.tshop-bottom')).toBeVisible();
-    expect(shell.width).toBeGreaterThan(viewport.width*0.9);
-  }
+  expect(shell).not.toBeNull();expect(shell.width).toBeLessThanOrEqual(viewport.width+1);
+  if(viewport.width>=1024){expect(shell.width).toBeGreaterThan(900);await expect(page.locator('.v115-desktop-nav')).toBeVisible();await expect(page.locator('nav.tshop-bottom')).toBeHidden()}
+  else{await expect(page.locator('nav.tshop-bottom')).toBeVisible();expect(shell.width).toBeGreaterThan(viewport.width*0.9)}
 
   const productCard=page.locator('#product-grid [data-product="rang-jued-tea"]');
   const productTitle=productCard.locator('.tshop-card-title');
-  await expect(productCard.locator('.tshop-card-info')).toBeVisible();
-  await expect(productTitle).toContainText('ชารางจืดดีท็อกซ์');
+  await expect(productCard.locator('.tshop-card-info')).toBeVisible();await expect(productTitle).toContainText('ชารางจืดดีท็อกซ์');
   if(viewport.width<=390){
     await installMobileTouchTrace(page);
     const touchPoint=await tapStableCard(page,productCard);
-    await testInfo.attach('mobile-touch-hit',{body:Buffer.from(JSON.stringify(touchPoint)),contentType:'application/json'});
+    await testInfo.attach('mobile-touch-hit',{body:Buffer.from(JSON.stringify(touchPoint,null,2)),contentType:'application/json'});
     await page.waitForTimeout(180);
     const trace=await readMobileTouchTrace(page);
     await testInfo.attach('mobile-touch-trace',{body:Buffer.from(JSON.stringify(trace,null,2)),contentType:'application/json'});
-    if(!trace.final.pdp)throw new Error(`mobile touch reached stable card but PDP did not open: ${JSON.stringify({touchPoint,trace})}`);
-  }else{
-    await productCard.click();
-  }
+    if(!trace.final.pdp)throw new Error(`mobile normalized touch did not open PDP: ${JSON.stringify({touchPoint,trace})}`);
+  }else await productCard.click();
+
   await expect(page.locator('.pdp-title')).toContainText('ชารางจืด');
   await expect(page.locator('[data-v17-variant="101"]')).toBeVisible();
-
   await page.locator('button[data-add="1"]:visible').last().click();
   await expect(page.locator('header .badge').first()).toHaveText('1');
-
   await page.locator('header button[data-go="cart"]').click();
-  await expect(page.locator('.page-title')).toHaveText('ตะกร้าสินค้า');
-  await expect(page.locator('.v17-line-variant')).toContainText('มาตรฐาน');
-
+  await expect(page.locator('.page-title')).toHaveText('ตะกร้าสินค้า');await expect(page.locator('.v17-line-variant')).toContainText('มาตรฐาน');
   await page.locator('button[data-go="checkout"]:visible').last().click();
   await expect(page.locator('#customer-name')).toBeVisible();
-  await page.locator('#customer-name').fill('ผู้ทดสอบระบบ');
-  await page.locator('#customer-phone').fill('0812345678');
-  await page.locator('#customer-address').fill('99 หมู่ 1 ถนนทดสอบ');
+  await page.locator('#customer-name').fill('ผู้ทดสอบระบบ');await page.locator('#customer-phone').fill('0812345678');await page.locator('#customer-address').fill('99 หมู่ 1 ถนนทดสอบ');
   if(await page.locator('#customer-subdistrict').count())await page.locator('#customer-subdistrict').fill('ในเมือง');
-  await page.locator('#customer-district').fill('เมือง');
-  await page.locator('#customer-province').fill('อุบลราชธานี');
-  await page.locator('#customer-postal').fill('34000');
+  await page.locator('#customer-district').fill('เมือง');await page.locator('#customer-province').fill('อุบลราชธานี');await page.locator('#customer-postal').fill('34000');
   await expect(page.locator('input[name="pay"][value="COD"]')).toBeChecked();
-
   await page.locator('[data-place]').click();
-  await expect(page.getByRole('heading',{name:'สั่งซื้อสำเร็จ'})).toBeVisible();
-  await expect(page.getByText('KCH-E2E-0001')).toBeVisible();
-  expect(state.orderPayload).not.toBeNull();
-  expect(state.orderPayload.paymentMethod).toBe('COD');
-  expect(state.orderPayload.items?.[0]?.variantId).toBe(101);
-  expect(String(state.orderPayload.idempotencyKey||'').length).toBeGreaterThan(10);
-
+  await expect(page.getByRole('heading',{name:'สั่งซื้อสำเร็จ'})).toBeVisible();await expect(page.getByText('KCH-E2E-0001')).toBeVisible();
+  expect(state.orderPayload).not.toBeNull();expect(state.orderPayload.paymentMethod).toBe('COD');expect(state.orderPayload.items?.[0]?.variantId).toBe(101);expect(String(state.orderPayload.idempotencyKey||'').length).toBeGreaterThan(10);
   await testInfo.attach('viewport',{body:Buffer.from(JSON.stringify(viewport)),contentType:'application/json'});
 });
