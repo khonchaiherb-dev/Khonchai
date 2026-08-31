@@ -1,3 +1,4 @@
+import {getCustomer} from '../_lib/customer-auth.js';
 function json(data,status=200){return Response.json(data,{status,headers:{'Cache-Control':'no-store'}})}
 const clean=s=>String(s||'').trim();
 const digits=s=>String(s||'').replace(/\D/g,'');
@@ -9,6 +10,7 @@ export async function onRequestPost({request,env}){
   const body=await request.json().catch(()=>null);
   if(!body||!Array.isArray(body.items)||body.items.length===0)return json({error:'empty_order'},400);
   if(!env.DB)return json({error:'database_not_bound'},503);
+  const sessionCustomer=await getCustomer(request,env).catch(()=>null);
 
   const idempotencyKey=clean(body.idempotencyKey).slice(0,100);
   if(idempotencyKey){
@@ -16,7 +18,7 @@ export async function onRequestPost({request,env}){
     if(old)return json({ok:true,reused:true,orderNo:old.order_no,subtotal:Number(old.subtotal),discount:Number(old.discount_total),shipping:Number(old.shipping_total),total:Number(old.total),status:old.status,paymentStatus:old.payment_status,fulfillmentStatus:old.fulfillment_status,promotionCode:old.promotion_code||null,attribution:{source:old.source_channel||'direct',creatorId:old.creator_id||null,contentId:old.content_id||null}});
   }
 
-  const customerName=clean(body.customerName),phone=digits(body.phone),address=body.address||{},addressLine=clean(address.addressLine),district=clean(address.district),province=clean(address.province),postalCode=clean(address.postalCode);
+  const customerName=clean(body.customerName),phone=digits(body.phone),address=body.address||{},addressLine=clean(address.addressLine),subdistrict=clean(address.subdistrict),district=clean(address.district),province=clean(address.province),postalCode=clean(address.postalCode);
   if(customerName.length<2||phone.length<9||addressLine.length<5||district.length<2||province.length<2||!/^\d{5}$/.test(postalCode))return json({error:'customer_details_required'},400);
   const paymentMethod=['COD'].includes(body.paymentMethod)?body.paymentMethod:'COD';
 
@@ -48,7 +50,13 @@ export async function onRequestPost({request,env}){
     subtotal=money(subtotal+lineTotal);lines.push({productId:id,variantId:variantId||null,sku,name,unitPrice,qty,lineTotal});
   }
 
-  const customer=await env.DB.prepare("INSERT INTO customers(phone,full_name,marketing_consent,updated_at) VALUES(?,?,?,datetime('now')) ON CONFLICT(phone) DO UPDATE SET full_name=excluded.full_name,marketing_consent=excluded.marketing_consent,updated_at=datetime('now') RETURNING id").bind(phone,customerName,body.marketingConsent?1:0).first();
+  let customer;
+  if(sessionCustomer){
+    customer={id:Number(sessionCustomer.customer_id)};
+    await env.DB.prepare("UPDATE customers SET marketing_consent=?,updated_at=datetime('now') WHERE id=?").bind(body.marketingConsent?1:0,customer.id).run();
+  }else{
+    customer=await env.DB.prepare("INSERT INTO customers(phone,full_name,marketing_consent,updated_at) VALUES(?,?,?,datetime('now')) ON CONFLICT(phone) DO UPDATE SET full_name=excluded.full_name,marketing_consent=excluded.marketing_consent,updated_at=datetime('now') RETURNING id").bind(phone,customerName,body.marketingConsent?1:0).first();
+  }
   const prior=await env.DB.prepare("SELECT COUNT(*) c FROM orders WHERE customer_id=? AND status!='cancelled'").bind(customer.id).first();
 
   let coupon=null,couponDiscount=0;const requestedCoupon=clean(body.couponCode).toUpperCase();
@@ -64,18 +72,18 @@ export async function onRequestPost({request,env}){
 
   const settings=await env.DB.prepare("SELECT key,value FROM store_settings WHERE key IN ('shipping_fee','free_shipping_threshold')").all(),sm=Object.fromEntries((settings.results||[]).map(x=>[x.key,Number(x.value)]));
   const shippingFee=Number.isFinite(sm.shipping_fee)?sm.shipping_fee:45,freeThreshold=Number.isFinite(sm.free_shipping_threshold)?sm.free_shipping_threshold:699,shipping=subtotal>=freeThreshold?0:shippingFee,total=money(Math.max(0,subtotal-discount+shipping));
-  const orderNo=`KCH${new Date().toISOString().replace(/\D/g,'').slice(2,14)}${Math.floor(Math.random()*900+100)}`,addressJson=JSON.stringify({addressLine,district,province,postalCode});
+  const orderNo=`KCH${new Date().toISOString().replace(/\D/g,'').slice(2,14)}${Math.floor(Math.random()*900+100)}`,addressJson=JSON.stringify({addressLine,subdistrict,district,province,postalCode});
 
   const commissions=[];
   if(creatorId&&ids.length){
     const rates=await env.DB.prepare(`SELECT product_id,commission_rate FROM creator_products WHERE creator_id=? AND product_id IN (${placeholders})`).bind(creatorId,...ids).all(),rateMap=new Map((rates.results||[]).map(x=>[Number(x.product_id),Number(x.commission_rate||0)]));
     for(const l of lines){const rate=rateMap.get(l.productId)||0;if(rate>0)commissions.push({productId:l.productId,rate,base:l.lineTotal,amount:money(l.lineTotal*rate/100)})}
   }
-  const existingAddress=await env.DB.prepare("SELECT id FROM addresses WHERE customer_id=? AND recipient_name=? AND phone=? AND address_line=? AND district=? AND province=? AND postal_code=? LIMIT 1").bind(customer.id,customerName,phone,addressLine,district,province,postalCode).first();
+  const existingAddress=await env.DB.prepare("SELECT id FROM addresses WHERE customer_id=? AND recipient_name=? AND phone=? AND address_line=? AND COALESCE(subdistrict,'')=? AND district=? AND province=? AND postal_code=? LIMIT 1").bind(customer.id,customerName,phone,addressLine,subdistrict,district,province,postalCode).first();
   const addressCount=await env.DB.prepare("SELECT COUNT(*) c FROM addresses WHERE customer_id=?").bind(customer.id).first();
 
   const batch=[];
-  if(!existingAddress)batch.push(env.DB.prepare("INSERT INTO addresses(customer_id,label,recipient_name,phone,address_line,district,province,postal_code,is_default,updated_at) VALUES(?,'ที่อยู่จัดส่ง',?,?,?,?,?,?,?,datetime('now'))").bind(customer.id,customerName,phone,addressLine,district,province,postalCode,Number(addressCount?.c||0)===0?1:0));
+  if(!existingAddress)batch.push(env.DB.prepare("INSERT INTO addresses(customer_id,label,recipient_name,phone,address_line,subdistrict,district,province,postal_code,is_default,updated_at) VALUES(?,'ที่อยู่จัดส่ง',?,?,?,?,?,?,?,?,datetime('now'))").bind(customer.id,customerName,phone,addressLine,subdistrict,district,province,postalCode,Number(addressCount?.c||0)===0?1:0));
   batch.push(env.DB.prepare("INSERT INTO orders(order_no,customer_id,customer_name,phone,address_json,subtotal,discount_total,shipping_total,total,payment_method,payment_status,fulfillment_status,status,coupon_code,idempotency_key,source_channel,creator_id,content_id,promotion_code) VALUES(?,?,?,?,?,?,?,?,?,?,'unpaid','pending','pending',?,?,?,?,?,?)").bind(orderNo,customer.id,customerName,phone,addressJson,subtotal,discount,shipping,total,paymentMethod,coupon?.code||null,idempotencyKey||null,sourceChannel,creatorId,contentId,promotion?.code||null));
   for(const l of lines){
     if(l.variantId)batch.push(env.DB.prepare("UPDATE product_variants SET reserved_stock=reserved_stock+?,updated_at=datetime('now') WHERE id=?").bind(l.qty,l.variantId));

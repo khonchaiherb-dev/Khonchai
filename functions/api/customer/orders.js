@@ -2,7 +2,7 @@ import {json,getCustomer} from '../../_lib/customer-auth.js';
 export async function onRequestGet({request,env}){
   const c=await getCustomer(request,env);if(!c)return json({error:'unauthorized'},401);
   const u=new URL(request.url),limit=Math.min(50,Math.max(1,Number(u.searchParams.get('limit'))||20));
-  const r=await env.DB.prepare("SELECT o.id,o.order_no,o.total,o.subtotal,o.discount_total,o.shipping_total,o.payment_method,o.payment_status,o.fulfillment_status,o.status,o.created_at,o.promotion_code,o.coupon_code,s.carrier,s.tracking_no,s.status shipment_status FROM orders o LEFT JOIN shipments s ON s.order_id=o.id WHERE o.customer_id=? ORDER BY o.id DESC LIMIT ?").bind(c.customer_id,limit).all();
+  const r=await env.DB.prepare("SELECT o.id,o.order_no,o.phone,o.total,o.subtotal,o.discount_total,o.shipping_total,o.payment_method,o.payment_status,o.fulfillment_status,o.status,o.created_at,o.promotion_code,o.coupon_code,s.carrier,s.tracking_no,s.status shipment_status FROM orders o LEFT JOIN shipments s ON s.order_id=o.id WHERE o.customer_id=? ORDER BY o.id DESC LIMIT ?").bind(c.customer_id,limit).all();
   const orders=[];
   for(const o of r.results||[]){
     const [items,shipmentEvents,orderEvents]=await Promise.all([
