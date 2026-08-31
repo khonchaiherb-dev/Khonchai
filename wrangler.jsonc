@@ -1,5 +1,12 @@
 {
   "name": "khonchaiherb-commerce",
   "compatibility_date": "2026-08-31",
-  "pages_build_output_dir": "./public"
+  "pages_build_output_dir": "./public",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "khonchaiherb-commerce",
+      "database_id": "de66c3d3-0082-47ac-b956-58f9c12d13b1"
+    }
+  ]
 }
