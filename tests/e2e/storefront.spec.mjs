@@ -56,6 +56,23 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
   if(viewport.width<=390){
     await productCard.evaluate(el=>el.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'}));
     await page.waitForTimeout(120);
+    await page.evaluate(()=>{
+      window.__KCH_E2E_TOUCH_TRACE__=[];
+      const types=['touchstart','pointerdown','pointermove','pointerup','pointercancel','touchend','touchcancel','click'];
+      types.forEach(type=>document.addEventListener(type,e=>{
+        const target=e.target,card=target?.closest?.('[data-product]');
+        window.__KCH_E2E_TOUCH_TRACE__.push({
+          type,
+          pointerType:e.pointerType||'',
+          pointerId:e.pointerId??null,
+          target:typeof target?.className==='string'?target.className:(target?.tagName||''),
+          slug:card?.dataset?.product||'',
+          cardConnected:card?card.isConnected:null,
+          current:typeof current==='undefined'?'undefined':current,
+          build:document.documentElement.dataset.kchBuild||''
+        });
+      },true));
+    });
     const hit=await page.evaluate(()=>{
       const card=document.querySelector('#product-grid [data-product="rang-jued-tea"]');
       const title=card?.querySelector('.tshop-card-title');
@@ -66,6 +83,10 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
     expect(hit.ok,`mobile product title should be tappable: ${JSON.stringify(hit)}`).toBe(true);
     expect(hit.interactive,`mobile product title must not resolve to an interactive child: ${JSON.stringify(hit)}`).toBe(false);
     await page.touchscreen.tap(hit.x,hit.y);
+    await page.waitForTimeout(250);
+    const touchTrace=await page.evaluate(()=>window.__KCH_E2E_TOUCH_TRACE__||[]);
+    await testInfo.attach('mobile-touch-trace',{body:Buffer.from(JSON.stringify({hit,touchTrace},null,2)),contentType:'application/json'});
+    if(await page.locator('.pdp-title').count()===0)throw new Error(`mobile touch did not open PDP: ${JSON.stringify({hit,touchTrace})}`);
   }else{
     await productCard.click();
   }
