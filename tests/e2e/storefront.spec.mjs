@@ -56,7 +56,7 @@ async function tapVisualViewport(page,locator,label='element'){
     const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     let previous=null;
     for(let attempt=0;attempt<24;attempt++){
-      el.scrollIntoView({block:'center',inline:'nearest'});await frames();
+      if(!anchored)el.scrollIntoView({block:'center',inline:'nearest'});await frames();
       const r=el.getBoundingClientRect(),geometry=[r.left,r.top,r.width,r.height],stable=previous&&geometry.every((v,i)=>Math.abs(v-previous[i])<1);previous=geometry;
       if(r.width>0&&r.height>0&&stable){
         const candidates=[[r.left+r.width*.5,r.top+r.height*.5],[r.left+r.width*.5,r.top+r.height*.68],[r.left+r.width*.5,r.top+r.height*.32],[r.left+r.width*.28,r.top+r.height*.5],[r.left+r.width*.72,r.top+r.height*.5]];
@@ -65,7 +65,7 @@ async function tapVisualViewport(page,locator,label='element'){
           const hit=document.elementFromPoint(x,y);
           if(hit&&(hit===el||el.contains(hit))){
             const vv=window.visualViewport,offsetX=vv?.offsetLeft||0,offsetY=vv?.offsetTop||0;
-            return {label:name,x,y,inputX:x-offsetX,inputY:y-offsetY,scrollX:window.scrollX||0,scrollY:window.scrollY||0,hit:typeof hit.className==='string'?hit.className:hit.tagName,rect:geometry,anchored,layoutViewport:[innerWidth,innerHeight],visualViewport:vv?{offsetLeft:vv.offsetLeft,offsetTop:vv.offsetTop,pageLeft:vv.pageLeft,pageTop:vv.pageTop,width:vv.width,height:vv.height,scale:vv.scale}:null};
+            return {label:name,x,y,inputX:anchored?x:x-offsetX,inputY:anchored?y:y-offsetY,scrollX:window.scrollX||0,scrollY:window.scrollY||0,hit:typeof hit.className==='string'?hit.className:hit.tagName,rect:geometry,anchored,layoutViewport:[innerWidth,innerHeight],visualViewport:vv?{offsetLeft:vv.offsetLeft,offsetTop:vv.offsetTop,pageLeft:vv.pageLeft,pageTop:vv.pageTop,width:vv.width,height:vv.height,scale:vv.scale}:null};
           }
         }
       }
