@@ -77,9 +77,15 @@ jobs:
           grep -q "tshop-v17.css" public/index.html
           grep -q "v17Purchase" public/tshop-v17.js
           grep -q "variantId" public/tshop-v17.js
-          grep -q "__KCH_INTERACTION_HOTFIX__='1.7.0'" public/tshop-v161-hotfix.js
           node - <<'NODE'
+          const fs=require('fs');
+          const source=fs.readFileSync('public/tshop-v161-hotfix.js','utf8');
+          const m=source.match(/__KCH_INTERACTION_HOTFIX__='(\d+)\.(\d+)\.(\d+)'/);
+          if(!m)throw new Error('Interaction hotfix version marker missing');
+          const hotfix=m.slice(1).map(Number),min=[1,7,1];
+          const older=hotfix[0]<min[0]||(hotfix[0]===min[0]&&(hotfix[1]<min[1]||(hotfix[1]===min[1]&&hotfix[2]<min[2])));
+          if(older)throw new Error(`Expected interaction hotfix >=${min.join('.')}, got ${hotfix.join('.')}`);
           const v=require('./package.json').version.split('.').map(Number);
           if(v[0]<1||(v[0]===1&&v[1]<7))throw new Error(`Expected storefront >=1.7.0, got ${v.join('.')}`);
-          console.log('forward-compatible storefront version:',v.join('.'));
+          console.log('forward-compatible storefront version:',v.join('.'),'interaction hotfix:',hotfix.join('.'));
           NODE
