@@ -57,11 +57,14 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
     await productCard.evaluate(el=>el.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'}));
     await page.waitForTimeout(120);
     const hit=await page.evaluate(()=>{
-      const card=document.querySelector('#product-grid [data-product="rang-jued-tea"]');if(!card)return {ok:false,reason:'missing-card'};
-      const r=card.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2,target=document.elementFromPoint(x,y);
-      return {ok:!!target&&(target===card||card.contains(target)),x,y,target:target?.className||target?.tagName||''};
+      const card=document.querySelector('#product-grid [data-product="rang-jued-tea"]');
+      const title=card?.querySelector('.tshop-card-title');
+      if(!card||!title)return {ok:false,reason:'missing-card-or-title'};
+      const r=title.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2,target=document.elementFromPoint(x,y),interactive=target?.closest?.('button,a,input,select,textarea,label');
+      return {ok:!!target&&(target===card||card.contains(target)),interactive:!!interactive,x,y,target:target?.className||target?.tagName||''};
     });
-    expect(hit.ok,`mobile card center should be tappable: ${JSON.stringify(hit)}`).toBe(true);
+    expect(hit.ok,`mobile product title should be tappable: ${JSON.stringify(hit)}`).toBe(true);
+    expect(hit.interactive,`mobile product title must not resolve to an interactive child: ${JSON.stringify(hit)}`).toBe(false);
     await page.mouse.click(hit.x,hit.y);
   }else{
     await productCard.click();
