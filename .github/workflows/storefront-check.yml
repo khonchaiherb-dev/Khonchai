@@ -35,6 +35,7 @@ jobs:
               Path('db/seed.sql'),
               Path('db/seed-social.sql'),
               Path('db/seed-growth.sql'),
+              Path('db/seed-production.sql'),
           ]:
               db.executescript(path.read_text())
           assert db.execute('select count(*) from products').fetchone()[0] > 0
