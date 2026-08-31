@@ -61,8 +61,10 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
       return {ok:!!target&&(target===card||card.contains(target)),x,y,target:target?.className||target?.tagName||''};
     });
     expect(hit.ok,`mobile card center should be tappable: ${JSON.stringify(hit)}`).toBe(true);
+    await page.mouse.click(hit.x,hit.y);
+  }else{
+    await productCard.click();
   }
-  await productCard.click();
   await expect(page.locator('.pdp-title')).toContainText('ชารางจืด');
   await expect(page.locator('[data-v17-variant="101"]')).toBeVisible();
 
