@@ -1,0 +1,19 @@
+{
+  "name": "โรงเรียนรักษ์อุบลการบริบาล",
+  "short_name": "RUKUBON",
+  "description": "RUKUBON HEALTHCARE SCHOOL โรงเรียนสายการดูแลสุขภาพ เรียน 4–6 เดือน มี 2 สาขา",
+  "lang": "th",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#7138b8",
+  "icons": [
+    {
+      "src": "assets/logo.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any maskable"
+    }
+  ]
+}
