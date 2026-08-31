@@ -1,0 +1,68 @@
+name: Storefront v1.5 Security Hardening Check
+
+on:
+  push:
+    branches: [storefront-social-commerce]
+  pull_request:
+    branches: [storefront-social-commerce]
+
+jobs:
+  hardening:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check all storefront JavaScript
+        run: npm run check
+      - name: Validate v1.5 session and approval schema
+        run: |
+          python3 - <<'PY'
+          import sqlite3
+          from pathlib import Path
+          db=sqlite3.connect(':memory:')
+          files=[
+            '0001_init.sql','0002_production_hardening.sql','0003_social_commerce.sql','0004_attribution_analytics.sql',
+            '0005_growth_engine.sql','0006_customer_platform.sql','0007_customer_service.sql','0008_production_readiness.sql',
+            '0009_fulfillment_finance.sql','0010_warehouse_customer_experience.sql','0011_production_operations.sql',
+            '0012_staff_security.sql','0013_session_launch_hardening.sql'
+          ]
+          for f in files: db.executescript(Path('db/migrations',f).read_text())
+          for f in ['seed.sql','seed-social.sql','seed-growth.sql','seed-production.sql']: db.executescript(Path('db',f).read_text())
+          tables={r[0] for r in db.execute("select name from sqlite_master where type='table'")}
+          assert {'staff_session_meta','approval_executions'} <= tables
+          db.execute("insert into staff_users(username,display_name,role,password_hash,password_salt,password_iterations) values('owner.v15','Owner v15','owner','deadbeef','00112233445566778899aabbccddeeff',180000)")
+          owner=db.execute("select id from staff_users where username='owner.v15'").fetchone()[0]
+          db.execute("insert into staff_users(username,display_name,role,password_hash,password_salt,password_iterations) values('admin.v15','Admin v15','admin','deadbeef','ffeeddccbbaa99887766554433221100',180000)")
+          admin=db.execute("select id from staff_users where username='admin.v15'").fetchone()[0]
+          db.execute("insert into staff_sessions(token_hash,staff_user_id,expires_at) values('hash-v15-a',?,datetime('now','+8 hours'))",(owner,))
+          db.execute("insert into staff_session_meta(token_hash,session_ref,csrf_token_hash,device_label,user_agent_hash) values('hash-v15-a','ref-v15-a','csrf-hash','Windows browser','ua-hash')")
+          assert db.execute("select session_ref from staff_session_meta where token_hash='hash-v15-a'").fetchone()[0]=='ref-v15-a'
+          try:
+            db.execute("insert into staff_session_meta(token_hash,session_ref,csrf_token_hash) values('hash-v15-a','ref-v15-b','x')")
+            raise AssertionError('duplicate session meta was not blocked')
+          except sqlite3.IntegrityError: pass
+          db.execute("insert into approval_requests(action_key,entity_type,entity_id,requested_by,required_approvals,payload_json) values('finance.refund_confirm','refund','99',?,1,'{}')",(owner,))
+          ar=db.execute("select id from approval_requests where action_key='finance.refund_confirm'").fetchone()[0]
+          db.execute("insert into approval_decisions(approval_request_id,staff_user_id,decision) values(?,?,'approved')",(ar,admin))
+          db.execute("insert into approval_executions(approval_request_id,execution_status,executed_by,detail_json) values(?,'completed',?,'{}')",(ar,admin))
+          assert db.execute("select execution_status from approval_executions where approval_request_id=?",(ar,)).fetchone()[0]=='completed'
+          print('v1.5 session security and approval execution schema: OK')
+          PY
+      - name: Validate v1.5 browser security policy
+        run: |
+          grep -q "script-src-attr 'none'" public/_headers
+          grep -q "Origin-Agent-Cluster: ?1" public/_headers
+          grep -q "khonchaiherb-v1.5.0" public/sw.js
+          grep -q "tshop-v15.js" public/index.html
+          grep -q "tshop-v15.css" public/index.html
+          grep -q '"version": "1.5.0"' package.json
+      - name: Validate launch-control source contracts
+        run: |
+          grep -q "STAFF_CSRF_ENFORCE" functions/api/admin/_middleware.js
+          grep -q "REFUND_DUAL_APPROVAL_THRESHOLD" functions/api/admin/_middleware.js
+          grep -q "DAILY_CLOSE_DUAL_APPROVAL" functions/api/admin/_middleware.js
+          grep -q "Launch Readiness" public/tshop-v15.js
+          grep -q "Sessions & Devices" public/tshop-v15.js
