@@ -62,7 +62,8 @@ async function tapStableCard(page,locator){
           const hit=document.elementFromPoint(x,y);
           if(hit&&(hit===el||el.contains(hit))){
             const sx=window.scrollX||0,sy=window.scrollY||0,vv=window.visualViewport;
-            return {x,y,inputX:x-sx,inputY:y-sy,scrollX:sx,scrollY:sy,hit:hit.className||hit.tagName,rect:geometry,layoutViewport:[innerWidth,innerHeight],visualViewport:vv?{offsetLeft:vv.offsetLeft,offsetTop:vv.offsetTop,pageLeft:vv.pageLeft,pageTop:vv.pageTop,width:vv.width,height:vv.height,scale:vv.scale}:null};
+            const offsetX=vv?.offsetLeft||0,offsetY=vv?.offsetTop||0;
+            return {x,y,inputX:x-offsetX,inputY:y-offsetY,scrollX:sx,scrollY:sy,hit:hit.className||hit.tagName,rect:geometry,layoutViewport:[innerWidth,innerHeight],visualViewport:vv?{offsetLeft:vv.offsetLeft,offsetTop:vv.offsetTop,pageLeft:vv.pageLeft,pageTop:vv.pageTop,width:vv.width,height:vv.height,scale:vv.scale}:null};
           }
         }
       }
@@ -71,7 +72,9 @@ async function tapStableCard(page,locator){
     const r=el.getBoundingClientRect(),x=Math.max(1,Math.min(innerWidth-2,r.left+r.width/2)),y=Math.max(1,Math.min(innerHeight-2,r.top+r.height/2)),hit=document.elementFromPoint(x,y);
     throw new Error(`mobile card has no stable touch hit target: rect=${JSON.stringify([r.left,r.top,r.width,r.height])} viewport=${innerWidth}x${innerHeight} scroll=${scrollX},${scrollY} hit=${hit?.className||hit?.tagName||'none'}`);
   });
-  if(!(point.inputX>0&&point.inputY>0))throw new Error(`mobile touch coordinate normalization invalid: ${JSON.stringify(point)}`);
+  const visualWidth=point.visualViewport?.width||point.layoutViewport?.[0]||0;
+  const visualHeight=point.visualViewport?.height||point.layoutViewport?.[1]||0;
+  if(!(point.inputX>0&&point.inputY>0&&point.inputX<visualWidth&&point.inputY<visualHeight))throw new Error(`mobile visual viewport touch coordinate invalid: ${JSON.stringify(point)}`);
   await page.touchscreen.tap(point.inputX,point.inputY);return point;
 }
 
@@ -82,6 +85,6 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
   const viewport=page.viewportSize(),shell=await page.locator('.shell').first().boundingBox();expect(shell).not.toBeNull();expect(shell.width).toBeLessThanOrEqual(viewport.width+1);
   if(viewport.width>=1024){expect(shell.width).toBeGreaterThan(900);await expect(page.locator('.v115-desktop-nav')).toBeVisible();await expect(page.locator('nav.tshop-bottom')).toBeHidden()}else{await expect(page.locator('nav.tshop-bottom')).toBeVisible();expect(shell.width).toBeGreaterThan(viewport.width*0.9)}
   const productCard=page.locator('#product-grid [data-product="rang-jued-tea"]'),productTitle=productCard.locator('.tshop-card-title');await expect(productCard.locator('.tshop-card-info')).toBeVisible();await expect(productTitle).toContainText('ชารางจืดดีท็อกซ์');
-  if(viewport.width<=390){await installMobileTouchTrace(page);const touchPoint=await tapStableCard(page,productCard);await testInfo.attach('mobile-touch-hit',{body:Buffer.from(JSON.stringify(touchPoint,null,2)),contentType:'application/json'});await page.waitForTimeout(180);const trace=await readMobileTouchTrace(page);await testInfo.attach('mobile-touch-trace',{body:Buffer.from(JSON.stringify(trace,null,2)),contentType:'application/json'});if(!trace.final.pdp)throw new Error(`mobile normalized touch did not open PDP: ${JSON.stringify({touchPoint,trace})}`)}else await productCard.click();
+  if(viewport.width<=390){await installMobileTouchTrace(page);const touchPoint=await tapStableCard(page,productCard);await testInfo.attach('mobile-touch-hit',{body:Buffer.from(JSON.stringify(touchPoint,null,2)),contentType:'application/json'});await page.waitForTimeout(180);const trace=await readMobileTouchTrace(page);await testInfo.attach('mobile-touch-trace',{body:Buffer.from(JSON.stringify(trace,null,2)),contentType:'application/json'});if(!trace.final.pdp)throw new Error(`mobile visual-viewport touch did not open PDP: ${JSON.stringify({touchPoint,trace})}`)}else await productCard.click();
   await expect(page.locator('.pdp-title')).toContainText('ชารางจืด');await expect(page.locator('[data-v17-variant="101"]')).toBeVisible();await page.locator('button[data-add="1"]:visible').last().click();await expect(page.locator('header .badge').first()).toHaveText('1');await page.locator('header button[data-go="cart"]').click();await expect(page.locator('.page-title')).toHaveText('ตะกร้าสินค้า');await expect(page.locator('.v17-line-variant')).toContainText('มาตรฐาน');await page.locator('button[data-go="checkout"]:visible').last().click();await expect(page.locator('#customer-name')).toBeVisible();await page.locator('#customer-name').fill('ผู้ทดสอบระบบ');await page.locator('#customer-phone').fill('0812345678');await page.locator('#customer-address').fill('99 หมู่ 1 ถนนทดสอบ');if(await page.locator('#customer-subdistrict').count())await page.locator('#customer-subdistrict').fill('ในเมือง');await page.locator('#customer-district').fill('เมือง');await page.locator('#customer-province').fill('อุบลราชธานี');await page.locator('#customer-postal').fill('34000');await expect(page.locator('input[name="pay"][value="COD"]')).toBeChecked();await page.locator('[data-place]').click();await expect(page.getByRole('heading',{name:'สั่งซื้อสำเร็จ'})).toBeVisible();await expect(page.getByText('KCH-E2E-0001')).toBeVisible();expect(state.orderPayload).not.toBeNull();expect(state.orderPayload.paymentMethod).toBe('COD');expect(state.orderPayload.items?.[0]?.variantId).toBe(101);expect(String(state.orderPayload.idempotencyKey||'').length).toBeGreaterThan(10);await testInfo.attach('viewport',{body:Buffer.from(JSON.stringify(viewport)),contentType:'application/json'});
 });
