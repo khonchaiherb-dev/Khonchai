@@ -47,8 +47,8 @@ async function readMobileTouchTrace(page){
   return page.evaluate(()=>({events:Array.isArray(window.__kchTouchTrace)?window.__kchTouchTrace:[],final:{current:typeof current!=='undefined'?current:null,hotfix:window.__KCH_INTERACTION_HOTFIX__||null,build:document.documentElement.dataset.kchBuild||null,productType:typeof product,pdp:!!document.querySelector('.pdp-title'),bodyClass:document.body.className||null,scrollX:window.scrollX,scrollY:window.scrollY,innerWidth:window.innerWidth,innerHeight:window.innerHeight,visualViewport:window.visualViewport?{offsetLeft:visualViewport.offsetLeft,offsetTop:visualViewport.offsetTop,pageLeft:visualViewport.pageLeft,pageTop:visualViewport.pageTop,width:visualViewport.width,height:visualViewport.height,scale:visualViewport.scale}:null}}));
 }
 
-async function tapStableCard(page,locator){
-  const point=await locator.evaluate(async el=>{
+async function tapVisualViewport(page,locator,label='element'){
+  const point=await locator.evaluate(async(el,name)=>{
     const frames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     let previous=null;
@@ -56,26 +56,29 @@ async function tapStableCard(page,locator){
       el.scrollIntoView({block:'center',inline:'nearest'});await frames();
       const r=el.getBoundingClientRect(),geometry=[r.left,r.top,r.width,r.height],stable=previous&&geometry.every((v,i)=>Math.abs(v-previous[i])<1);previous=geometry;
       if(r.width>0&&r.height>0&&stable){
-        const candidates=[[r.left+r.width*.5,r.top+r.height*.68],[r.left+r.width*.5,r.top+r.height*.45],[r.left+r.width*.28,r.top+r.height*.68],[r.left+r.width*.72,r.top+r.height*.68]];
+        const candidates=[[r.left+r.width*.5,r.top+r.height*.5],[r.left+r.width*.5,r.top+r.height*.68],[r.left+r.width*.5,r.top+r.height*.32],[r.left+r.width*.28,r.top+r.height*.5],[r.left+r.width*.72,r.top+r.height*.5]];
         for(const [x,y] of candidates){
           if(x<1||y<1||x>=innerWidth-1||y>=innerHeight-1)continue;
           const hit=document.elementFromPoint(x,y);
           if(hit&&(hit===el||el.contains(hit))){
-            const sx=window.scrollX||0,sy=window.scrollY||0,vv=window.visualViewport;
-            const offsetX=vv?.offsetLeft||0,offsetY=vv?.offsetTop||0;
-            return {x,y,inputX:x-offsetX,inputY:y-offsetY,scrollX:sx,scrollY:sy,hit:hit.className||hit.tagName,rect:geometry,layoutViewport:[innerWidth,innerHeight],visualViewport:vv?{offsetLeft:vv.offsetLeft,offsetTop:vv.offsetTop,pageLeft:vv.pageLeft,pageTop:vv.pageTop,width:vv.width,height:vv.height,scale:vv.scale}:null};
+            const vv=window.visualViewport,offsetX=vv?.offsetLeft||0,offsetY=vv?.offsetTop||0;
+            return {label:name,x,y,inputX:x-offsetX,inputY:y-offsetY,scrollX:window.scrollX||0,scrollY:window.scrollY||0,hit:typeof hit.className==='string'?hit.className:hit.tagName,rect:geometry,layoutViewport:[innerWidth,innerHeight],visualViewport:vv?{offsetLeft:vv.offsetLeft,offsetTop:vv.offsetTop,pageLeft:vv.pageLeft,pageTop:vv.pageTop,width:vv.width,height:vv.height,scale:vv.scale}:null};
           }
         }
       }
       await wait(35);
     }
     const r=el.getBoundingClientRect(),x=Math.max(1,Math.min(innerWidth-2,r.left+r.width/2)),y=Math.max(1,Math.min(innerHeight-2,r.top+r.height/2)),hit=document.elementFromPoint(x,y);
-    throw new Error(`mobile card has no stable touch hit target: rect=${JSON.stringify([r.left,r.top,r.width,r.height])} viewport=${innerWidth}x${innerHeight} scroll=${scrollX},${scrollY} hit=${hit?.className||hit?.tagName||'none'}`);
-  });
-  const visualWidth=point.visualViewport?.width||point.layoutViewport?.[0]||0;
-  const visualHeight=point.visualViewport?.height||point.layoutViewport?.[1]||0;
-  if(!(point.inputX>0&&point.inputY>0&&point.inputX<visualWidth&&point.inputY<visualHeight))throw new Error(`mobile visual viewport touch coordinate invalid: ${JSON.stringify(point)}`);
+    throw new Error(`mobile ${name} has no stable touch hit target: rect=${JSON.stringify([r.left,r.top,r.width,r.height])} viewport=${innerWidth}x${innerHeight} visual=${JSON.stringify(window.visualViewport?{offsetTop:visualViewport.offsetTop,width:visualViewport.width,height:visualViewport.height}:null)} hit=${hit?.className||hit?.tagName||'none'}`);
+  },label);
+  const visualWidth=point.visualViewport?.width||point.layoutViewport?.[0]||0,visualHeight=point.visualViewport?.height||point.layoutViewport?.[1]||0;
+  if(!(point.inputX>0&&point.inputY>0&&point.inputX<visualWidth&&point.inputY<visualHeight))throw new Error(`mobile ${label} visual-viewport coordinate invalid: ${JSON.stringify(point)}`);
   await page.touchscreen.tap(point.inputX,point.inputY);return point;
+}
+
+async function activate(page,locator,viewport,label){
+  if(viewport.width<=390)return tapVisualViewport(page,locator,label);
+  await locator.click();return null;
 }
 
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
@@ -84,7 +87,23 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
   const state={orderPayload:null};await mockCommerce(page,state);await page.goto('/?e2e=stability',{waitUntil:'domcontentloaded'});await expect(page.locator('#product-grid [data-product]').first()).toBeVisible();
   const viewport=page.viewportSize(),shell=await page.locator('.shell').first().boundingBox();expect(shell).not.toBeNull();expect(shell.width).toBeLessThanOrEqual(viewport.width+1);
   if(viewport.width>=1024){expect(shell.width).toBeGreaterThan(900);await expect(page.locator('.v115-desktop-nav')).toBeVisible();await expect(page.locator('nav.tshop-bottom')).toBeHidden()}else{await expect(page.locator('nav.tshop-bottom')).toBeVisible();expect(shell.width).toBeGreaterThan(viewport.width*0.9)}
+
   const productCard=page.locator('#product-grid [data-product="rang-jued-tea"]'),productTitle=productCard.locator('.tshop-card-title');await expect(productCard.locator('.tshop-card-info')).toBeVisible();await expect(productTitle).toContainText('ชารางจืดดีท็อกซ์');
-  if(viewport.width<=390){await installMobileTouchTrace(page);const touchPoint=await tapStableCard(page,productCard);await testInfo.attach('mobile-touch-hit',{body:Buffer.from(JSON.stringify(touchPoint,null,2)),contentType:'application/json'});await page.waitForTimeout(180);const trace=await readMobileTouchTrace(page);await testInfo.attach('mobile-touch-trace',{body:Buffer.from(JSON.stringify(trace,null,2)),contentType:'application/json'});if(!trace.final.pdp)throw new Error(`mobile visual-viewport touch did not open PDP: ${JSON.stringify({touchPoint,trace})}`)}else await productCard.click();
-  await expect(page.locator('.pdp-title')).toContainText('ชารางจืด');await expect(page.locator('[data-v17-variant="101"]')).toBeVisible();await page.locator('button[data-add="1"]:visible').last().click();await expect(page.locator('header .badge').first()).toHaveText('1');await page.locator('header button[data-go="cart"]').click();await expect(page.locator('.page-title')).toHaveText('ตะกร้าสินค้า');await expect(page.locator('.v17-line-variant')).toContainText('มาตรฐาน');await page.locator('button[data-go="checkout"]:visible').last().click();await expect(page.locator('#customer-name')).toBeVisible();await page.locator('#customer-name').fill('ผู้ทดสอบระบบ');await page.locator('#customer-phone').fill('0812345678');await page.locator('#customer-address').fill('99 หมู่ 1 ถนนทดสอบ');if(await page.locator('#customer-subdistrict').count())await page.locator('#customer-subdistrict').fill('ในเมือง');await page.locator('#customer-district').fill('เมือง');await page.locator('#customer-province').fill('อุบลราชธานี');await page.locator('#customer-postal').fill('34000');await expect(page.locator('input[name="pay"][value="COD"]')).toBeChecked();await page.locator('[data-place]').click();await expect(page.getByRole('heading',{name:'สั่งซื้อสำเร็จ'})).toBeVisible();await expect(page.getByText('KCH-E2E-0001')).toBeVisible();expect(state.orderPayload).not.toBeNull();expect(state.orderPayload.paymentMethod).toBe('COD');expect(state.orderPayload.items?.[0]?.variantId).toBe(101);expect(String(state.orderPayload.idempotencyKey||'').length).toBeGreaterThan(10);await testInfo.attach('viewport',{body:Buffer.from(JSON.stringify(viewport)),contentType:'application/json'});
+  if(viewport.width<=390){
+    await installMobileTouchTrace(page);
+    const touchPoint=await tapVisualViewport(page,productCard,'product-card');
+    await testInfo.attach('mobile-touch-hit',{body:Buffer.from(JSON.stringify(touchPoint,null,2)),contentType:'application/json'});await page.waitForTimeout(180);
+    const trace=await readMobileTouchTrace(page);await testInfo.attach('mobile-touch-trace',{body:Buffer.from(JSON.stringify(trace,null,2)),contentType:'application/json'});
+    if(!trace.final.pdp)throw new Error(`mobile visual-viewport touch did not open PDP: ${JSON.stringify({touchPoint,trace})}`);
+  }else await productCard.click();
+
+  await expect(page.locator('.pdp-title')).toContainText('ชารางจืด');await expect(page.locator('[data-v17-variant="101"]')).toBeVisible();
+  await activate(page,page.locator('button[data-add="1"]:visible').last(),viewport,'add-to-cart');
+  await expect(page.locator('header .badge').first()).toHaveText('1');
+  await activate(page,page.locator('header button[data-go="cart"]'),viewport,'open-cart');
+  await expect(page.locator('.page-title')).toHaveText('ตะกร้าสินค้า');await expect(page.locator('.v17-line-variant')).toContainText('มาตรฐาน');
+  await activate(page,page.locator('button[data-go="checkout"]:visible').last(),viewport,'open-checkout');
+  await expect(page.locator('#customer-name')).toBeVisible();await page.locator('#customer-name').fill('ผู้ทดสอบระบบ');await page.locator('#customer-phone').fill('0812345678');await page.locator('#customer-address').fill('99 หมู่ 1 ถนนทดสอบ');if(await page.locator('#customer-subdistrict').count())await page.locator('#customer-subdistrict').fill('ในเมือง');await page.locator('#customer-district').fill('เมือง');await page.locator('#customer-province').fill('อุบลราชธานี');await page.locator('#customer-postal').fill('34000');await expect(page.locator('input[name="pay"][value="COD"]')).toBeChecked();
+  await activate(page,page.locator('[data-place]'),viewport,'place-cod-order');
+  await expect(page.getByRole('heading',{name:'สั่งซื้อสำเร็จ'})).toBeVisible();await expect(page.getByText('KCH-E2E-0001')).toBeVisible();expect(state.orderPayload).not.toBeNull();expect(state.orderPayload.paymentMethod).toBe('COD');expect(state.orderPayload.items?.[0]?.variantId).toBe(101);expect(String(state.orderPayload.idempotencyKey||'').length).toBeGreaterThan(10);await testInfo.attach('viewport',{body:Buffer.from(JSON.stringify(viewport)),contentType:'application/json'});
 });
