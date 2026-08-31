@@ -1,0 +1,25 @@
+name: Storefront Browser E2E Check
+
+on:
+  push:
+    branches: [storefront-social-commerce]
+  pull_request:
+    branches: [storefront-social-commerce]
+
+jobs:
+  browser-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Install E2E dependency
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run Mobile Tablet Desktop E2E
+        env:
+          CI: '1'
+        run: npm run qa:e2e
