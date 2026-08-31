@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const css=fs.readFileSync('public/tshop-v116.css','utf8');
+const source=fs.readFileSync('public/tshop-v116.js','utf8');
+const html=fs.readFileSync('public/index.html','utf8');
+const sw=fs.readFileSync('public/sw.js','utf8');
+const health=fs.readFileSync('functions/api/health.js','utf8');
+const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+const build=(html.match(/name="kch-build" content="([^"]+)"/)||[])[1];assert.ok(build);assert.equal(pkg.version,build);const p=build.split('.').map(Number);assert.ok(p[0]>1||(p[0]===1&&p[1]>=16));
+assert.ok(html.includes(`tshop-v116.css?v=${build}`));assert.ok(html.includes(`tshop-v116.js?v=${build}`));assert.ok(html.indexOf(`tshop-v116.js?v=${build}`)>html.indexOf(`tshop-v115.js?v=${build}`));assert.ok(sw.includes(`/tshop-v116.css?v=${build}`));assert.ok(sw.includes(`/tshop-v116.js?v=${build}`));assert.ok(health.includes(`version:'${build}'`));assert.match(health,/searchDiscovery:true/);assert.match(health,/persistentDiscovery:true/);assert.match(health,/sellerTableSearch:true/);
+assert.match(source,/V116_KEY='kch-discovery-v116'/);assert.match(source,/sessionStorage\.setItem/);assert.match(source,/v116FilteredProducts/);assert.match(source,/function runTShopSearch/);assert.match(source,/data-v116-sort/);assert.match(source,/data-v116-stock/);assert.match(source,/data-v116-price/);assert.match(source,/price-asc/);assert.match(source,/price-desc/);assert.match(source,/rating/);assert.match(source,/v116ShowSuggestions/);assert.match(source,/v116EnhanceSeller/);assert.match(source,/MutationObserver/);assert.match(source,/activeCategory/);assert.match(source,/__KCH_DISCOVERY__/);
+assert.match(css,/\.v116-search-suggest/);assert.match(css,/\.v116-discovery/);assert.match(css,/\.v116-filterbar/);assert.match(css,/\.v116-seller-search/);assert.match(css,/@media\(max-width:699px\)/);assert.match(css,/@media\(min-width:1024px\)/);assert.match(css,/prefers-reduced-motion:reduce/);
+assert.ok(pkg.scripts['qa:v116']);assert.match(pkg.scripts.check,/storefront-v116-discovery-smoke\.mjs/);
+console.log('storefront v1.16 search + discovery + seller search smoke: OK');
