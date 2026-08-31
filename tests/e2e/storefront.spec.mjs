@@ -35,7 +35,7 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
   const state={orderPayload:null};
   await mockCommerce(page,state);
   await page.goto('/?e2e=stability',{waitUntil:'domcontentloaded'});
-  await expect(page.locator('#product-grid .card').first()).toBeVisible();
+  await expect(page.locator('#product-grid [data-product]').first()).toBeVisible();
 
   const viewport=page.viewportSize();
   const shell=await page.locator('.shell').first().boundingBox();
@@ -44,9 +44,9 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
   if(viewport.width>=1024){
     expect(shell.width).toBeGreaterThan(900);
     await expect(page.locator('.v115-desktop-nav')).toBeVisible();
-    await expect(page.locator('nav.bottom')).toBeHidden();
+    await expect(page.locator('nav.tshop-bottom')).toBeHidden();
   }else{
-    await expect(page.locator('nav.bottom')).toBeVisible();
+    await expect(page.locator('nav.tshop-bottom')).toBeVisible();
     expect(shell.width).toBeGreaterThan(viewport.width*0.9);
   }
 
