@@ -52,6 +52,16 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
 
   const productCard=page.locator('#product-grid [data-product="rang-jued-tea"]');
   await expect(productCard.locator('.tshop-card-info')).toBeVisible();
+  if(viewport.width<=390){
+    await page.waitForTimeout(400);
+    const geometry=await page.evaluate(()=>{
+      const rect=selector=>{const el=document.querySelector(selector);if(!el)return null;const r=el.getBoundingClientRect(),cs=getComputedStyle(el);return {selector,top:r.top,right:r.right,bottom:r.bottom,left:r.left,width:r.width,height:r.height,position:cs.position,display:cs.display,transform:cs.transform,zIndex:cs.zIndex,pointerEvents:cs.pointerEvents,overflow:cs.overflow}};
+      const card=document.querySelector('#product-grid [data-product="rang-jued-tea"]'),r=card?.getBoundingClientRect();
+      const x=r?r.left+r.width/2:0,y=r?r.top+r.height/2:0,hit=document.elementFromPoint(x,y);
+      return {scrollY:window.scrollY,innerHeight:window.innerHeight,card:rect('#product-grid [data-product="rang-jued-tea"]'),cardInfo:rect('#product-grid [data-product="rang-jued-tea"] .tshop-card-info'),visual:rect('#product-grid [data-product="rang-jued-tea"] .visual'),discovery:rect('.v116-discovery'),recommend:rect('#recommend'),grid:rect('#product-grid'),category:rect('.category-strip'),hit:{x,y,tag:hit?.tagName||'',id:hit?.id||'',className:String(hit?.className||''),text:String(hit?.textContent||'').trim().slice(0,80)}};
+    });
+    console.log('KCH_MOBILE_GEOMETRY '+JSON.stringify(geometry));
+  }
   await productCard.click();
   await expect(page.locator('.pdp-title')).toContainText('ชารางจืด');
   await expect(page.locator('[data-v17-variant="101"]')).toBeVisible();
