@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const css=fs.readFileSync('public/tshop-v114.css','utf8');
+const source=fs.readFileSync('public/tshop-v114.js','utf8');
+const html=fs.readFileSync('public/index.html','utf8');
+const sw=fs.readFileSync('public/sw.js','utf8');
+const health=fs.readFileSync('functions/api/health.js','utf8');
+const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+const build=(html.match(/name="kch-build" content="([^"]+)"/)||[])[1];assert.equal(build,'1.14.0');assert.equal(pkg.version,build);
+assert.ok(html.includes(`tshop-v114.css?v=${build}`));assert.ok(html.includes(`tshop-v114.js?v=${build}`));assert.ok(html.indexOf(`tshop-v114.js?v=${build}`)>html.indexOf(`tshop-v113.js?v=${build}`));assert.ok(html.indexOf(`tshop-v114.js?v=${build}`)<html.indexOf(`tshop-v161-hotfix.js?v=${build}`));assert.ok(sw.includes(`khonchaiherb-v${build}`));assert.ok(sw.includes(`/tshop-v114.css?v=${build}`));assert.ok(sw.includes(`/tshop-v114.js?v=${build}`));assert.ok(health.includes(`version:'${build}'`));assert.match(health,/responsiveCommerce:true/);assert.match(health,/mobileMax:699/);assert.match(health,/tabletMax:1023/);
+assert.match(css,/@media\(max-width:699px\)/);assert.match(css,/@media\(min-width:700px\) and \(max-width:1023px\)/);assert.match(css,/@media\(min-width:1024px\)/);assert.match(css,/--kch-page-max:1280px/);assert.match(css,/--kch-touch:44px/);assert.match(css,/\.tshop-grid\{grid-template-columns:repeat\(4/);assert.match(css,/@media\(min-width:1280px\)\{\.tshop-grid\{grid-template-columns:repeat\(5/);assert.match(css,/\.seller\{display:grid;grid-template-columns:240px/);assert.match(css,/\.seller \.side nav\{display:flex/);assert.match(css,/\.tablecard table\{min-width:720px/);assert.match(css,/prefers-reduced-motion:reduce/);assert.match(css,/safe-area-inset-left/);
+assert.match(source,/mobile:699/);assert.match(source,/tablet:1023/);assert.match(source,/dataset\.kchFormFactor/);assert.match(source,/visualViewport/);assert.match(source,/orientationchange/);assert.match(source,/pointer:coarse/);assert.match(source,/v114EnhanceResponsiveA11y/);assert.match(source,/aria-label/);assert.match(source,/__KCH_RESPONSIVE__/);
+assert.ok(pkg.scripts['qa:v114']);assert.match(pkg.scripts.check,/storefront-v114-responsive-smoke\.mjs/);
+console.log('storefront v1.14 responsive desktop + tablet + mobile smoke: OK');
