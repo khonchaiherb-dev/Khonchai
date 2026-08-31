@@ -55,7 +55,7 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
   await expect(productCard.locator('.tshop-card-info')).toBeVisible();
   await expect(productTitle).toContainText('ชารางจืดดีท็อกซ์');
   if(viewport.width<=390){
-    await productTitle.tap();
+    await productCard.tap();
   }else{
     await productCard.click();
   }
