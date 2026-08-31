@@ -12,6 +12,7 @@ async function mockPreview(page){
     const fulfill=(body,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
     if(path==='/api/products')return fulfill({products});
     if(path==='/api/coupons')return fulfill({coupons:[{code:'WELCOME50',type:'fixed',value:50,min_spend:499,max_discount:50,new_customer_only:1}]});
+    if(path==='/api/product-detail')return fulfill({product:{...products[0],available_stock:86,variants:[{id:101,product_id:1,sku:'KCH-TEA-001-STD',option_name:'ขนาด',option_value:'มาตรฐาน',price:189,compare_at_price:259,stock:86,reserved_stock:0,available_stock:86,active:1}],media:[],reviewSummary:{count:0,average:0}}});
     if(path==='/api/recommendations')return fulfill({products});
     if(path==='/api/social-feed')return fulfill({items:[],creators:[]});
     if(path.startsWith('/api/customer/'))return fulfill({authenticated:false},401);
@@ -21,12 +22,24 @@ async function mockPreview(page){
 
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
 
-test('capture storefront home preview',async({page},testInfo)=>{
+test('capture branded storefront home and product preview',async({page},testInfo)=>{
   await mockPreview(page);
   await page.goto('/?preview=1',{waitUntil:'domcontentloaded'});
   await expect(page.locator('#product-grid [data-product]').first()).toBeVisible();
+  await expect(page.locator('.tshop-hero')).toContainText('คุณชายสมุนไพร');
+  await expect(page.locator('.tshop-hero')).not.toContainText('Shop • Scroll • Buy');
+  await expect(page.locator('.v05-creator-section .tshop-section-head h2')).toHaveText('เรื่องราวจากคุณชายสมุนไพร');
   await page.evaluate(async()=>{if(document.fonts?.ready)await document.fonts.ready});
-  await page.waitForTimeout(700);
+  await page.waitForTimeout(500);
   await mkdir('preview-screenshots',{recursive:true});
   await page.screenshot({path:`preview-screenshots/${testInfo.project.name}-home.png`,fullPage:true});
+
+  await page.evaluate(()=>{const p=Array.isArray(PRODUCTS)?PRODUCTS.find(x=>x.slug==='rang-jued-tea'):null;if(p&&typeof product==='function')product(p)});
+  await expect(page.locator('.pdp-title')).toContainText('ชารางจืด');
+  await expect(page.locator('.shop-profile-copy')).toContainText('คุณชายสมุนไพร');
+  await expect(page.locator('.v115-pdp-brandnote')).toContainText('จัดจำหน่ายโดย คุณชายสมุนไพร');
+  await expect(page.locator('.v115-pdp-trust')).toContainText('เก็บเงินปลายทาง');
+  await expect(page.locator('.v115-pdp-trust')).toContainText('ออกใบเสร็จได้');
+  await page.waitForTimeout(350);
+  await page.screenshot({path:`preview-screenshots/${testInfo.project.name}-product.png`,fullPage:true});
 });
