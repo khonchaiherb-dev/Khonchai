@@ -49,7 +49,6 @@ async function readMobileTouchTrace(page){
 
 async function tapVisualViewport(page,locator,label='element'){
   const anchored=await locator.evaluate(el=>{for(let node=el;node;node=node.parentElement){const position=getComputedStyle(node).position;if(position==='fixed'||position==='sticky')return true}return false});
-  if(anchored){await page.evaluate(()=>window.scrollTo({top:0,left:0,behavior:'instant'}));await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))))}
   const point=await locator.evaluate(async(el,args)=>{
     const {name,anchored}=args;
     const frames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
@@ -79,10 +78,11 @@ async function tapVisualViewport(page,locator,label='element'){
   await page.touchscreen.tap(point.inputX,point.inputY);return point;
 }
 
-async function activate(page,locator,viewport,label){
+async function activateTouchAction(page,locator,viewport,label){
   if(viewport.width<=390)return tapVisualViewport(page,locator,label);
   await locator.click();return null;
 }
+async function activateNavigation(locator){await locator.click()}
 
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
 
@@ -101,12 +101,12 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
   }else await productCard.click();
 
   await expect(page.locator('.pdp-title')).toContainText('ชารางจืด');await expect(page.locator('[data-v17-variant="101"]')).toBeVisible();
-  await activate(page,page.locator('button[data-add="1"]:visible').last(),viewport,'add-to-cart');
+  await activateTouchAction(page,page.locator('button[data-add="1"]:visible').last(),viewport,'add-to-cart');
   await expect(page.locator('header .badge').first()).toHaveText('1');
-  await activate(page,page.locator('header button[data-go="cart"]'),viewport,'open-cart');
+  await activateNavigation(page.locator('header button[data-go="cart"]'));
   await expect(page.locator('.page-title')).toHaveText('ตะกร้าสินค้า');await expect(page.locator('.v17-line-variant')).toContainText('มาตรฐาน');
-  await activate(page,page.locator('button[data-go="checkout"]:visible').last(),viewport,'open-checkout');
+  await activateNavigation(page.locator('button[data-go="checkout"]:visible').last());
   await expect(page.locator('#customer-name')).toBeVisible();await page.locator('#customer-name').fill('ผู้ทดสอบระบบ');await page.locator('#customer-phone').fill('0812345678');await page.locator('#customer-address').fill('99 หมู่ 1 ถนนทดสอบ');if(await page.locator('#customer-subdistrict').count())await page.locator('#customer-subdistrict').fill('ในเมือง');await page.locator('#customer-district').fill('เมือง');await page.locator('#customer-province').fill('อุบลราชธานี');await page.locator('#customer-postal').fill('34000');await expect(page.locator('input[name="pay"][value="COD"]')).toBeChecked();
-  await activate(page,page.locator('[data-place]'),viewport,'place-cod-order');
+  await activateTouchAction(page,page.locator('[data-place]'),viewport,'place-cod-order');
   await expect(page.getByRole('heading',{name:'สั่งซื้อสำเร็จ'})).toBeVisible();await expect(page.getByText('KCH-E2E-0001')).toBeVisible();expect(state.orderPayload).not.toBeNull();expect(state.orderPayload.paymentMethod).toBe('COD');expect(state.orderPayload.items?.[0]?.variantId).toBe(101);expect(String(state.orderPayload.idempotencyKey||'').length).toBeGreaterThan(10);await testInfo.attach('viewport',{body:Buffer.from(JSON.stringify(viewport)),contentType:'application/json'});
 });
