@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const css=fs.readFileSync('public/tshop-v115.css','utf8');
+const source=fs.readFileSync('public/tshop-v115.js','utf8');
+const html=fs.readFileSync('public/index.html','utf8');
+const sw=fs.readFileSync('public/sw.js','utf8');
+const health=fs.readFileSync('functions/api/health.js','utf8');
+const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+const build=(html.match(/name="kch-build" content="([^"]+)"/)||[])[1];assert.ok(build);assert.equal(pkg.version,build);const p=build.split('.').map(Number);assert.ok(p[0]>1||(p[0]===1&&p[1]>=15));
+assert.ok(html.includes(`tshop-v115.css?v=${build}`));assert.ok(html.includes(`tshop-v115.js?v=${build}`));assert.ok(html.indexOf(`tshop-v115.js?v=${build}`)>html.indexOf(`tshop-v161-hotfix.js?v=${build}`));assert.ok(sw.includes(`/tshop-v115.css?v=${build}`));assert.ok(sw.includes(`/tshop-v115.js?v=${build}`));assert.ok(health.includes(`version:'${build}'`));assert.match(health,/conversionResponsive:true/);assert.match(health,/desktopProductSplitView:true/);assert.match(health,/desktopCheckoutSummary:true/);
+assert.match(css,/\.v115-desktop-nav/);assert.match(css,/\.v115-pdp-layout\{display:grid;grid-template-columns/);assert.match(css,/\.v115-checkout-grid\{display:grid;grid-template-columns/);assert.match(css,/\.v115-checkout-aside\{position:sticky/);assert.match(css,/\.tshop-bottom\{display:none!important\}/);assert.match(css,/@media\(max-width:699px\)/);assert.match(css,/display:contents/);assert.match(css,/safe-area-inset-bottom/);assert.match(css,/focus-visible/);
+assert.match(source,/v115DesktopNav/);assert.match(source,/v115EnhancePdp/);assert.match(source,/v115EnhanceCheckout/);assert.match(source,/v115-checkout-assurance/);assert.match(source,/MutationObserver/);assert.match(source,/v115BindBase/);assert.match(source,/pdp-bottom/);assert.match(source,/sticky-pay/);assert.match(source,/__KCH_CONVERSION_LAYOUT__/);
+assert.ok(pkg.scripts['qa:v115']);assert.match(pkg.scripts.check,/storefront-v115-conversion-smoke\.mjs/);
+console.log('storefront v1.15 desktop + mobile conversion smoke: OK');

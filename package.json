@@ -1,6 +1,6 @@
 {
   "name": "khonchaiherb-commerce",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "private": true,
   "description": "Responsive social commerce storefront for KHONCHAIHERB, prepared for Cloudflare Pages + D1 + R2",
   "scripts": {
@@ -15,6 +15,7 @@
     "qa:v112": "node tests/storefront-v112-smoke.mjs",
     "qa:v113": "node tests/storefront-v113-smoke.mjs",
     "qa:v114": "node tests/storefront-v114-responsive-smoke.mjs",
-    "check": "node tests/syntax-check.mjs && node tests/storefront-interaction-smoke.mjs && node tests/storefront-variant-smoke.mjs && node tests/storefront-v18-smoke.mjs && node tests/storefront-v19-smoke.mjs && node tests/storefront-v110-smoke.mjs && node tests/storefront-v111-smoke.mjs && node tests/storefront-v112-smoke.mjs && node tests/storefront-v113-smoke.mjs && node tests/storefront-v114-responsive-smoke.mjs"
+    "qa:v115": "node tests/storefront-v115-conversion-smoke.mjs",
+    "check": "node tests/syntax-check.mjs && node tests/storefront-interaction-smoke.mjs && node tests/storefront-variant-smoke.mjs && node tests/storefront-v18-smoke.mjs && node tests/storefront-v19-smoke.mjs && node tests/storefront-v110-smoke.mjs && node tests/storefront-v111-smoke.mjs && node tests/storefront-v112-smoke.mjs && node tests/storefront-v113-smoke.mjs && node tests/storefront-v114-responsive-smoke.mjs && node tests/storefront-v115-conversion-smoke.mjs"
   }
 }
