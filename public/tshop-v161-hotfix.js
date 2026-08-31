@@ -6,7 +6,25 @@
 
   const stop=e=>{e.preventDefault();e.stopImmediatePropagation()};
   const enabled=el=>el&&!el.disabled&&el.getAttribute('aria-disabled')!=='true';
-  const syncUi=()=>{try{const nav=document.querySelector('.tshop-bottom');if(nav)nav.hidden=typeof current!=='undefined'&&['product','checkout'].includes(current);if(typeof count==='function')document.querySelectorAll('.badge').forEach(x=>x.textContent=count())}catch{}};
+  const ensureBrandIdentity=()=>{
+    try{
+      if(typeof document==='undefined')return;
+      if(typeof document.createElement==='function'&&(!document.getElementById||!document.getElementById('kch-brand-identity-style'))){
+        const style=document.createElement('style');style.id='kch-brand-identity-style';style.textContent='.kch-brand-lockup{border:0;background:transparent;padding:2px 7px 2px 0;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:max-content;color:#103f31;cursor:pointer;line-height:1}.kch-brand-lockup b{font-size:13px;font-weight:900;white-space:nowrap}.kch-brand-lockup small{margin-top:3px;font-size:7px;font-weight:800;letter-spacing:.09em;color:#98783f;white-space:nowrap}.v118-eyebrow .kch-thai-brand{font-weight:900}@media(max-width:699px){.tshop-topbar .kch-brand-lockup{width:82px;min-width:82px}.kch-brand-lockup b{font-size:11px}.kch-brand-lockup small{font-size:6px}.tshop-topbar .tshop-searchbox{min-width:0}}@media(max-width:420px){.tshop-topbar .kch-brand-lockup{width:72px;min-width:72px}.kch-brand-lockup b{font-size:10px;letter-spacing:-.02em}.kch-brand-lockup small{font-size:5.5px}}';
+        const host=document.head||document.documentElement;if(host&&typeof host.appendChild==='function')host.appendChild(style);
+      }
+      const top=document.querySelector?.('.tshop-topbar');
+      if(top&&!top.querySelector?.('.kch-brand-lockup')&&typeof document.createElement==='function'){
+        const brand=document.createElement('button');brand.type='button';brand.className='kch-brand-lockup';brand.setAttribute('data-go','home');brand.setAttribute('aria-label','คุณชายสมุนไพร หน้าแรก');brand.innerHTML='<b>คุณชายสมุนไพร</b><small>KHONCHAIHERB</small>';
+        const search=top.querySelector?.('.tshop-searchbox');if(search&&typeof top.insertBefore==='function')top.insertBefore(brand,search);else top.prepend?.(brand);
+      }
+      const eyebrow=document.querySelector?.('.v118-eyebrow');if(eyebrow&&eyebrow.textContent!=='คุณชายสมุนไพร • KHONCHAIHERB')eyebrow.textContent='คุณชายสมุนไพร • KHONCHAIHERB';
+      const story=document.querySelector?.('.v118-story-copy > span');if(story&&story.textContent!=='คุณชายสมุนไพร • KHONCHAIHERB')story.textContent='คุณชายสมุนไพร • KHONCHAIHERB';
+      document.querySelectorAll?.('.v118-confidence-head b').forEach(el=>{if(/KHONCHAIHERB/.test(el.textContent||''))el.textContent='ซื้ออย่างมั่นใจกับ คุณชายสมุนไพร'});
+      document.querySelectorAll?.('.v118-confidence-grid b').forEach(el=>{if(/สั่งตรงกับ KHONCHAIHERB/.test(el.textContent||''))el.textContent='สั่งตรงกับ คุณชายสมุนไพร'});
+    }catch{}
+  };
+  const syncUi=()=>{try{const nav=document.querySelector('.tshop-bottom');if(nav)nav.hidden=typeof current!=='undefined'&&['product','checkout'].includes(current);if(typeof count==='function')document.querySelectorAll('.badge').forEach(x=>x.textContent=count());queueMicrotask?.(ensureBrandIdentity);if(typeof requestAnimationFrame==='function')requestAnimationFrame(ensureBrandIdentity)}catch{}};
   const removeDrawer=()=>document.querySelector('#v05-product-drawer')?.remove();
   const interactiveTarget=target=>target?.closest?.('button,a,input,select,textarea,label');
   const openProductSlug=(slug,e)=>{
@@ -25,6 +43,7 @@
     if(host&&typeof host.appendChild==='function')host.appendChild(style);
   };
   ensureMobileHitArea();
+  ensureBrandIdentity();
   let productPointer=null,productTouch=null;
 
   document.addEventListener('pointerdown',e=>{
@@ -77,6 +96,6 @@
   },true);
 
   if(typeof navigator!=='undefined'&&'serviceWorker' in navigator){navigator.serviceWorker.addEventListener('controllerchange',()=>{try{const key='kch-sw-1.7.5-reloaded';if(!sessionStorage.getItem(key)){sessionStorage.setItem(key,'1');location.reload()}}catch{}})}
-  const boot=()=>{try{ensureMobileHitArea();if(typeof current!=='undefined'&&current==='home'&&typeof home==='function')home();else if(typeof bind==='function')bind();syncUi()}catch(err){console.error('KCH interaction boot failed',err)}};
+  const boot=()=>{try{ensureMobileHitArea();ensureBrandIdentity();if(typeof current!=='undefined'&&current==='home'&&typeof home==='function')home();else if(typeof bind==='function')bind();syncUi()}catch(err){console.error('KCH interaction boot failed',err)}};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else queueMicrotask(boot);
 })();
