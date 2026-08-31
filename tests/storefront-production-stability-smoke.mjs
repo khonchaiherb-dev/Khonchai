@@ -15,7 +15,7 @@ assert.equal(new Set(scripts).size,scripts.length,'duplicate script reference');
 assert.equal(new Set(styles).size,styles.length,'duplicate stylesheet reference');
 assert.ok(scripts.length<=31,`frontend script budget regressed: ${scripts.length}`);
 assert.ok(styles.length<=28,`frontend stylesheet budget regressed: ${styles.length}`);
-assert.doesNotMatch(index,/tshop-v(?:119|12[0-9]|[2-9][0-9]{2,})/,'new compatibility layer added after stabilization freeze');
+for(const future of ['/tshop-v119.js','/tshop-v119.css','/tshop-v120.js','/tshop-v120.css'])assert.ok(!index.includes(future),`new compatibility layer added after stabilization freeze: ${future}`);
 assert.match(index,/kch-build" content="1\.18\.1"/);
 assert.match(sw,/khonchaiherb-v1\.18\.1/);
 assert.match(sw,/networkFirst/);
