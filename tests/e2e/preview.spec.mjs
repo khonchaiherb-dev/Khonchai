@@ -29,6 +29,7 @@ test('capture branded storefront home and product preview',async({page},testInfo
   await expect(page.locator('.tshop-hero')).toContainText('คุณชายสมุนไพร');
   await expect(page.locator('.tshop-hero')).not.toContainText('Shop • Scroll • Buy');
   await expect(page.locator('.flash-logo')).toHaveText('ข้อเสนอพิเศษวันนี้');
+  await expect(page.locator('.quick-icons button').nth(2).locator('span:last-child')).toHaveText('คูปอง');
   await expect(page.locator('.v05-creator-section .tshop-section-head h2')).toHaveText('เรื่องราวจากคุณชายสมุนไพร');
   await page.evaluate(async()=>{if(document.fonts?.ready)await document.fonts.ready});
   await page.waitForTimeout(500);
@@ -41,13 +42,17 @@ test('capture branded storefront home and product preview',async({page},testInfo
   await expect(page.locator('.v115-pdp-brandnote')).toContainText('จัดจำหน่ายโดย คุณชายสมุนไพร');
   await expect(page.locator('.v115-pdp-trust')).toContainText('เก็บเงินปลายทาง');
   await expect(page.locator('.v115-pdp-trust')).toContainText('ออกใบเสร็จได้');
+  await expect(page.locator('.v07-recommend-block [data-product="rang-jued-tea"]')).toHaveCount(0);
   if(testInfo.project.name==='desktop-1440'){
     const zone=page.locator('.v115-pdp-recommend-zone');
     await expect(zone).toBeVisible();
-    await expect(zone).toContainText('คุณอาจชอบ');
     await expect(zone).toContainText('คัดมาให้คุณ');
+    await expect(zone.locator('.recommend-head')).toBeHidden();
+    await expect(zone.locator('.tshop-grid')).toBeHidden();
+    await expect(zone.locator('[data-product="herbal-balm"]')).toBeVisible();
   }else{
     await expect(page.locator('.v115-pdp-recommend-zone')).toHaveCount(0);
+    await expect(page.locator('.recommend-head')).toBeVisible();
   }
   await page.waitForTimeout(350);
   await page.screenshot({path:`preview-screenshots/${testInfo.project.name}-product.png`,fullPage:true});
