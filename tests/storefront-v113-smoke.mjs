@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const source=fs.readFileSync('public/tshop-v113.js','utf8');
+const css=fs.readFileSync('public/tshop-v113.css','utf8');
+const rewards=fs.readFileSync('functions/api/customer/rewards.js','utf8');
+const html=fs.readFileSync('public/index.html','utf8');
+const sw=fs.readFileSync('public/sw.js','utf8');
+const health=fs.readFileSync('functions/api/health.js','utf8');
+const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+const build=(html.match(/name="kch-build" content="([^"]+)"/)||[])[1];assert.equal(build,'1.13.0');assert.equal(pkg.version,build);
+assert.ok(html.includes(`tshop-v113.css?v=${build}`));assert.ok(html.includes(`tshop-v113.js?v=${build}`));assert.ok(html.indexOf(`tshop-v113.js?v=${build}`)>html.indexOf(`tshop-v112.js?v=${build}`));assert.ok(html.indexOf(`tshop-v113.js?v=${build}`)<html.indexOf(`tshop-v161-hotfix.js?v=${build}`));assert.ok(sw.includes(`khonchaiherb-v${build}`));assert.ok(sw.includes(`/tshop-v113.js?v=${build}`));assert.ok(sw.includes(`/tshop-v113.css?v=${build}`));assert.match(health,/version:'1\.13\.0'/);assert.match(health,/memberRewardWallet:true/);
+assert.match(rewards,/getCustomer/);assert.match(rewards,/WHERE r\.customer_id=\?/);assert.match(rewards,/r\.reward_coupon_issued=1/);assert.match(rewards,/coupon_redemptions/);assert.match(rewards,/redeemed_order_no/);assert.match(rewards,/THEN 'used'/);assert.match(rewards,/THEN 'expired'/);assert.match(rewards,/activeValue/);
+assert.match(source,/\/api\/customer\/rewards/);assert.match(source,/V113_REWARDS/);assert.match(source,/V112_REWARDS=active/);assert.match(source,/COUPONS=COUPONS\.filter/);assert.match(source,/claimed=claimed\.filter/);assert.match(source,/สิทธิ์และรางวัลของฉัน/);assert.match(source,/ใช้ได้ทุกอุปกรณ์/);assert.match(source,/data-v113-use-reward/);assert.match(source,/data-go="orders"/);assert.match(css,/\.v113-retention/);assert.match(css,/\.v113-reward/);
+assert.ok(pkg.scripts['qa:v113']);assert.match(pkg.scripts.check,/storefront-v113-smoke\.mjs/);
+console.log('storefront v1.13 member reward wallet smoke: OK');
