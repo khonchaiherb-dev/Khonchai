@@ -1,15 +1,14 @@
 function json(data,status=200){return Response.json(data,{status,headers:{'Cache-Control':'no-store'}})}
 function authorized(request,env){return Boolean(env.ADMIN_TOKEN)&&(request.headers.get('Authorization')||'')===`Bearer ${env.ADMIN_TOKEN}`}
+async function ensureFavorites(env){await env.DB.prepare(`CREATE TABLE IF NOT EXISTS customer_favorites(customer_id INTEGER NOT NULL,product_id INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(customer_id,product_id),FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE,FOREIGN KEY(product_id) REFERENCES products(id) ON DELETE CASCADE)`).run()}
+const n=v=>Number(v||0),pct=(a,b)=>b>0?Math.round(a*1000/b)/10:0;
 export async function onRequestGet({request,env}){
-  if(!env.ADMIN_TOKEN)return json({error:'admin_not_configured'},503);
-  if(!authorized(request,env))return json({error:'unauthorized'},401);
-  if(!env.DB)return json({error:'database_not_bound'},503);
-  const [promos,reviews,media]=await Promise.all([
-    env.DB.prepare(`SELECT p.code,p.name,p.used_count,COALESCE(SUM(pr.discount_amount),0) discount_total,COUNT(pr.id) redemptions
-      FROM promotions p LEFT JOIN promotion_redemptions pr ON pr.promotion_id=p.id
-      GROUP BY p.id ORDER BY redemptions DESC,p.priority DESC`).all(),
+  if(!env.ADMIN_TOKEN)return json({error:'admin_not_configured'},503);if(!authorized(request,env))return json({error:'unauthorized'},401);if(!env.DB)return json({error:'database_not_bound'},503);await ensureFavorites(env);
+  const [promos,reviews,media,funnel]=await Promise.all([
+    env.DB.prepare(`SELECT p.code,p.name,p.used_count,COALESCE(SUM(pr.discount_amount),0) discount_total,COUNT(pr.id) redemptions FROM promotions p LEFT JOIN promotion_redemptions pr ON pr.promotion_id=p.id GROUP BY p.id ORDER BY redemptions DESC,p.priority DESC`).all(),
     env.DB.prepare("SELECT COUNT(*) count,COALESCE(AVG(rating),0) average,SUM(CASE WHEN verified_purchase=1 THEN 1 ELSE 0 END) verified FROM reviews").first(),
-    env.DB.prepare("SELECT COUNT(*) count,SUM(CASE WHEN media_type='image' THEN 1 ELSE 0 END) images,SUM(CASE WHEN media_type='video' THEN 1 ELSE 0 END) videos FROM review_media WHERE status='published'").first()
+    env.DB.prepare("SELECT COUNT(*) count,SUM(CASE WHEN media_type='image' THEN 1 ELSE 0 END) images,SUM(CASE WHEN media_type='video' THEN 1 ELSE 0 END) videos FROM review_media WHERE status='published'").first(),
+    env.DB.prepare(`SELECT p.id,p.sku,p.name,p.stock,COALESCE(e.views,0) views,COALESCE(e.clicks,0) clicks,COALESCE(e.carts,0) carts,COALESCE(f.favorites,0) favorites,COALESCE(s.orders,0) orders,COALESCE(s.units,0) units FROM products p LEFT JOIN (SELECT product_id,SUM(CASE WHEN event_type='content_view' THEN 1 ELSE 0 END) views,SUM(CASE WHEN event_type='product_pin_click' THEN 1 ELSE 0 END) clicks,SUM(CASE WHEN event_type='add_to_cart' THEN 1 ELSE 0 END) carts FROM commerce_events WHERE created_at>=datetime('now','-30 day') AND product_id IS NOT NULL GROUP BY product_id)e ON e.product_id=p.id LEFT JOIN (SELECT product_id,COUNT(*) favorites FROM customer_favorites GROUP BY product_id)f ON f.product_id=p.id LEFT JOIN (SELECT oi.product_id,COUNT(DISTINCT o.id) orders,SUM(oi.qty) units FROM order_items oi JOIN orders o ON o.id=oi.order_id WHERE o.created_at>=datetime('now','-30 day') AND o.status!='cancelled' GROUP BY oi.product_id)s ON s.product_id=p.id WHERE p.active=1 ORDER BY carts DESC,views DESC,p.sold_count DESC LIMIT 50`).all()
   ]);
-  return json({promotions:(promos.results||[]).map(x=>({code:x.code,name:x.name,usedCount:Number(x.used_count||0),redemptions:Number(x.redemptions||0),discountTotal:Number(x.discount_total||0)})),reviews:{count:Number(reviews?.count||0),average:Math.round(Number(reviews?.average||0)*10)/10,verified:Number(reviews?.verified||0),media:Number(media?.count||0),images:Number(media?.images||0),videos:Number(media?.videos||0)}});
+  return json({promotions:(promos.results||[]).map(x=>({code:x.code,name:x.name,usedCount:n(x.used_count),redemptions:n(x.redemptions),discountTotal:n(x.discount_total)})),reviews:{count:n(reviews?.count),average:Math.round(n(reviews?.average)*10)/10,verified:n(reviews?.verified),media:n(media?.count),images:n(media?.images),videos:n(media?.videos)},productFunnel:(funnel.results||[]).map(x=>({id:n(x.id),sku:x.sku,name:x.name,stock:n(x.stock),views:n(x.views),clicks:n(x.clicks),carts:n(x.carts),favorites:n(x.favorites),orders:n(x.orders),units:n(x.units),viewToCartRate:pct(n(x.carts),n(x.views)),cartToOrderRate:pct(n(x.orders),n(x.carts)),interestGap:Math.max(0,n(x.carts)+n(x.favorites)-n(x.orders))}))});
 }

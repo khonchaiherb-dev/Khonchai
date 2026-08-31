@@ -1,0 +1,16 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const css=fs.readFileSync('public/tshop-v118.css','utf8');
+const source=fs.readFileSync('public/tshop-v118.js','utf8');
+const fav=fs.readFileSync('functions/api/customer/favorites.js','utf8');
+const personalized=fs.readFileSync('functions/api/customer/personalized.js','utf8');
+const analytics=fs.readFileSync('functions/api/admin/growth-analytics.js','utf8');
+const migration=fs.readFileSync('db/migrations/0015_customer_favorites.sql','utf8');
+const html=fs.readFileSync('public/index.html','utf8');
+const sw=fs.readFileSync('public/sw.js','utf8');
+const health=fs.readFileSync('functions/api/health.js','utf8');
+const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+const build=(html.match(/name="kch-build" content="([^"]+)"/)||[])[1];assert.ok(build);assert.equal(pkg.version,build);const p=build.split('.').map(Number);assert.ok(p[0]>1||(p[0]===1&&p[1]>=18));
+assert.ok(html.includes(`tshop-v118.css?v=${build}`));assert.ok(html.includes(`tshop-v118.js?v=${build}`));assert.ok(html.indexOf(`tshop-v118.js?v=${build}`)>html.indexOf(`tshop-v117.js?v=${build}`));assert.ok(sw.includes(`/tshop-v118.css?v=${build}`));assert.ok(sw.includes(`/tshop-v118.js?v=${build}`));assert.ok(health.includes(`version:'${build}'`));assert.match(health,/memberWishlistSync:true/);assert.match(health,/personalizedCommerce:true/);assert.match(health,/sellerProductFunnel:true/);
+assert.match(migration,/CREATE TABLE IF NOT EXISTS customer_favorites/);assert.match(fav,/getCustomer/);assert.match(fav,/sameOrigin/);assert.match(fav,/action==='merge'/);assert.match(fav,/action==='remove'/);assert.match(personalized,/recentlyBought/);assert.match(personalized,/recommendations/);assert.match(personalized,/customer_recent_products/);assert.match(personalized,/order_items/);assert.match(analytics,/productFunnel/);assert.match(analytics,/customer_favorites/);assert.match(analytics,/viewToCartRate/);assert.match(source,/v118SyncMember/);assert.match(source,/v118WriteFavorite/);assert.match(source,/v118WriteRecent/);assert.match(source,/v118SellerAnalytics/);assert.match(source,/__KCH_MEMBER_PERSONALIZATION__/);assert.match(css,/\.v118-personal-grid/);assert.match(css,/@media\(max-width:699px\)/);assert.match(css,/@media\(min-width:1024px\)/);assert.ok(pkg.scripts['qa:v118']);assert.match(pkg.scripts.check,/storefront-v118-member-personalization-smoke\.mjs/);
+console.log('storefront v1.18 member wishlist sync + personalized commerce + seller funnel smoke: OK');
