@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+const css=fs.readFileSync('public/tshop-v119.css','utf8');
+const source=fs.readFileSync('public/tshop-v119.js','utf8');
+const html=fs.readFileSync('public/index.html','utf8');
+const sw=fs.readFileSync('public/sw.js','utf8');
+const health=fs.readFileSync('functions/api/health.js','utf8');
+const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+new vm.Script(source,{filename:'public/tshop-v119.js'});
+const build=(html.match(/name="kch-build" content="([^"]+)"/)||[])[1];assert.ok(build);assert.equal(pkg.version,build);const p=build.split('.').map(Number);assert.ok(p[0]>1||(p[0]===1&&p[1]>=19));
+assert.ok(html.includes(`tshop-v119.css?v=${build}`));assert.ok(html.includes(`tshop-v119.js?v=${build}`));assert.ok(html.indexOf(`tshop-v119.js?v=${build}`)>html.indexOf(`tshop-v118.js?v=${build}`));assert.ok(sw.includes(`/tshop-v119.css?v=${build}`));assert.ok(sw.includes(`/tshop-v119.js?v=${build}`));assert.ok(health.includes(`version:'${build}'`));
+assert.match(source,/V119_BUILD='1\.19\.0'/);assert.match(source,/รองรับเก็บเงินปลายทาง/);assert.match(source,/ติดตามสถานะคำสั่งซื้อ/);assert.match(source,/ใบเสร็จออกได้หลังระบบยืนยันการชำระเงินหรือยืนยันการรับเงิน COD สำเร็จ/);assert.match(source,/\/shipping-returns\.html/);assert.match(source,/\/privacy\.html/);assert.match(source,/\/terms\.html/);assert.match(source,/v119EnhanceProduct/);assert.match(source,/v119EnhanceCart/);assert.match(source,/v119EnhanceCheckout/);assert.match(source,/__KCH_CHECKOUT_CONFIDENCE__/);
+assert.match(css,/\.v119-confidence-grid/);assert.match(css,/@media\(max-width:699px\)/);assert.match(css,/@media\(min-width:1024px\)/);assert.ok(pkg.scripts['qa:v119']);assert.match(pkg.scripts.check,/storefront-v119-confidence-smoke\.mjs/);
+console.log('storefront v1.19 checkout confidence + policy clarity smoke: OK');
