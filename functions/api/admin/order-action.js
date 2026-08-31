@@ -9,6 +9,17 @@ async function activeReservations(env,orderId){
   return r.results||[];
 }
 
+async function packingVerificationStatus(env,orderId){
+  const r=await env.DB.prepare(`SELECT COUNT(oi.id) line_count,
+      COALESCE(SUM(oi.qty),0) expected_qty,
+      COALESCE(SUM(MIN(oi.qty,COALESCE(pv.verified_qty,0))),0) verified_qty,
+      COALESCE(SUM(CASE WHEN COALESCE(pv.verified_qty,0)>=oi.qty THEN 1 ELSE 0 END),0) verified_lines
+    FROM order_items oi LEFT JOIN packing_verifications pv ON pv.order_item_id=oi.id
+    WHERE oi.order_id=?`).bind(orderId).first();
+  const lineCount=Number(r?.line_count||0),expectedQty=Number(r?.expected_qty||0),verifiedQty=Number(r?.verified_qty||0),verifiedLines=Number(r?.verified_lines||0);
+  return {lineCount,expectedQty,verifiedQty,verifiedLines,complete:lineCount>0&&verifiedLines===lineCount&&verifiedQty===expectedQty};
+}
+
 async function commitReservations(env,order){
   const rows=await activeReservations(env,order.id);if(!rows.length)return {committed:0,cogs:0};
   const batch=[];let cogs=0;
@@ -54,13 +65,18 @@ export async function onRequestPost({env,request}){
     const carrier=clean(body.carrier,80),trackingNo=clean(body.trackingNo,120);
     if(trackingNo.length<5)return json({error:'tracking_required'},400);
     if(order.status==='cancelled'||order.fulfillment_status==='delivered')return json({error:'invalid_state'},409);
+    let verification=null;
+    if(env.PACKING_REQUIRE_VERIFICATION==='true'){
+      verification=await packingVerificationStatus(env,order.id);
+      if(!verification.complete)return json({error:'packing_verification_required',...verification},409);
+    }
     const committed=await commitReservations(env,order);
     await env.DB.batch([
       env.DB.prepare("UPDATE orders SET fulfillment_status='shipping',status='processing',updated_at=datetime('now') WHERE id=?").bind(order.id),
       env.DB.prepare("UPDATE shipments SET carrier=?,tracking_no=?,status='shipping',shipped_at=COALESCE(shipped_at,datetime('now')) WHERE order_id=?").bind(carrier||null,trackingNo,order.id),
       env.DB.prepare("INSERT INTO order_events(order_id,event_type,note) VALUES(?,'shipped',?)").bind(order.id,`จัดส่งแล้ว${carrier?` โดย ${carrier}`:''} เลขพัสดุ ${trackingNo}`)
     ]);
-    await audit(env,{action:'fulfillment.shipped',entityType:'order',entityId:orderNo,metadata:{carrier,trackingNo,reservationsCommitted:committed.committed,cogs:committed.cogs}});
+    await audit(env,{action:'fulfillment.shipped',entityType:'order',entityId:orderNo,metadata:{carrier,trackingNo,reservationsCommitted:committed.committed,cogs:committed.cogs,packingVerified:verification?.complete??null}});
   }else if(action==='delivered'){
     if(order.status==='cancelled')return json({error:'invalid_state'},409);
     await env.DB.batch([
