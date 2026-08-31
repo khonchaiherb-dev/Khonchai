@@ -23,3 +23,11 @@ jobs:
         env:
           CI: '1'
         run: npm run qa:e2e
+      - name: Upload storefront previews
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: storefront-previews
+          path: preview-screenshots
+          if-no-files-found: warn
+          retention-days: 7
