@@ -11,7 +11,7 @@ const health=fs.readFileSync('functions/api/health.js','utf8');
 const orderStatus=fs.readFileSync('functions/api/order-status.js','utf8');
 const customerOrders=fs.readFileSync('functions/api/customer/orders.js','utf8');
 const build=(html.match(/name="kch-build" content="([^"]+)"/)||[])[1];
-assert.equal(build,'1.11.0');assert.equal(pkg.version,build);assert.ok(pkg.scripts.check.includes('storefront-v111-smoke.mjs'));
+assert.ok(build);assert.equal(pkg.version,build);const [major,minor]=build.split('.').map(Number);assert.ok(major>1||(major===1&&minor>=11),'storefront must remain >=1.11');assert.ok(pkg.scripts.check.includes('storefront-v111-smoke.mjs'));
 
 const document={querySelector(){return null},querySelectorAll(){return []}};
 const context={console,document,window:null,Date,ordersLocal:[],PRODUCTS:[],V19_ORDER_MODE:'device',V19_ORDER_CACHE:[],V19_ORDER_FETCHED_AT:0,v19OrderCard(){return '<div class="orderactions"></div>'},v19DetailHtml(){return '<section class="v19-timeline"></section>'},v19ResolveDetail:async()=>null,v19NormalizeOrder(o,source){return {...o,source,orderNo:o.orderNo||o.order_no||'',items:o.items||[]}},v19MergeOrders(a,b){return [...a,...b]},saveOrders(){},v17Purchase:async()=>true,cartPage(){},toast(){},lookupOrder:async()=>{},bind(){},bindV19(){},api:async()=>({}),I:s=>`[${s}]`,esc:s=>String(s),statusText(){return 'กำลังจัดส่ง'}};context.window=context;
@@ -26,6 +26,6 @@ assert.match(source,/v17Purchase\(productId,qty,false,variantId\)/,'reorder must
 assert.doesNotMatch(source,/v08Reorder\(/,'v1.11 reorder must not fall back to variant-unsafe legacy reorder');
 assert.match(source,/v111PersistGuestOrder/);assert.match(source,/\/api\/order-status\?orderNo=/);assert.match(source,/saveOrders\(\)/);assert.match(source,/v111ProgressHtml/);assert.match(css,/\.v111-steps/);
 assert.ok(html.includes(`tshop-v111.css?v=${build}`));assert.ok(html.includes(`tshop-v111.js?v=${build}`));assert.ok(html.indexOf(`tshop-v111.js?v=${build}`)>html.indexOf(`tshop-v110.js?v=${build}`));assert.ok(html.indexOf(`tshop-v111.js?v=${build}`)<html.indexOf(`tshop-v161-hotfix.js?v=${build}`));
-assert.ok(sw.includes(`khonchaiherb-v${build}`));assert.ok(sw.includes(`/tshop-v111.js?v=${build}`));assert.ok(sw.includes(`/tshop-v111.css?v=${build}`));assert.match(health,/version:'1\.11\.0'/);
+assert.ok(sw.includes(`khonchaiherb-v${build}`));assert.ok(sw.includes(`/tshop-v111.js?v=${build}`));assert.ok(sw.includes(`/tshop-v111.css?v=${build}`));assert.match(health,new RegExp(`version:'${build.replaceAll('.','\\.')}'`));
 assert.match(orderStatus,/shippedAt:shipment\?\.shipped_at/);assert.match(orderStatus,/deliveredAt:shipment\?\.delivered_at/);assert.match(customerOrders,/s\.shipped_at/);assert.match(customerOrders,/s\.delivered_at/);
 console.log('storefront v1.11 tracking + guest Order Center smoke: OK');
