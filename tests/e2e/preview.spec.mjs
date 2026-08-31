@@ -26,10 +26,17 @@ test('capture branded storefront home and product preview',async({page},testInfo
   await mockPreview(page);
   await page.goto('/?preview=1',{waitUntil:'domcontentloaded'});
   await expect(page.locator('#product-grid [data-product]').first()).toBeVisible();
+  const pandan=page.locator('#product-grid [data-product="dried-pandan-leaves"]');
+  await expect(pandan).toBeVisible();
+  await expect(pandan.locator('img')).toHaveAttribute('src','/assets/pandan-aromatic-dried.svg');
+  await expect(pandan).toContainText('ใบเตยหอมอบแห้ง');
+  await expect(pandan).toContainText('ราคาเร็ว ๆ นี้');
+  await expect(pandan.locator('[data-add]')).toBeDisabled();
+  await expect(page.locator('.category-strip [data-cat="สมุนไพรอบแห้ง"]')).toBeVisible();
   await expect(page.locator('.tshop-hero')).toContainText('คุณชายสมุนไพร');
   await expect(page.locator('.tshop-hero')).not.toContainText('Shop • Scroll • Buy');
   await expect(page.locator('.flash-logo')).toHaveText('ข้อเสนอพิเศษวันนี้');
-  await expect(page.locator('.quick-icons button').nth(2).locator('span:last-child')).toHaveText('คูปอง');
+  await expect(page.locator('.quick-icons button').nth(2).locator(':scope > span:last-child')).toHaveText('คูปอง');
   await expect(page.locator('.v05-creator-section .tshop-section-head h2')).toHaveText('เรื่องราวจากคุณชายสมุนไพร');
   await page.evaluate(async()=>{if(document.fonts?.ready)await document.fonts.ready});
   await page.waitForTimeout(500);
