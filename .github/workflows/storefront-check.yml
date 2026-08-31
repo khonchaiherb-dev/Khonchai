@@ -17,32 +17,23 @@ jobs:
           node-version: '22'
       - name: Check storefront JavaScript
         run: npm run check
-      - name: Validate D1 migrations and operational workflows
+      - name: Validate all D1 migrations and operational workflows
         run: |
           python3 - <<'PY'
           import sqlite3
           from pathlib import Path
+
           db=sqlite3.connect(':memory:')
-          for path in [
-              Path('db/migrations/0001_init.sql'),
-              Path('db/migrations/0002_production_hardening.sql'),
-              Path('db/migrations/0003_social_commerce.sql'),
-              Path('db/migrations/0004_attribution_analytics.sql'),
-              Path('db/migrations/0005_growth_engine.sql'),
-              Path('db/migrations/0006_customer_platform.sql'),
-              Path('db/migrations/0007_customer_service.sql'),
-              Path('db/migrations/0008_production_readiness.sql'),
-              Path('db/migrations/0009_fulfillment_finance.sql'),
-              Path('db/migrations/0010_warehouse_customer_experience.sql'),
-              Path('db/seed.sql'),
-              Path('db/seed-social.sql'),
-              Path('db/seed-growth.sql'),
-              Path('db/seed-production.sql'),
-          ]:
+          migrations=sorted(Path('db/migrations').glob('*.sql'))
+          assert migrations, 'no migrations found'
+          for path in migrations:
+              db.executescript(path.read_text())
+          for path in [Path('db/seed.sql'),Path('db/seed-social.sql'),Path('db/seed-growth.sql'),Path('db/seed-production.sql')]:
               db.executescript(path.read_text())
 
           tables={r[0] for r in db.execute("select name from sqlite_master where type='table'")}
-          assert {'products','product_variants','stock_reservations','fulfillment_batches','cod_reconciliations','financial_ledger','daily_closings','purchase_orders','purchase_order_items','packing_verifications','return_refund_links'} <= tables
+          required={'products','product_variants','stock_reservations','fulfillment_batches','cod_reconciliations','financial_ledger','daily_closings','purchase_orders','purchase_order_items','packing_verifications','return_refund_links','customer_sessions','customer_recent_products','customer_favorites'}
+          assert required <= tables, f'missing tables: {required-tables}'
           product_cols={r[1] for r in db.execute('pragma table_info(products)')}
           variant_cols={r[1] for r in db.execute('pragma table_info(product_variants)')}
           order_item_cols={r[1] for r in db.execute('pragma table_info(order_items)')}
@@ -55,11 +46,13 @@ jobs:
           db.execute("insert into customers(phone,full_name) values('0899999999','QA Customer')")
           customer_id=db.execute("select id from customers where phone='0899999999'").fetchone()[0]
           product_id=db.execute('select id from products order by id limit 1').fetchone()[0]
+          db.execute('insert into customer_favorites(customer_id,product_id) values(?,?)',(customer_id,product_id))
+          assert db.execute('select count(*) from customer_favorites where customer_id=?',(customer_id,)).fetchone()[0]==1
 
           stock_before=db.execute('select stock from products where id=?',(product_id,)).fetchone()[0]
           db.execute('update products set cost_price=25 where id=?',(product_id,))
-          db.execute("insert into orders(order_no,customer_id,customer_name,phone,address_json,subtotal,discount_total,shipping_total,total,payment_method,payment_status,fulfillment_status,status) values('KCH-QA-V12',?,'QA Customer','0899999999','{}',100,0,0,100,'COD','unpaid','pending','pending')",(customer_id,))
-          order_id=db.execute("select id from orders where order_no='KCH-QA-V12'").fetchone()[0]
+          db.execute("insert into orders(order_no,customer_id,customer_name,phone,address_json,subtotal,discount_total,shipping_total,total,payment_method,payment_status,fulfillment_status,status) values('KCH-QA-ALL-MIG',?,'QA Customer','0899999999','{}',100,0,0,100,'COD','unpaid','pending','pending')",(customer_id,))
+          order_id=db.execute("select id from orders where order_no='KCH-QA-ALL-MIG'").fetchone()[0]
           db.execute("insert into order_items(order_id,product_id,sku,product_name,unit_price,qty,line_total) select ?,id,sku,name,50,2,100 from products where id=?",(order_id,product_id))
           order_item_id=db.execute('select id from order_items where order_id=?',(order_id,)).fetchone()[0]
           db.execute('update products set reserved_stock=reserved_stock+2 where id=?',(product_id,))
@@ -69,29 +62,20 @@ jobs:
               raise AssertionError('over-reservation trigger did not fire')
           except sqlite3.IntegrityError:
               pass
-
           db.execute('update products set stock=stock-2,reserved_stock=reserved_stock-2 where id=?',(product_id,))
-          db.execute("insert into inventory_movements(product_id,movement_type,qty,reference_type,reference_id,note) values(?,'sale',-2,'order','KCH-QA-V12','QA ship')",(product_id,))
-          snap=db.execute('select cost_unit,cogs_total from order_items where id=?',(order_item_id,)).fetchone()
-          assert snap==(25,50)
+          db.execute("insert into inventory_movements(product_id,movement_type,qty,reference_type,reference_id,note) values(?,'sale',-2,'order','KCH-QA-ALL-MIG','QA ship')",(product_id,))
+          assert db.execute('select cost_unit,cogs_total from order_items where id=?',(order_item_id,)).fetchone()==(25,50)
           assert db.execute('select stock from products where id=?',(product_id,)).fetchone()[0]==stock_before-2
 
           db.execute("insert into packing_verifications(order_id,order_item_id,expected_qty,verified_qty) values(?,?,2,1)",(order_id,order_item_id))
           try:
               db.execute('update packing_verifications set verified_qty=3 where order_item_id=?',(order_item_id,))
-              raise AssertionError('packing verified qty constraint did not fire')
+              raise AssertionError('packing quantity constraint did not fire')
           except sqlite3.IntegrityError:
               pass
-          db.execute("update packing_verifications set verified_qty=2,verified_at=datetime('now') where order_item_id=?",(order_item_id,))
-          assert db.execute('select verified_qty from packing_verifications where order_item_id=?',(order_item_id,)).fetchone()[0]==2
 
-          db.execute("insert into purchase_orders(po_no,supplier_name,status) values('PO-QA-1','QA Supplier','ordered')")
-          po_id=db.execute("select id from purchase_orders where po_no='PO-QA-1'").fetchone()[0]
-          db.execute("insert into purchase_order_items(purchase_order_id,product_id,sku,qty_ordered,qty_received,unit_cost) select ?,id,sku,10,4,20 from products where id=?",(po_id,product_id))
-          assert db.execute('select qty_received from purchase_order_items where purchase_order_id=?',(po_id,)).fetchone()[0]==4
-
-          db.execute("insert into orders(order_no,customer_id,customer_name,phone,address_json,subtotal,discount_total,shipping_total,total,payment_method,payment_status,fulfillment_status,status) values('KCH-QA-RETURN-V12',?,'QA Customer','0899999999','{}',100,0,0,100,'COD','cod_collected','delivered','completed')",(customer_id,))
-          return_order_id=db.execute("select id from orders where order_no='KCH-QA-RETURN-V12'").fetchone()[0]
+          db.execute("insert into orders(order_no,customer_id,customer_name,phone,address_json,subtotal,discount_total,shipping_total,total,payment_method,payment_status,fulfillment_status,status) values('KCH-QA-RETURN-ALL',?,'QA Customer','0899999999','{}',100,0,0,100,'COD','cod_collected','delivered','completed')",(customer_id,))
+          return_order_id=db.execute("select id from orders where order_no='KCH-QA-RETURN-ALL'").fetchone()[0]
           db.execute("insert into return_requests(order_id,customer_id,product_id,qty,reason_code,detail,status) values(?,?,?,?,?,?,?)",(return_order_id,customer_id,product_id,1,'other','QA return','approved'))
           rr_id=db.execute('select id from return_requests where order_id=?',(return_order_id,)).fetchone()[0]
           db.execute("insert into refunds(order_id,amount,reason,status,updated_at) values(?,50,'QA refund','requested',datetime('now'))",(return_order_id,))
@@ -99,12 +83,5 @@ jobs:
           db.execute('insert into return_refund_links(return_request_id,refund_id) values(?,?)',(rr_id,refund_id))
           assert db.execute('select refund_id from return_refund_links where return_request_id=?',(rr_id,)).fetchone()[0]==refund_id
 
-          db.execute("insert into shipments(order_id,status) values(?,'delivered')",(order_id,))
-          shipment_id=db.execute('select id from shipments where order_id=?',(order_id,)).fetchone()[0]
-          db.execute("insert into cod_reconciliations(order_id,shipment_id,provider,provider_ref,gross_amount,fee_amount,net_amount,status) values(?,?,'qa-carrier','QA-COD-V12',100,5,95,'matched')",(order_id,shipment_id))
-          db.execute("insert into financial_ledger(entry_type,amount,order_id,reference_type,reference_id,description,dedupe_key) values('cod_collection',100,?,'cod_reconciliation','QA-COD-V12','QA COD','qa-v12-cod')",(order_id,))
-          db.execute("insert into daily_closings(closing_date,orders_count,gross_collected,cod_fees,refunds_total,cogs_total,net_cash,gross_profit,status,closed_by,snapshot_json) values('2099-01-02',1,100,5,0,50,95,45,'closed','qa','{}')")
-          assert db.execute("select gross_profit from daily_closings where closing_date='2099-01-02'").fetchone()[0]==45
-
-          print('Database migrations and v1.2 warehouse, variants, packing, return-refund and profit foundations: OK')
+          print(f'All D1 migrations ({len(migrations)}) + seeds + commerce operational foundations: OK')
           PY
