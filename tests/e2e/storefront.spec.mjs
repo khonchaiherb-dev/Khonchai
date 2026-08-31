@@ -51,7 +51,7 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
   }
 
   await page.locator('#product-grid [data-product="rang-jued-tea"]').click();
-  await expect(page.locator('h1').filter({hasText:'ชารางจืด'})).toBeVisible();
+  await expect(page.locator('.pdp-title')).toContainText('ชารางจืด');
   await expect(page.locator('[data-v17-variant="101"]')).toBeVisible();
 
   await page.locator('button[data-add="1"]:visible').last().click();
