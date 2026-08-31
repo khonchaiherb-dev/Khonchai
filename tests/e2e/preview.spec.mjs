@@ -56,7 +56,7 @@ test('capture branded storefront home and product preview',async({page},testInfo
     await expect(zone).toContainText('คัดมาให้คุณ');
     await expect(zone.locator('.recommend-head')).toBeHidden();
     await expect(zone.locator('.tshop-grid')).toBeHidden();
-    await expect(zone.locator('[data-product="herbal-balm"]')).toBeVisible();
+    await expect(zone.locator('.v07-recommend-block [data-product="herbal-balm"]')).toBeVisible();
   }else{
     await expect(page.locator('.v115-pdp-recommend-zone')).toHaveCount(0);
     await expect(page.locator('.recommend-head')).toBeVisible();
