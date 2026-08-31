@@ -52,6 +52,7 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
 
   const productCard=page.locator('#product-grid [data-product="rang-jued-tea"]');
   await expect(productCard.locator('.tshop-card-info')).toBeVisible();
+  await expect(productCard.locator('.tshop-card-title')).toContainText('ชารางจืดดีท็อกซ์');
   if(viewport.width<=390){
     await productCard.evaluate(el=>el.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'}));
     await page.waitForTimeout(120);
