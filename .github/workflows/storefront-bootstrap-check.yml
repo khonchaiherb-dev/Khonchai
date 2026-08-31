@@ -1,0 +1,46 @@
+name: Storefront D1 Bootstrap Check
+
+on:
+  push:
+    branches: [storefront-social-commerce]
+    paths:
+      - 'db/bootstrap-production.sql'
+      - '.github/workflows/storefront-bootstrap-check.yml'
+  pull_request:
+    branches: [storefront-social-commerce]
+    paths:
+      - 'db/bootstrap-production.sql'
+      - '.github/workflows/storefront-bootstrap-check.yml'
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate fresh D1 bootstrap
+        run: |
+          python3 - <<'PY'
+          import sqlite3
+          from pathlib import Path
+          sql=Path('db/bootstrap-production.sql').read_text()
+          db=sqlite3.connect(':memory:')
+          db.executescript(sql)
+          tables={r[0] for r in db.execute("select name from sqlite_master where type='table'")}
+          required={
+            'products','orders','order_items','payments','shipments','coupons',
+            'product_variants','stock_reservations','financial_ledger','daily_closings',
+            'purchase_orders','suppliers','notification_outbox','staff_users','staff_sessions',
+            'rate_limit_buckets','approval_requests','order_request_registry','maintenance_runs',
+            'system_integrity_snapshots'
+          }
+          missing=sorted(required-tables)
+          assert not missing, f'missing tables: {missing}'
+          assert db.execute('select count(*) from products').fetchone()[0] == 6
+          assert db.execute('select count(*) from coupons').fetchone()[0] >= 2
+          assert db.execute('select count(*) from creators').fetchone()[0] >= 3
+          assert db.execute('select count(*) from promotions').fetchone()[0] >= 2
+          assert db.execute('select count(*) from product_variants').fetchone()[0] == 6
+          assert db.execute("select value from store_settings where key='timezone'").fetchone()[0] == 'Asia/Bangkok'
+          print('fresh production bootstrap: OK')
+          PY
