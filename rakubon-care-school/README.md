@@ -27,13 +27,26 @@
 - Build output directory: `.`
 
 ## Auto Deploy จาก GitHub
-มี workflow ที่ `.github/workflows/rukubon-cloudflare-pages.yml` สำหรับ deploy เว็บไซต์อัตโนมัติเมื่อมีการ push การเปลี่ยนแปลงใน `rakubon-care-school/`
+Workflow: `.github/workflows/rukubon-cloudflare-pages.yml`
+
+ระบบถูกตั้งให้ทำงานดังนี้:
+1. ตรวจว่ามี Cloudflare credentials ครบหรือไม่
+2. ติดตั้ง Wrangler
+3. ตรวจหา Cloudflare Pages project ชื่อ `rukubon-healthcare-school`
+4. หากยังไม่มี project ระบบจะสร้างให้อัตโนมัติ
+5. Deploy โฟลเดอร์ `rakubon-care-school` ไปยัง Cloudflare Pages
+6. แสดง Deployment URL ใน GitHub Actions Summary
 
 GitHub repository ต้องมี Actions secrets 2 ค่า:
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 
-เมื่อ Cloudflare Pages project ชื่อ `rukubon-healthcare-school` ถูกสร้างและกำหนด secrets แล้ว ทุกการอัปเดตเว็บไซต์ใน branch `rakubon-care-school` จะ trigger deployment อัตโนมัติ และ GitHub Actions จะแสดง deployment URL ที่ได้จาก Cloudflare
+API Token ควรมีสิทธิ์ที่เพียงพอสำหรับจัดการ Cloudflare Pages ของบัญชีที่ต้องการใช้ deploy เว็บไซต์
+
+### สถานะการทดสอบล่าสุด
+GitHub Actions เริ่มทำงานได้แล้ว แต่ deployment ยังหยุดที่ขั้น Cloudflare เพราะ repository ยังไม่ได้รับค่า `CLOUDFLARE_API_TOKEN` และ `CLOUDFLARE_ACCOUNT_ID` จากบัญชี Cloudflare
+
+หลังเพิ่ม secrets ทั้งสองค่าแล้ว สามารถกด Re-run workflow เดิมได้ทันที โดยไม่ต้องแก้โค้ดเว็บไซต์ใหม่
 
 ## Production readiness
 - `index.html` หน้าเว็บไซต์หลัก
