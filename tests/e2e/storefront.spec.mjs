@@ -48,6 +48,8 @@ async function readMobileTouchTrace(page){
 }
 
 async function tapVisualViewport(page,locator,label='element'){
+  const anchored=await locator.evaluate(el=>{for(let node=el;node;node=node.parentElement){const position=getComputedStyle(node).position;if(position==='fixed'||position==='sticky')return true}return false});
+  if(anchored){await page.evaluate(()=>window.scrollTo({top:0,left:0,behavior:'instant'}));await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))))}
   const point=await locator.evaluate(async(el,name)=>{
     const frames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -62,7 +64,7 @@ async function tapVisualViewport(page,locator,label='element'){
           const hit=document.elementFromPoint(x,y);
           if(hit&&(hit===el||el.contains(hit))){
             const vv=window.visualViewport,offsetX=vv?.offsetLeft||0,offsetY=vv?.offsetTop||0;
-            return {label:name,x,y,inputX:x-offsetX,inputY:y-offsetY,scrollX:window.scrollX||0,scrollY:window.scrollY||0,hit:typeof hit.className==='string'?hit.className:hit.tagName,rect:geometry,layoutViewport:[innerWidth,innerHeight],visualViewport:vv?{offsetLeft:vv.offsetLeft,offsetTop:vv.offsetTop,pageLeft:vv.pageLeft,pageTop:vv.pageTop,width:vv.width,height:vv.height,scale:vv.scale}:null};
+            return {label:name,x,y,inputX:x-offsetX,inputY:y-offsetY,scrollX:window.scrollX||0,scrollY:window.scrollY||0,hit:typeof hit.className==='string'?hit.className:hit.tagName,rect:geometry,anchored,layoutViewport:[innerWidth,innerHeight],visualViewport:vv?{offsetLeft:vv.offsetLeft,offsetTop:vv.offsetTop,pageLeft:vv.pageLeft,pageTop:vv.pageTop,width:vv.width,height:vv.height,scale:vv.scale}:null};
           }
         }
       }
