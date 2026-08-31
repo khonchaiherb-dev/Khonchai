@@ -1,4 +1,4 @@
-import {defineConfig} from '@playwright/test';
+import {defineConfig,devices} from '@playwright/test';
 
 export default defineConfig({
   testDir:'./tests/e2e',
@@ -14,7 +14,7 @@ export default defineConfig({
     screenshot:'only-on-failure'
   },
   projects:[
-    {name:'mobile-390',use:{viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
+    {name:'mobile-390',use:{...devices['iPhone 13'],browserName:'chromium',viewport:{width:390,height:844},screen:{width:390,height:844}}},
     {name:'tablet-820',use:{viewport:{width:820,height:1180},hasTouch:true}},
     {name:'desktop-1440',use:{viewport:{width:1440,height:1000}}}
   ],
