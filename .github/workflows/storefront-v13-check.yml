@@ -1,0 +1,73 @@
+name: Storefront v1.3 Operations Check
+
+on:
+  push:
+    branches: [storefront-social-commerce]
+  pull_request:
+    branches: [storefront-social-commerce]
+
+jobs:
+  verify-v13:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate v1.3 operational schema
+        run: |
+          python3 - <<'PY'
+          import sqlite3
+          from pathlib import Path
+          db=sqlite3.connect(':memory:')
+          for path in [
+            Path('db/migrations/0001_init.sql'),
+            Path('db/migrations/0002_production_hardening.sql'),
+            Path('db/migrations/0003_social_commerce.sql'),
+            Path('db/migrations/0004_attribution_analytics.sql'),
+            Path('db/migrations/0005_growth_engine.sql'),
+            Path('db/migrations/0006_customer_platform.sql'),
+            Path('db/migrations/0007_customer_service.sql'),
+            Path('db/migrations/0008_production_readiness.sql'),
+            Path('db/migrations/0009_fulfillment_finance.sql'),
+            Path('db/migrations/0010_warehouse_customer_experience.sql'),
+            Path('db/migrations/0011_production_operations.sql'),
+            Path('db/seed.sql'),
+            Path('db/seed-social.sql'),
+            Path('db/seed-growth.sql'),
+            Path('db/seed-production.sql'),
+          ]: db.executescript(path.read_text())
+          tables={r[0] for r in db.execute("select name from sqlite_master where type='table'")}
+          assert {'suppliers','goods_receipts','goods_receipt_items','inventory_lots','picking_waves','picking_wave_orders','notification_outbox'} <= tables
+          po_cols={r[1] for r in db.execute('pragma table_info(purchase_orders)')}
+          assert {'supplier_id','approval_status','approved_by','approved_at','rejection_note'} <= po_cols
+
+          db.execute("insert into suppliers(code,name,lead_time_days) values('SUP-QA','QA Supplier',5)")
+          supplier_id=db.execute("select id from suppliers where code='SUP-QA'").fetchone()[0]
+          product_id=db.execute("select id from products order by id limit 1").fetchone()[0]
+          db.execute("insert into purchase_orders(po_no,supplier_id,supplier_name,status,approval_status) values('PO-V13-QA',?,'QA Supplier','draft','pending')",(supplier_id,))
+          po_id=db.execute("select id from purchase_orders where po_no='PO-V13-QA'").fetchone()[0]
+          db.execute("insert into purchase_order_items(purchase_order_id,product_id,sku,qty_ordered,unit_cost) select ?,id,sku,10,20 from products where id=?",(po_id,product_id))
+          db.execute("update purchase_orders set approval_status='approved',status='ordered',approved_by='qa',approved_at=datetime('now') where id=?",(po_id,))
+          assert db.execute("select approval_status from purchase_orders where id=?",(po_id,)).fetchone()[0]=='approved'
+
+          db.execute("insert into goods_receipts(receipt_no,purchase_order_id,supplier_id,external_ref,received_by) values('GR-V13-QA',?,?,'INV-QA','qa')",(po_id,supplier_id))
+          gr_id=db.execute("select id from goods_receipts where receipt_no='GR-V13-QA'").fetchone()[0]
+          poi_id=db.execute("select id from purchase_order_items where purchase_order_id=?",(po_id,)).fetchone()[0]
+          db.execute("insert into goods_receipt_items(goods_receipt_id,purchase_order_item_id,product_id,qty_received,unit_cost) values(?,?,?,?,20)",(gr_id,poi_id,product_id,5))
+          db.execute("insert into inventory_lots(product_id,source_type,source_ref,qty_received,qty_remaining,unit_cost) values(?,'purchase_order','PO-V13-QA:GR-V13-QA',5,5,20)",(product_id,))
+          assert db.execute("select sum(qty_remaining) from inventory_lots where product_id=?",(product_id,)).fetchone()[0]==5
+
+          db.execute("insert into customers(phone,full_name) values('0888888888','V13 Customer')")
+          cid=db.execute("select id from customers where phone='0888888888'").fetchone()[0]
+          db.execute("insert into orders(order_no,customer_id,customer_name,phone,address_json,subtotal,discount_total,shipping_total,total,payment_method,payment_status,fulfillment_status,status) values('KCH-V13-QA',?,'V13 Customer','0888888888','{}',100,0,0,100,'COD','unpaid','pending','pending')",(cid,))
+          oid=db.execute("select id from orders where order_no='KCH-V13-QA'").fetchone()[0]
+          db.execute("insert into order_items(order_id,product_id,sku,product_name,unit_price,qty,line_total) select ?,id,sku,name,100,1,100 from products where id=?",(oid,product_id))
+          db.execute("insert into picking_waves(wave_no,status,created_by) values('WV-V13-QA','open','qa')")
+          wid=db.execute("select id from picking_waves where wave_no='WV-V13-QA'").fetchone()[0]
+          db.execute("insert into picking_wave_orders(wave_id,order_id) values(?,?)",(wid,oid))
+          assert db.execute("select count(*) from picking_wave_orders").fetchone()[0]==1
+
+          db.execute("insert into order_events(order_id,event_type,note) values(?,'packing','QA packing')",(oid,))
+          q=db.execute("select template_key,status from notification_outbox where order_id=?",(oid,)).fetchone()
+          assert q==('packing','pending')
+          print('v1.3 suppliers, PO approval, receiving lots, picking waves and notification queue: OK')
+          PY
