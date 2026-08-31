@@ -1,6 +1,6 @@
 {
   "name": "khonchaiherb-commerce",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "private": true,
   "description": "Mobile-first social commerce storefront for KHONCHAIHERB, prepared for Cloudflare Pages + D1 + R2",
   "scripts": {
@@ -8,6 +8,7 @@
     "qa:syntax": "node tests/syntax-check.mjs",
     "qa:interaction": "node tests/storefront-interaction-smoke.mjs",
     "qa:variants": "node tests/storefront-variant-smoke.mjs",
-    "check": "node tests/syntax-check.mjs && node tests/storefront-interaction-smoke.mjs && node tests/storefront-variant-smoke.mjs"
+    "qa:v18": "node tests/storefront-v18-smoke.mjs",
+    "check": "node tests/syntax-check.mjs && node tests/storefront-interaction-smoke.mjs && node tests/storefront-variant-smoke.mjs && node tests/storefront-v18-smoke.mjs"
   }
 }
