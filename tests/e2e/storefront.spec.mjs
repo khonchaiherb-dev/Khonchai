@@ -50,7 +50,8 @@ async function readMobileTouchTrace(page){
 async function tapVisualViewport(page,locator,label='element'){
   const anchored=await locator.evaluate(el=>{for(let node=el;node;node=node.parentElement){const position=getComputedStyle(node).position;if(position==='fixed'||position==='sticky')return true}return false});
   if(anchored){await page.evaluate(()=>window.scrollTo({top:0,left:0,behavior:'instant'}));await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))))}
-  const point=await locator.evaluate(async(el,name)=>{
+  const point=await locator.evaluate(async(el,args)=>{
+    const {name,anchored}=args;
     const frames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     let previous=null;
@@ -72,7 +73,7 @@ async function tapVisualViewport(page,locator,label='element'){
     }
     const r=el.getBoundingClientRect(),x=Math.max(1,Math.min(innerWidth-2,r.left+r.width/2)),y=Math.max(1,Math.min(innerHeight-2,r.top+r.height/2)),hit=document.elementFromPoint(x,y);
     throw new Error(`mobile ${name} has no stable touch hit target: rect=${JSON.stringify([r.left,r.top,r.width,r.height])} viewport=${innerWidth}x${innerHeight} visual=${JSON.stringify(window.visualViewport?{offsetTop:visualViewport.offsetTop,width:visualViewport.width,height:visualViewport.height}:null)} hit=${hit?.className||hit?.tagName||'none'}`);
-  },label);
+  },{name:label,anchored});
   const visualWidth=point.visualViewport?.width||point.layoutViewport?.[0]||0,visualHeight=point.visualViewport?.height||point.layoutViewport?.[1]||0;
   if(!(point.inputX>0&&point.inputY>0&&point.inputX<visualWidth&&point.inputY<visualHeight))throw new Error(`mobile ${label} visual-viewport coordinate invalid: ${JSON.stringify(point)}`);
   await page.touchscreen.tap(point.inputX,point.inputY);return point;
