@@ -7,6 +7,8 @@ const products=[
 const coupons=[{code:'WELCOME50',type:'fixed',value:50,min_spend:499,max_discount:50,new_customer_only:1}];
 
 async function mockCommerce(page,state){
+  await page.route('https://fonts.googleapis.com/**',route=>route.fulfill({status:200,contentType:'text/css',body:''}));
+  await page.route('https://fonts.gstatic.com/**',route=>route.fulfill({status:204,body:''}));
   await page.route('**/api/**',async route=>{
     const req=route.request(),u=new URL(req.url()),path=u.pathname,method=req.method();
     const fulfill=(body,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
