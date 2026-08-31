@@ -1,0 +1,45 @@
+name: Deploy RUKUBON Healthcare School
+
+on:
+  push:
+    branches:
+      - rakubon-care-school
+    paths:
+      - 'rakubon-care-school/**'
+      - '.github/workflows/rukubon-cloudflare-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: rukubon-cloudflare-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy to Cloudflare Pages
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Deploy RUKUBON website
+        id: deploy
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: rakubon-care-school
+          command: pages deploy . --project-name=rukubon-healthcare-school --branch=${{ github.ref_name }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Show deployment URL
+        if: success()
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+          DEPLOYMENT_ALIAS_URL: ${{ steps.deploy.outputs.pages-deployment-alias-url }}
+        run: |
+          echo "Deployment URL: ${DEPLOYMENT_URL}"
+          echo "Alias URL: ${DEPLOYMENT_ALIAS_URL}"
