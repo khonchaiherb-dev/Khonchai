@@ -27,6 +27,59 @@ async function mockCommerce(page,state){
   });
 }
 
+async function installMobileTouchTrace(page){
+  await page.evaluate(()=>{
+    window.__kchTouchTrace=[];
+    const describe=target=>{
+      const el=target&&target.nodeType===1?target:null;
+      const card=el?.closest?.('.tshop-card[data-product]');
+      return {
+        tag:el?.tagName||null,
+        className:typeof el?.className==='string'?el.className:null,
+        product:card?.dataset?.product||null
+      };
+    };
+    const state=()=>({
+      current:typeof current!=='undefined'?current:null,
+      hotfix:window.__KCH_INTERACTION_HOTFIX__||null,
+      build:document.documentElement.dataset.kchBuild||null,
+      productType:typeof product,
+      pdp:!!document.querySelector('.pdp-title')
+    });
+    const record=e=>{
+      const t=e.changedTouches?.[0]||e.touches?.[0]||null;
+      window.__kchTouchTrace.push({
+        type:e.type,
+        ...describe(e.target),
+        pointerType:e.pointerType||null,
+        pointerId:e.pointerId??null,
+        clientX:t?.clientX??e.clientX??null,
+        clientY:t?.clientY??e.clientY??null,
+        touches:e.touches?.length??null,
+        changedTouches:e.changedTouches?.length??null,
+        defaultPrevented:e.defaultPrevented,
+        ...state()
+      });
+    };
+    ['touchstart','touchmove','touchend','touchcancel','pointerdown','pointermove','pointerup','pointercancel','click'].forEach(type=>document.addEventListener(type,record,true));
+    window.__kchTouchTrace.push({type:'trace-installed',...state()});
+  });
+}
+
+async function readMobileTouchTrace(page){
+  return page.evaluate(()=>({
+    events:Array.isArray(window.__kchTouchTrace)?window.__kchTouchTrace:[],
+    final:{
+      current:typeof current!=='undefined'?current:null,
+      hotfix:window.__KCH_INTERACTION_HOTFIX__||null,
+      build:document.documentElement.dataset.kchBuild||null,
+      productType:typeof product,
+      pdp:!!document.querySelector('.pdp-title'),
+      bodyClass:document.body.className||null
+    }
+  }));
+}
+
 async function tapStableCard(page,locator){
   const point=await locator.evaluate(async el=>{
     const frames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
@@ -90,8 +143,13 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
   await expect(productCard.locator('.tshop-card-info')).toBeVisible();
   await expect(productTitle).toContainText('ชารางจืดดีท็อกซ์');
   if(viewport.width<=390){
+    await installMobileTouchTrace(page);
     const touchPoint=await tapStableCard(page,productCard);
     await testInfo.attach('mobile-touch-hit',{body:Buffer.from(JSON.stringify(touchPoint)),contentType:'application/json'});
+    await page.waitForTimeout(180);
+    const trace=await readMobileTouchTrace(page);
+    await testInfo.attach('mobile-touch-trace',{body:Buffer.from(JSON.stringify(trace,null,2)),contentType:'application/json'});
+    if(!trace.final.pdp)throw new Error(`mobile touch reached stable card but PDP did not open: ${JSON.stringify({touchPoint,trace})}`);
   }else{
     await productCard.click();
   }
