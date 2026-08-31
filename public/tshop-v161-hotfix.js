@@ -1,8 +1,8 @@
-/* KHONCHAIHERB Commerce v1.7.0 — storefront interaction reliability */
+/* KHONCHAIHERB Commerce v1.7.1 — storefront interaction reliability */
 (()=>{
-  if(window.__KCH_INTERACTION_HOTFIX__==='1.7.0')return;
-  window.__KCH_INTERACTION_HOTFIX__='1.7.0';
-  try{document.documentElement.dataset.kchBuild='1.7.0'}catch{}
+  if(window.__KCH_INTERACTION_HOTFIX__==='1.7.1')return;
+  window.__KCH_INTERACTION_HOTFIX__='1.7.1';
+  try{document.documentElement.dataset.kchBuild='1.7.1'}catch{}
 
   const stop=e=>{e.preventDefault();e.stopImmediatePropagation()};
   const enabled=el=>el&&!el.disabled&&el.getAttribute('aria-disabled')!=='true';
@@ -30,7 +30,9 @@
   document.addEventListener('pointercancel',e=>{if(productPointer?.pointerId===e.pointerId)productPointer=null},true);
   document.addEventListener('pointerup',e=>{
     const intent=productPointer;if(!intent||intent.pointerId!==e.pointerId)return;productPointer=null;
-    if(intent.moved||intent.card?.isConnected!==false||typeof current==='undefined'||current!=='home')return;
+    if(intent.moved||typeof current==='undefined'||current!=='home')return;
+    const touch=e.pointerType==='touch',replaced=intent.card?.isConnected===false;
+    if(!touch&&!replaced)return;
     const p=Array.isArray(PRODUCTS)?PRODUCTS.find(x=>x.slug===intent.slug):null;
     if(p&&typeof product==='function'){stop(e);product(p);syncUi()}
   },true);
@@ -50,7 +52,7 @@
     if(el.matches('[data-product]')){if(interactiveTarget(target))return;stop(e);const slug=el.dataset.product,p=Array.isArray(PRODUCTS)?PRODUCTS.find(x=>x.slug===slug):null;if(p&&typeof product==='function')product(p);syncUi()}
   },true);
 
-  if(typeof navigator!=='undefined'&&'serviceWorker' in navigator){navigator.serviceWorker.addEventListener('controllerchange',()=>{try{const key='kch-sw-1.7.0-reloaded';if(!sessionStorage.getItem(key)){sessionStorage.setItem(key,'1');location.reload()}}catch{}})}
+  if(typeof navigator!=='undefined'&&'serviceWorker' in navigator){navigator.serviceWorker.addEventListener('controllerchange',()=>{try{const key='kch-sw-1.7.1-reloaded';if(!sessionStorage.getItem(key)){sessionStorage.setItem(key,'1');location.reload()}}catch{}})}
   const boot=()=>{try{ensureMobileHitArea();if(typeof current!=='undefined'&&current==='home'&&typeof home==='function')home();else if(typeof bind==='function')bind();syncUi()}catch(err){console.error('KCH interaction boot failed',err)}};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else queueMicrotask(boot);
 })();
