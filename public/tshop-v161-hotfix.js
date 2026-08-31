@@ -10,11 +10,13 @@
   const removeDrawer=()=>document.querySelector('#v05-product-drawer')?.remove();
   const interactiveTarget=target=>target?.closest?.('button,a,input,select,textarea,label');
   const ensureMobileHitArea=()=>{
-    if(document.getElementById('kch-mobile-product-hitarea'))return;
+    if(typeof document==='undefined'||typeof document.createElement!=='function')return;
+    if(typeof document.getElementById==='function'&&document.getElementById('kch-mobile-product-hitarea'))return;
     const style=document.createElement('style');
     style.id='kch-mobile-product-hitarea';
     style.textContent='@media (max-width:480px){#product-grid .tshop-card>.visual{pointer-events:none!important}#product-grid .tshop-card>.tshop-card-info{position:relative;z-index:2}}';
-    (document.head||document.documentElement).appendChild(style);
+    const host=document.head||document.documentElement;
+    if(host&&typeof host.appendChild==='function')host.appendChild(style);
   };
   ensureMobileHitArea();
   let productPointer=null;
