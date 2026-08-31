@@ -50,7 +50,9 @@ test('browse → variant-safe cart → checkout → COD confirmation on real bro
     expect(shell.width).toBeGreaterThan(viewport.width*0.9);
   }
 
-  await page.locator('#product-grid [data-product="rang-jued-tea"]').click();
+  const productCard=page.locator('#product-grid [data-product="rang-jued-tea"]');
+  await expect(productCard.locator('.tshop-card-info')).toBeVisible();
+  await productCard.locator('.tshop-card-info').click();
   await expect(page.locator('.pdp-title')).toContainText('ชารางจืด');
   await expect(page.locator('[data-v17-variant="101"]')).toBeVisible();
 
