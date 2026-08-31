@@ -9,6 +9,14 @@
   const syncUi=()=>{try{const nav=document.querySelector('.tshop-bottom');if(nav)nav.hidden=typeof current!=='undefined'&&['product','checkout'].includes(current);if(typeof count==='function')document.querySelectorAll('.badge').forEach(x=>x.textContent=count())}catch{}};
   const removeDrawer=()=>document.querySelector('#v05-product-drawer')?.remove();
   const interactiveTarget=target=>target?.closest?.('button,a,input,select,textarea,label');
+  const ensureMobileHitArea=()=>{
+    if(document.getElementById('kch-mobile-product-hitarea'))return;
+    const style=document.createElement('style');
+    style.id='kch-mobile-product-hitarea';
+    style.textContent='@media (max-width:480px){#product-grid .tshop-card>.visual{pointer-events:none!important}#product-grid .tshop-card>.tshop-card-info{position:relative;z-index:2}}';
+    (document.head||document.documentElement).appendChild(style);
+  };
+  ensureMobileHitArea();
   let productPointer=null;
 
   document.addEventListener('pointerdown',e=>{
@@ -41,6 +49,6 @@
   },true);
 
   if(typeof navigator!=='undefined'&&'serviceWorker' in navigator){navigator.serviceWorker.addEventListener('controllerchange',()=>{try{const key='kch-sw-1.7.0-reloaded';if(!sessionStorage.getItem(key)){sessionStorage.setItem(key,'1');location.reload()}}catch{}})}
-  const boot=()=>{try{if(typeof current!=='undefined'&&current==='home'&&typeof home==='function')home();else if(typeof bind==='function')bind();syncUi()}catch(err){console.error('KCH interaction boot failed',err)}};
+  const boot=()=>{try{ensureMobileHitArea();if(typeof current!=='undefined'&&current==='home'&&typeof home==='function')home();else if(typeof bind==='function')bind();syncUi()}catch(err){console.error('KCH interaction boot failed',err)}};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else queueMicrotask(boot);
 })();
