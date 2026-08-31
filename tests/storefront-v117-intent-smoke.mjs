@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const css=fs.readFileSync('public/tshop-v117.css','utf8');
+const source=fs.readFileSync('public/tshop-v117.js','utf8');
+const html=fs.readFileSync('public/index.html','utf8');
+const sw=fs.readFileSync('public/sw.js','utf8');
+const health=fs.readFileSync('functions/api/health.js','utf8');
+const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+const build=(html.match(/name="kch-build" content="([^"]+)"/)||[])[1];assert.ok(build);assert.equal(pkg.version,build);const p=build.split('.').map(Number);assert.ok(p[0]>1||(p[0]===1&&p[1]>=17));
+assert.ok(html.includes(`tshop-v117.css?v=${build}`));assert.ok(html.includes(`tshop-v117.js?v=${build}`));assert.ok(html.indexOf(`tshop-v117.js?v=${build}`)>html.indexOf(`tshop-v116.js?v=${build}`));assert.ok(sw.includes(`/tshop-v117.css?v=${build}`));assert.ok(sw.includes(`/tshop-v117.js?v=${build}`));assert.ok(health.includes(`version:'${build}'`));assert.match(health,/recentlyViewed:true/);assert.match(health,/localWishlist:true/);assert.match(health,/searchHistory:true/);assert.match(health,/cartRecommendations:true/);assert.match(health,/sellerMobileTableTools:true/);
+assert.match(source,/V117_RECENT_KEY='kch-recent-v117'/);assert.match(source,/V117_FAV_KEY='kch-favorites-v117'/);assert.match(source,/V117_SEARCH_KEY='kch-search-history-v117'/);assert.match(source,/localStorage\.setItem/);assert.match(source,/v117RecordRecent/);assert.match(source,/v117ToggleFavorite/);assert.match(source,/v117RecordSearch/);assert.match(source,/v117CartRecommendations/);assert.match(source,/v117EnhanceSeller/);assert.match(source,/data-v117-fav/);assert.match(source,/data-v117-search/);assert.match(source,/MutationObserver/);assert.match(source,/window\.__KCH_INTENT__/);
+assert.match(css,/\.v117-intent-section/);assert.match(css,/\.v117-card-fav/);assert.match(css,/\.v117-history/);assert.match(css,/\.v117-cart-recs/);assert.match(css,/\.v117-seller-tools/);assert.match(css,/@media\(max-width:699px\)/);assert.match(css,/@media\(min-width:700px\) and \(max-width:1023px\)/);assert.match(css,/@media\(min-width:1024px\)/);assert.match(css,/prefers-reduced-motion:reduce/);
+assert.ok(pkg.scripts['qa:v117']);assert.match(pkg.scripts.check,/storefront-v117-intent-smoke\.mjs/);
+console.log('storefront v1.17 recently viewed + wishlist + search history + cart recommendations smoke: OK');
