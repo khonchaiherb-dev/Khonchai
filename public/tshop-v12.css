@@ -1,0 +1,44 @@
+/* KHONCHAIHERB Commerce v1.2 */
+.v12-variants{margin-top:18px;padding:16px;border:1px solid #ececec;border-radius:18px;background:#fff}
+.v12-variant-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}
+.v12-variant-head small{color:#777}
+.v12-variant-grid{display:flex;gap:8px;overflow:auto;padding-bottom:2px}
+.v12-variant-grid button{min-width:112px;border:1px solid #ddd;background:#fff;border-radius:14px;padding:10px;text-align:left}
+.v12-variant-grid button span,.v12-variant-grid button small{display:block}
+.v12-variant-grid button b{display:block;margin:4px 0}
+.v12-variant-grid button.active{border:2px solid #111;background:#f7f7f7}
+.v12-variant-grid button.soldout{opacity:.45}
+.v12-warehouse{margin-top:18px}
+.v12-warehouse>.head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.v12-warehouse>.head span{font-weight:800;border:1px solid #ddd;border-radius:999px;padding:6px 10px}
+.v12-tools{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:12px}
+.v12-tools button{border:1px solid #e8e8e8;background:#fff;border-radius:16px;padding:14px;text-align:left;min-height:104px}
+.v12-tools button .material-symbols-rounded{display:block;font-size:28px;margin-bottom:8px}
+.v12-tools b,.v12-tools small{display:block}
+.v12-tools small{margin-top:4px;color:#777;line-height:1.35}
+.v12-modal{max-width:900px;max-height:88vh;overflow:auto;padding:4px}
+.v12-title{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.v12-title p,.v12-modal>p{color:#666}
+.v12-low{margin:14px 0;padding:12px;border-radius:16px;background:#faf8f2}
+.v12-low>div{display:grid;grid-template-columns:1fr auto auto;gap:10px;padding:8px 0;border-bottom:1px solid #eee;align-items:center}
+.v12-low>div:last-child{border-bottom:0}
+.v12-low span small,.v12-po-list span small,.v12-receive-list span small,.v12-pack-item span small,.v12-return-refund span small{display:block;color:#777}
+.v12-po-list article,.v12-receive-list article,.v12-pack-item,.v12-profit-list article,.v12-return-refund article{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #eee}
+.v12-po-list article>span,.v12-receive-list article>span,.v12-pack-item>span,.v12-profit-list article>span,.v12-return-refund article>span{flex:1}
+.v12-po-create{margin-top:18px;padding-top:14px;border-top:1px solid #e8e8e8}
+.v12-po-draft-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;background:#f7f7f7;border-radius:10px;margin:6px 0}
+.v12-receive-list input{width:90px}
+.v12-pack-status{padding:12px;border-radius:14px;background:#fff6dc;margin:14px 0}
+.v12-pack-status.complete{background:#e9f8ec}
+.v12-pack-status b,.v12-pack-status small{display:block}
+.v12-pack-item.ok{background:#f4fbf5}
+.v12-profit-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}
+.v12-profit-kpi span{padding:12px;border:1px solid #eee;border-radius:14px}
+.v12-profit-kpi b{display:block;margin-top:4px}
+.v12-profit-list article>div{display:flex;gap:10px;align-items:flex-end;flex-direction:column}
+.v12-profit-list strong{font-size:16px}
+@media(max-width:760px){
+  .v12-tools{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .v12-profit-kpi{grid-template-columns:repeat(2,1fr)}
+  .v12-title{align-items:center}
+}
