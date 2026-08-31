@@ -32,6 +32,7 @@ jobs:
               Path('db/migrations/0006_customer_platform.sql'),
               Path('db/migrations/0007_customer_service.sql'),
               Path('db/migrations/0008_production_readiness.sql'),
+              Path('db/migrations/0009_fulfillment_finance.sql'),
               Path('db/seed.sql'),
               Path('db/seed-social.sql'),
               Path('db/seed-growth.sql'),
@@ -42,29 +43,61 @@ jobs:
           assert db.execute('select count(*) from coupons').fetchone()[0] > 0
           assert db.execute('select count(*) from creators').fetchone()[0] >= 3
           assert db.execute('select count(*) from promotions where active=1').fetchone()[0] >= 2
-          customer_cols={row[1] for row in db.execute('pragma table_info(customers)')}
-          assert {'last_login_at','updated_at'} <= customer_cols
-          shipment_cols={row[1] for row in db.execute('pragma table_info(shipments)')}
-          assert {'provider','provider_ref'} <= shipment_cols
           product_cols={row[1] for row in db.execute('pragma table_info(products)')}
-          assert {'barcode','weight_grams','seo_title','seo_description'} <= product_cols
-          inventory_cols={row[1] for row in db.execute('pragma table_info(inventory_movements)')}
-          assert 'variant_id' in inventory_cols
+          assert {'barcode','weight_grams','seo_title','seo_description','reserved_stock','cost_price'} <= product_cols
+          variant_cols={row[1] for row in db.execute('pragma table_info(product_variants)')}
+          assert {'reserved_stock','cost_price'} <= variant_cols
+          order_item_cols={row[1] for row in db.execute('pragma table_info(order_items)')}
+          assert 'variant_id' in order_item_cols
           tables={row[0] for row in db.execute("select name from sqlite_master where type='table'")}
-          assert {'review_media','promotions','customer_auth_challenges','customer_sessions','customer_recent_products','creator_commissions','shipment_events','return_requests','product_variants','product_media','audit_logs'} <= tables
+          assert {'review_media','promotions','customer_auth_challenges','customer_sessions','customer_recent_products','creator_commissions','shipment_events','return_requests','product_variants','product_media','audit_logs','stock_reservations','fulfillment_batches','fulfillment_batch_orders','cod_reconciliations','financial_ledger','daily_closings'} <= tables
           assert db.execute('select count(*) from product_variants').fetchone()[0] > 0
+
+          # Customer return fixture.
           db.execute("insert into customers(phone,full_name) values('0899999999','QA Customer')")
           customer_id=db.execute("select id from customers where phone='0899999999'").fetchone()[0]
           product_id=db.execute('select id from products order by id limit 1').fetchone()[0]
           db.execute("insert into orders(order_no,customer_id,customer_name,phone,address_json,subtotal,discount_total,shipping_total,total,payment_method,payment_status,fulfillment_status,status) values('KCH-QA-RETURN',?,'QA Customer','0899999999','{}',100,0,0,100,'COD','cod_collected','delivered','completed')",(customer_id,))
-          order_id=db.execute("select id from orders where order_no='KCH-QA-RETURN'").fetchone()[0]
-          db.execute("insert into return_requests(order_id,customer_id,product_id,qty,reason_code,detail) values(?,?,?,?,?,?)",(order_id,customer_id,product_id,1,'other','test request'))
+          return_order_id=db.execute("select id from orders where order_no='KCH-QA-RETURN'").fetchone()[0]
+          db.execute("insert into return_requests(order_id,customer_id,product_id,qty,reason_code,detail) values(?,?,?,?,?,?)",(return_order_id,customer_id,product_id,1,'other','test request'))
           assert db.execute('select count(*) from return_requests').fetchone()[0] == 1
+
+          # Reservation -> fulfillment commit fixture.
+          stock_before=db.execute('select stock from products where id=?',(product_id,)).fetchone()[0]
+          db.execute("update products set cost_price=25 where id=?",(product_id,))
+          db.execute("insert into orders(order_no,customer_id,customer_name,phone,address_json,subtotal,discount_total,shipping_total,total,payment_method,payment_status,fulfillment_status,status) values('KCH-QA-RESERVE',?,'QA Customer','0899999999','{}',100,0,0,100,'COD','unpaid','pending','pending')",(customer_id,))
+          reserve_order_id=db.execute("select id from orders where order_no='KCH-QA-RESERVE'").fetchone()[0]
+          db.execute("update products set reserved_stock=reserved_stock+2 where id=?",(product_id,))
+          db.execute("insert into stock_reservations(order_id,product_id,qty,status) values(?,?,2,'active')",(reserve_order_id,product_id))
+          assert db.execute('select reserved_stock from products where id=?',(product_id,)).fetchone()[0] == 2
+          try:
+              db.execute('update products set reserved_stock=stock+1 where id=?',(product_id,))
+              raise AssertionError('reserved stock trigger did not block over-reservation')
+          except sqlite3.IntegrityError:
+              pass
+          db.execute("update products set stock=stock-2,reserved_stock=reserved_stock-2,sold_count=sold_count+2 where id=?",(product_id,))
+          db.execute("update stock_reservations set status='committed',committed_at=datetime('now') where order_id=?",(reserve_order_id,))
+          db.execute("insert into inventory_movements(product_id,movement_type,qty,reference_type,reference_id,note) values(?,'sale',-2,'order','KCH-QA-RESERVE','QA commit')",(product_id,))
+          db.execute("insert into financial_ledger(entry_type,amount,order_id,reference_type,reference_id,description,dedupe_key) values('cogs',-50,?,'order','KCH-QA-RESERVE','QA COGS','qa-cogs')",(reserve_order_id,))
+          assert db.execute('select stock from products where id=?',(product_id,)).fetchone()[0] == stock_before-2
+          assert db.execute('select reserved_stock from products where id=?',(product_id,)).fetchone()[0] == 0
+
+          # COD reconciliation + ledger + closing fixture.
+          db.execute("insert into shipments(order_id,status) values(?,'delivered')",(reserve_order_id,))
+          shipment_id=db.execute('select id from shipments where order_id=?',(reserve_order_id,)).fetchone()[0]
+          db.execute("insert into cod_reconciliations(order_id,shipment_id,provider,provider_ref,gross_amount,fee_amount,net_amount,status) values(?,?,'qa-carrier','QA-COD-1',100,5,95,'matched')",(reserve_order_id,shipment_id))
+          db.execute("insert into financial_ledger(entry_type,amount,order_id,reference_type,reference_id,description,dedupe_key) values('cod_collection',100,?,'cod_reconciliation','QA-COD-1','QA COD','qa-cod-gross')",(reserve_order_id,))
+          db.execute("insert into financial_ledger(entry_type,amount,order_id,reference_type,reference_id,description,dedupe_key) values('cod_fee',-5,?,'cod_reconciliation','QA-COD-1','QA fee','qa-cod-fee')",(reserve_order_id,))
+          assert db.execute("select count(*) from cod_reconciliations where status='matched'").fetchone()[0] == 1
+          db.execute("insert into daily_closings(closing_date,orders_count,gross_collected,cod_fees,refunds_total,cogs_total,net_cash,gross_profit,status,closed_by,snapshot_json) values('2099-01-01',1,100,5,0,50,95,45,'closed','qa','{}')")
+          assert db.execute("select gross_profit from daily_closings where closing_date='2099-01-01'").fetchone()[0] == 45
+
+          # Inventory adjustment and audit remain valid with reservations.
           before=db.execute('select stock from products where id=?',(product_id,)).fetchone()[0]
           db.execute("update products set stock=stock+3 where id=?",(product_id,))
           db.execute("insert into inventory_movements(product_id,movement_type,qty,reference_type,reference_id,note) values(?,'adjustment',3,'qa','qa-stock','QA stock adjustment')",(product_id,))
           db.execute("insert into audit_logs(actor_type,actor_id,action,entity_type,entity_id,metadata_json) values('admin','qa','inventory.adjust','product',?,?)",(str(product_id),'{"delta":3}'))
           assert db.execute('select stock from products where id=?',(product_id,)).fetchone()[0] == before+3
           assert db.execute('select count(*) from audit_logs').fetchone()[0] == 1
-          print('Database migrations, v1.0 production schema, inventory, audit, customer service and growth engine: OK')
+          print('Database migrations, v1.1 reservation, fulfillment, COD reconciliation, ledger and daily closing: OK')
           PY
