@@ -7,8 +7,6 @@ const products=[
 ];
 
 async function mockPreview(page){
-  await page.route('https://fonts.googleapis.com/**',route=>route.fulfill({status:200,contentType:'text/css',body:''}));
-  await page.route('https://fonts.gstatic.com/**',route=>route.fulfill({status:204,body:''}));
   await page.route('**/api/**',route=>{
     const u=new URL(route.request().url()),path=u.pathname;
     const fulfill=(body,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
@@ -27,7 +25,8 @@ test('capture storefront home preview',async({page},testInfo)=>{
   await mockPreview(page);
   await page.goto('/?preview=1',{waitUntil:'domcontentloaded'});
   await expect(page.locator('#product-grid [data-product]').first()).toBeVisible();
-  await page.waitForTimeout(500);
+  await page.evaluate(async()=>{if(document.fonts?.ready)await document.fonts.ready});
+  await page.waitForTimeout(700);
   await mkdir('preview-screenshots',{recursive:true});
   await page.screenshot({path:`preview-screenshots/${testInfo.project.name}-home.png`,fullPage:true});
 });
