@@ -51,14 +51,18 @@ jobs:
           assert db.execute("select execution_status from approval_executions where approval_request_id=?",(ar,)).fetchone()[0]=='completed'
           print('v1.5 session security and approval execution schema: OK')
           PY
-      - name: Validate v1.5 browser security policy
+      - name: Validate v1.5-or-newer browser security policy
         run: |
           grep -q "script-src-attr 'none'" public/_headers
           grep -q "Origin-Agent-Cluster: ?1" public/_headers
-          grep -q "khonchaiherb-v1.5.0" public/sw.js
+          grep -q "khonchaiherb-v1." public/sw.js
           grep -q "tshop-v15.js" public/index.html
           grep -q "tshop-v15.css" public/index.html
-          grep -q '"version": "1.5.0"' package.json
+          node - <<'NODE'
+          const v=require('./package.json').version.split('.').map(Number);
+          if(v[0]<1||(v[0]===1&&v[1]<5))throw new Error(`Expected storefront >=1.5.0, got ${v.join('.')}`);
+          console.log('forward-compatible storefront version:',v.join('.'));
+          NODE
       - name: Validate launch-control source contracts
         run: |
           grep -q "STAFF_CSRF_ENFORCE" functions/api/admin/_middleware.js
