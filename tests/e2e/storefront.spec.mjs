@@ -64,8 +64,8 @@ async function tapVisualViewport(page,locator,label='element'){
           if(x<1||y<1||x>=innerWidth-1||y>=innerHeight-1)continue;
           const hit=document.elementFromPoint(x,y);
           if(hit&&(hit===el||el.contains(hit))){
-            const vv=window.visualViewport,offsetX=vv?.offsetLeft||0,offsetY=vv?.offsetTop||0;
-            return {label:name,x,y,inputX:anchored?x:x-offsetX,inputY:anchored?y:y-offsetY,scrollX:window.scrollX||0,scrollY:window.scrollY||0,hit:typeof hit.className==='string'?hit.className:hit.tagName,rect:geometry,anchored,layoutViewport:[innerWidth,innerHeight],visualViewport:vv?{offsetLeft:vv.offsetLeft,offsetTop:vv.offsetTop,pageLeft:vv.pageLeft,pageTop:vv.pageTop,width:vv.width,height:vv.height,scale:vv.scale}:null};
+            const vv=window.visualViewport,offsetX=vv?.offsetLeft||0,offsetY=vv?.offsetTop||0,vw=vv?.width||innerWidth,vh=vv?.height||innerHeight,adjustedX=x-offsetX,adjustedY=y-offsetY,rawValid=x>0&&y>0&&x<vw&&y<vh,adjustedValid=adjustedX>0&&adjustedY>0&&adjustedX<vw&&adjustedY<vh,useRaw=(anchored&&rawValid)||(!adjustedValid&&rawValid);
+            return {label:name,x,y,inputX:useRaw?x:adjustedX,inputY:useRaw?y:adjustedY,coordinateSpace:useRaw?'screen':'visual-adjusted',scrollX:window.scrollX||0,scrollY:window.scrollY||0,hit:typeof hit.className==='string'?hit.className:hit.tagName,rect:geometry,anchored,layoutViewport:[innerWidth,innerHeight],visualViewport:vv?{offsetLeft:vv.offsetLeft,offsetTop:vv.offsetTop,pageLeft:vv.pageLeft,pageTop:vv.pageTop,width:vv.width,height:vv.height,scale:vv.scale}:null};
           }
         }
       }
