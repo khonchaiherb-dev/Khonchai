@@ -1,8 +1,8 @@
-/* KHONCHAIHERB Commerce v1.7.2 — storefront interaction reliability */
+/* KHONCHAIHERB Commerce v1.7.3 — storefront interaction reliability */
 (()=>{
-  if(window.__KCH_INTERACTION_HOTFIX__==='1.7.2')return;
-  window.__KCH_INTERACTION_HOTFIX__='1.7.2';
-  try{document.documentElement.dataset.kchBuild='1.7.2'}catch{}
+  if(window.__KCH_INTERACTION_HOTFIX__==='1.7.3')return;
+  window.__KCH_INTERACTION_HOTFIX__='1.7.3';
+  try{document.documentElement.dataset.kchBuild='1.7.3'}catch{}
 
   const stop=e=>{e.preventDefault();e.stopImmediatePropagation()};
   const enabled=el=>el&&!el.disabled&&el.getAttribute('aria-disabled')!=='true';
@@ -14,7 +14,7 @@
     if(typeof document.getElementById==='function'&&document.getElementById('kch-mobile-product-hitarea'))return;
     const style=document.createElement('style');
     style.id='kch-mobile-product-hitarea';
-    style.textContent='@media (max-width:480px){#recommend,.v116-result-meta{pointer-events:none!important}#product-grid .tshop-card>.visual{pointer-events:none!important}#product-grid .tshop-card>.tshop-card-info{position:relative;z-index:2}}';
+    style.textContent='@media (max-width:480px){#recommend,.v116-result-meta{pointer-events:none!important}.v116-discovery{position:relative;z-index:1}#product-grid{position:relative;z-index:2}#product-grid .tshop-card{position:relative;z-index:1;scroll-margin-top:190px;scroll-margin-bottom:84px}#product-grid .tshop-card>.visual{pointer-events:none!important}#product-grid .tshop-card>.tshop-card-info{position:relative;z-index:2}}';
     const host=document.head||document.documentElement;
     if(host&&typeof host.appendChild==='function')host.appendChild(style);
   };
@@ -52,7 +52,7 @@
     if(el.matches('[data-product]')){if(interactiveTarget(target))return;stop(e);const slug=el.dataset.product,p=Array.isArray(PRODUCTS)?PRODUCTS.find(x=>x.slug===slug):null;if(p&&typeof product==='function')product(p);syncUi()}
   },true);
 
-  if(typeof navigator!=='undefined'&&'serviceWorker' in navigator){navigator.serviceWorker.addEventListener('controllerchange',()=>{try{const key='kch-sw-1.7.2-reloaded';if(!sessionStorage.getItem(key)){sessionStorage.setItem(key,'1');location.reload()}}catch{}})}
+  if(typeof navigator!=='undefined'&&'serviceWorker' in navigator){navigator.serviceWorker.addEventListener('controllerchange',()=>{try{const key='kch-sw-1.7.3-reloaded';if(!sessionStorage.getItem(key)){sessionStorage.setItem(key,'1');location.reload()}}catch{}})}
   const boot=()=>{try{ensureMobileHitArea();if(typeof current!=='undefined'&&current==='home'&&typeof home==='function')home();else if(typeof bind==='function')bind();syncUi()}catch(err){console.error('KCH interaction boot failed',err)}};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else queueMicrotask(boot);
 })();
