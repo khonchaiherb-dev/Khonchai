@@ -4,4 +4,4 @@ Disallow: /api/admin/
 Disallow: /seller
 Disallow: /admin
 
-Sitemap: https://khonchai.com/sitemap.xml
+Sitemap: https://khonchaiherb-commerce.pages.dev/sitemap.xml
