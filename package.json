@@ -19,9 +19,10 @@
     "qa:v116": "node tests/storefront-v116-discovery-smoke.mjs",
     "qa:v117": "node tests/storefront-v117-intent-smoke.mjs",
     "qa:v118": "node tests/storefront-v118-member-personalization-smoke.mjs",
+    "qa:product-media": "node tests/storefront-product-media-pdp20-smoke.mjs",
     "qa:stability": "node tests/storefront-production-stability-smoke.mjs",
     "qa:e2e": "playwright test",
-    "check": "node tests/syntax-check.mjs && node tests/storefront-interaction-smoke.mjs && node tests/storefront-variant-smoke.mjs && node tests/storefront-v18-smoke.mjs && node tests/storefront-v19-smoke.mjs && node tests/storefront-v110-smoke.mjs && node tests/storefront-v111-smoke.mjs && node tests/storefront-v112-smoke.mjs && node tests/storefront-v113-smoke.mjs && node tests/storefront-v114-responsive-smoke.mjs && node tests/storefront-v115-conversion-smoke.mjs && node tests/storefront-v116-discovery-smoke.mjs && node tests/storefront-v117-intent-smoke.mjs && node tests/storefront-v118-member-personalization-smoke.mjs && node tests/storefront-production-stability-smoke.mjs"
+    "check": "node tests/syntax-check.mjs && node tests/storefront-interaction-smoke.mjs && node tests/storefront-variant-smoke.mjs && node tests/storefront-v18-smoke.mjs && node tests/storefront-v19-smoke.mjs && node tests/storefront-v110-smoke.mjs && node tests/storefront-v111-smoke.mjs && node tests/storefront-v112-smoke.mjs && node tests/storefront-v113-smoke.mjs && node tests/storefront-v114-responsive-smoke.mjs && node tests/storefront-v115-conversion-smoke.mjs && node tests/storefront-v116-discovery-smoke.mjs && node tests/storefront-v117-intent-smoke.mjs && node tests/storefront-v118-member-personalization-smoke.mjs && node tests/storefront-product-media-pdp20-smoke.mjs && node tests/storefront-production-stability-smoke.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0"
