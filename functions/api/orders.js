@@ -30,7 +30,7 @@ export async function onRequestPost({request,env}){
   const ids=[...new Set(body.items.map(x=>Number(x.id)).filter(Number.isInteger))];
   if(!ids.length)return json({error:'invalid_items'},400);
   const placeholders=ids.map(()=>'?').join(',');
-  const pr=await env.DB.prepare(`SELECT id,sku,name,price,stock,COALESCE(reserved_stock,0) reserved_stock,active FROM products WHERE id IN (${placeholders})`).bind(...ids).all();
+  const pr=await env.DB.prepare(`SELECT id,sku,name,price,stock,COALESCE(reserved_stock,0) reserved_stock,active,COALESCE(sale_verified,0) sale_verified FROM products WHERE id IN (${placeholders})`).bind(...ids).all();
   const products=new Map((pr.results||[]).map(p=>[Number(p.id),p]));
   const variantIds=[...new Set(body.items.map(x=>posInt(x.variantId)).filter(Boolean))];
   const variants=new Map();
@@ -42,8 +42,8 @@ export async function onRequestPost({request,env}){
   let subtotal=0;const lines=[];
   for(const raw of body.items){
     const id=Number(raw.id),qty=Math.max(1,Math.min(20,Number(raw.qty)||1)),p=products.get(id),variantId=posInt(raw.variantId),v=variantId?variants.get(variantId):null;
-    if(!p||!p.active)return json({error:'product_unavailable',productId:id},409);
-    if(variantId&&(!v||Number(v.product_id)!==id||!Number(v.active)))return json({error:'variant_unavailable',productId:id,variantId},409);
+    if(!p||!p.active||!Number(p.sale_verified)||Number(p.price)<=0)return json({error:'product_unavailable',productId:id},409);
+    if(variantId&&(!v||Number(v.product_id)!==id||!Number(v.active)||Number(v.price)<=0))return json({error:'variant_unavailable',productId:id,variantId},409);
     const source=v||p,available=Math.max(0,Number(source.stock||0)-Number(source.reserved_stock||0));
     if(available<qty)return json({error:'insufficient_stock',productId:id,variantId:variantId||null,available},409);
     const unitPrice=Number(source.price),lineTotal=money(unitPrice*qty),sku=source.sku||p.sku||'',name=v?`${p.name} (${v.option_name}: ${v.option_value})`:p.name;
