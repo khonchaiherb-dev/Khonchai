@@ -3,6 +3,7 @@
   "compatibility_date": "2026-08-31",
   "pages_build_output_dir": "./public",
   "vars": {
+    "SITE_ORIGIN": "https://khonchai.com",
     "LEGACY_ADMIN_ENABLED": "false",
     "STAFF_CSRF_ENFORCE": "true",
     "PACKING_REQUIRE_VERIFICATION": "true",
