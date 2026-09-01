@@ -9,6 +9,12 @@ export async function onRequestGet({env}){
   if(tableState.security_events){const r=await env.DB.prepare("SELECT COUNT(*) c FROM security_events WHERE severity='critical' AND created_at>=datetime('now','-24 hours')").first();critical24h=Number(r?.c||0)}
   if(tableState.approval_requests){const r=await env.DB.prepare("SELECT COUNT(*) c FROM approval_requests WHERE status='pending'").first();pendingApprovals=Number(r?.c||0)}
   if(tableState.system_integrity_snapshots)latestIntegrity=await env.DB.prepare("SELECT id,status,score,anomalies_count,created_at FROM system_integrity_snapshots ORDER BY id DESC LIMIT 1").first();
+  const productColumns=await env.DB.prepare("PRAGMA table_info(products)").all(),saleGateReady=(productColumns.results||[]).some(x=>x.name==='sale_verified');
+  let catalog={verified:0,ready:0};
+  if(saleGateReady){const r=await env.DB.prepare(`SELECT
+    SUM(CASE WHEN sale_verified=1 THEN 1 ELSE 0 END) verified,
+    SUM(CASE WHEN active=1 AND sale_verified=1 AND price>0 AND MAX(0,stock-COALESCE(reserved_stock,0))>0 AND EXISTS(SELECT 1 FROM product_media m WHERE m.product_id=products.id AND m.active=1) THEN 1 ELSE 0 END) ready
+    FROM products`).first();catalog={verified:Number(r?.verified||0),ready:Number(r?.ready||0)}}
   const resilienceSchema=tableState.order_request_registry&&tableState.maintenance_runs&&tableState.system_integrity_snapshots;
   const orderGuard=bool(env.ORDER_IDEMPOTENCY_REQUIRED)||bool(env.PRODUCTION_MODE)||String(env.ENVIRONMENT||'').toLowerCase()==='production';
   const checks=[
@@ -16,6 +22,8 @@ export async function onRequestGet({env}){
     {key:'staff_schema',label:'Staff security schema',status:tableState.staff_session_meta?'pass':'fail',required:true,detail:tableState.staff_session_meta?'Migration 0013 พร้อม':'ต้อง apply migration 0013'},
     {key:'resilience_schema',label:'Resilience & recovery schema',status:resilienceSchema?'pass':'fail',required:true,detail:resilienceSchema?'Migration 0014 พร้อม':'ต้อง apply migration 0014'},
     {key:'favorites_schema',label:'Member favorites schema',status:tableState.customer_favorites?'pass':'fail',required:true,detail:tableState.customer_favorites?'Migration 0015 พร้อม':'ต้อง apply migration 0015'},
+    {key:'sale_gate_schema',label:'Product sale verification',status:saleGateReady?'pass':'fail',required:true,detail:saleGateReady?'Migration 0018 พร้อม':'ต้อง apply migration 0018'},
+    {key:'sale_catalog',label:'Verified products ready to sell',status:catalog.ready>0?'pass':'fail',required:true,detail:catalog.ready>0?`${catalog.ready} รายการพร้อมเปิดขาย`:`ยังไม่มีสินค้าที่ผ่านราคา + สต็อก + รูป + sale verification`},
     {key:'owner',label:'Owner account',status:staff.owners>0?'pass':'fail',required:true,detail:staff.owners>0?`${staff.owners} Owner active`:'ยังไม่มี Owner account'},
     {key:'admin_bridge',label:'Server admin bridge',status:env.ADMIN_TOKEN?'pass':'fail',required:true,detail:env.ADMIN_TOKEN?'ตั้งค่า ADMIN_TOKEN แล้ว':'ยังไม่ได้ตั้งค่า ADMIN_TOKEN'},
     {key:'rate_pepper',label:'Rate-limit privacy secret',status:env.RATE_LIMIT_PEPPER?'pass':'fail',required:true,detail:env.RATE_LIMIT_PEPPER?'ตั้งค่าแล้ว':'ต้องตั้ง RATE_LIMIT_PEPPER'},
@@ -36,5 +44,5 @@ export async function onRequestGet({env}){
     {key:'critical_events',label:'Critical security events 24h',status:critical24h===0?'pass':'warn',required:false,detail:critical24h===0?'ไม่พบ Critical event':`${critical24h} Critical events ใน 24 ชม.`}
   ];
   const required=checks.filter(x=>x.required),requiredPassed=required.filter(x=>x.status==='pass').length,score=Math.round(checks.filter(x=>x.status==='pass').length/checks.length*100);
-  return json({version:'1.18.2',ready:requiredPassed===required.length,score,requiredPassed,requiredTotal:required.length,staff,critical24h,pendingApprovals,latestIntegrity,stabilization:{browserE2E:true,compatibilityLayerFrozen:true,orderIdempotencyRequired:orderGuard},checks});
+  return json({version:'1.18.2',ready:requiredPassed===required.length,score,requiredPassed,requiredTotal:required.length,staff,catalog,critical24h,pendingApprovals,latestIntegrity,stabilization:{browserE2E:true,compatibilityLayerFrozen:true,orderIdempotencyRequired:orderGuard},checks});
 }
