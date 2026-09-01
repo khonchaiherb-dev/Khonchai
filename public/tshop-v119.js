@@ -1,6 +1,6 @@
 /* KHONCHAIHERB Commerce v1.19 — launch conversion patch */
 const V119_BUILD='1.19.0';
-const V119_STATE={frame:0,health:null,healthChecked:false,lastShelfKey:'',lastCartKey:'',lastCheckoutKey:'',draftBound:false};
+const V119_STATE={frame:0,health:null,healthChecked:false,lastShelfKey:'',lastCartKey:'',lastCheckoutKey:'',draftBound:false,sanitizing:false};
 const V119_DRAFT_KEY='kch-checkout-draft-session-v1';
 
 function v119IsReadyProduct(p){
@@ -8,6 +8,28 @@ function v119IsReadyProduct(p){
 }
 function v119ReadyProducts(){
   return (Array.isArray(PRODUCTS)?PRODUCTS:[]).filter(v119IsReadyProduct);
+}
+function v119SanitizeCart(){
+  if(typeof cart==='undefined'||!Array.isArray(cart)||!Array.isArray(PRODUCTS)||V119_STATE.sanitizing)return false;
+  let changed=false;
+  const next=[];
+  for(const line of cart){
+    const p=PRODUCTS.find(x=>Number(x.id)===Number(line.id));
+    if(!v119IsReadyProduct(p)){changed=true;continue}
+    const max=Math.max(1,Number(p.stock||1));
+    const nextQty=Math.max(1,Math.min(max,Number(line.qty||1)));
+    const merged={...line,...p,qty:nextQty,lineKey:line.lineKey||`${p.id}:${Number(line.variantId||0)}`};
+    if(nextQty!==Number(line.qty||1)||Number(line.price)!==Number(p.price)||String(line.image||'')!==String(p.image||''))changed=true;
+    next.push(merged);
+  }
+  if(!changed)return false;
+  V119_STATE.sanitizing=true;
+  cart=next;
+  if(typeof save==='function')save();
+  document.querySelectorAll('.badge').forEach(x=>x.textContent=typeof count==='function'?count():next.length);
+  const page=typeof current==='undefined'?'':String(current);
+  setTimeout(()=>{V119_STATE.sanitizing=false;if(page==='cart'&&typeof cartPage==='function')cartPage();else if(page==='checkout'&&typeof checkout==='function')checkout()},0);
+  return true;
 }
 function v119ReadDraft(){try{return JSON.parse(sessionStorage.getItem(V119_DRAFT_KEY)||'{}')||{}}catch{return {}}}
 function v119WriteDraft(v){try{sessionStorage.setItem(V119_DRAFT_KEY,JSON.stringify(v||{}))}catch{}}
@@ -142,7 +164,7 @@ function v119EnhanceHomeTrust(){
 }
 function v119Schedule(){
   if(V119_STATE.frame)return;
-  V119_STATE.frame=requestAnimationFrame(()=>{V119_STATE.frame=0;v119LaunchSafety();v119QuickShelf();v119CartLauncher();v119EnhanceCheckout();v119ProductHint();v119EnhanceHomeTrust()});
+  V119_STATE.frame=requestAnimationFrame(()=>{V119_STATE.frame=0;if(v119SanitizeCart())return;v119LaunchSafety();v119QuickShelf();v119CartLauncher();v119EnhanceCheckout();v119ProductHint();v119EnhanceHomeTrust()});
 }
 new MutationObserver(v119Schedule).observe(document.getElementById('app'),{childList:true,subtree:true,characterData:true});
 window.addEventListener('load',()=>{v119Schedule();v119CheckHealth()},{once:true});
