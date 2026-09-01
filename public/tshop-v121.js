@@ -173,9 +173,11 @@ function kchV121ApplyVerifiedDataGate(){
   kchV121SyncVerifiedUi();
 }
 kchV121ApplyVerifiedDataGate();
-if(typeof app!=='undefined'&&app){
+const kchV121Root=document.getElementById('app');
+if(kchV121Root){
   let kchV121Frame=0;
-  new MutationObserver(()=>{if(kchV121Frame)return;kchV121Frame=requestAnimationFrame(()=>{kchV121Frame=0;kchV121SyncVerifiedUi()})}).observe(app,{childList:true,subtree:true});
+  new MutationObserver(()=>{if(kchV121Frame)return;kchV121Frame=requestAnimationFrame(()=>{kchV121Frame=0;kchV121SyncVerifiedUi()})}).observe(kchV121Root,{childList:true,subtree:true,characterData:true});
+  requestAnimationFrame(()=>kchV121SyncVerifiedUi());
 }
 
 if(typeof v11Ship==='function'){
