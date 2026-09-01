@@ -34,14 +34,6 @@ jobs:
             exit 1
           fi
 
-      - name: Ensure Pages project exists
-        shell: bash
-        run: |
-          npx --yes wrangler@latest pages project list --json > /tmp/pages-projects.json
-          if ! node -e "const p=require('/tmp/pages-projects.json'); process.exit(p.some(x=>x.name==='khonchaiherb-commerce')?0:1)"; then
-            npx --yes wrangler@latest pages project create khonchaiherb-commerce --production-branch storefront-social-commerce
-          fi
-
       - name: Deploy storefront to Cloudflare Pages
         shell: bash
         run: |
