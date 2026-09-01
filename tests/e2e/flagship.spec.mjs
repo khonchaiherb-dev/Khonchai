@@ -29,11 +29,16 @@ test('digital flagship discovery and verified launch preview work across viewpor
   await expect(page.locator('.kch-shop-assistant-form input[type="search"]')).toBeVisible();
   const launch=page.locator('.kch-flagship-launch');
   await expect(launch).toBeVisible();
+  await launch.scrollIntoViewIfNeeded();
   await expect(launch).toContainText('เตรียมพบสินค้าใหม่จากคุณชายสมุนไพร');
   await expect(launch).toContainText('ราคาเร็ว ๆ นี้');
   await expect(launch.locator('.kch-launch-card')).toHaveCount(2);
-  await expect(launch.locator('img[src="/assets/products/chiang-da-tea-360.webp"]')).toBeVisible();
-  await expect(launch.locator('img[src="/assets/products/gymnema-capsules-100-512.webp"]')).toBeVisible();
+  const teaImage=launch.locator('img[src="/assets/products/chiang-da-tea-360.webp"]');
+  const capsuleImage=launch.locator('img[src="/assets/products/gymnema-capsules-100-512.webp"]');
+  await expect(teaImage).toBeVisible();
+  await expect(capsuleImage).toBeVisible();
+  await expect.poll(()=>teaImage.evaluate(img=>({complete:img.complete,width:img.naturalWidth}))).toMatchObject({complete:true,width:360});
+  await expect.poll(()=>capsuleImage.evaluate(img=>({complete:img.complete,width:img.naturalWidth}))).toMatchObject({complete:true,width:512});
   await expect(launch).toContainText('30 ซอง');
   await expect(launch).toContainText('100 แคปซูล');
 
