@@ -36,5 +36,5 @@ export async function onRequestGet({env}){
     {key:'critical_events',label:'Critical security events 24h',status:critical24h===0?'pass':'warn',required:false,detail:critical24h===0?'ไม่พบ Critical event':`${critical24h} Critical events ใน 24 ชม.`}
   ];
   const required=checks.filter(x=>x.required),requiredPassed=required.filter(x=>x.status==='pass').length,score=Math.round(checks.filter(x=>x.status==='pass').length/checks.length*100);
-  return json({version:'1.18.1',ready:requiredPassed===required.length,score,requiredPassed,requiredTotal:required.length,staff,critical24h,pendingApprovals,latestIntegrity,stabilization:{browserE2E:true,compatibilityLayerFrozen:true,orderIdempotencyRequired:orderGuard},checks});
+  return json({version:'1.18.2',ready:requiredPassed===required.length,score,requiredPassed,requiredTotal:required.length,staff,critical24h,pendingApprovals,latestIntegrity,stabilization:{browserE2E:true,compatibilityLayerFrozen:true,orderIdempotencyRequired:orderGuard},checks});
 }

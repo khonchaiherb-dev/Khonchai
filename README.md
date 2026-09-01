@@ -1,4 +1,4 @@
-# KHONCHAIHERB Commerce v0.3.2
+# KHONCHAIHERB Commerce v1.18.2
 
 Mobile-first social-commerce storefront for **KHONCHAIHERB**. The experience uses familiar marketplace patterns—fast product discovery, deals, coupons, short checkout and clear order tracking—without copying another platform's branding or interface.
 
@@ -12,6 +12,8 @@ Mobile-first social-commerce storefront for **KHONCHAIHERB**. The experience use
 - Customer order tracking using order number + phone verification
 - Receipt eligibility only after successful payment / confirmed COD collection
 - PWA service worker and security headers
+- Product pages show only verified-order reviews; no placeholder testimonials or invented review scores
+- Premium desktop product layout with clear availability status and honest coming-soon handling
 
 ## Seller Center
 - Protected with Cloudflare secret `ADMIN_TOKEN`
