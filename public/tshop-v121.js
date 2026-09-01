@@ -19,77 +19,102 @@ function kchV121EnsureStyles(){
   style.textContent=`
 .kch-v121-hidden{display:none!important}
 
-/* Readability standard — customer storefront */
-.v118-signature-home{font-size:16px;line-height:1.55}
-.v118-signature-home .tshop-searchbox input{font-size:15px!important;line-height:1.45!important}
-.v118-signature-home .shop-tabs button{font-size:14px!important;line-height:1.4!important;min-height:44px}
-.v118-signature-home .quick-icons button{font-size:13px!important;line-height:1.35!important}
-.v118-signature-home .v118-eyebrow{font-size:13px!important}
-.v118-signature-home .v118-hero-copy p{font-size:clamp(16px,1.35vw,20px)!important;line-height:1.75!important}
-.v118-signature-home .v118-hero-actions button{font-size:15px!important}
-.v118-signature-home .v118-hero-trust{font-size:13px!important;line-height:1.5!important}
-.v118-signature-home .v118-featured-product>span b{font-size:14px!important;line-height:1.45!important}
-.v118-signature-home .v118-featured-product>span small{font-size:16px!important;line-height:1.35!important}
-.v118-signature-home .v118-smart-head small{font-size:13px!important;line-height:1.55!important}
-.v118-signature-home .v118-smart-head>button{font-size:14px!important}
-.v118-signature-home .v118-smart-options b{font-size:14px!important;line-height:1.4!important}
-.v118-signature-home .v118-smart-options small{font-size:12.5px!important;line-height:1.5!important}
-.v118-signature-home .tshop-card b,.v118-signature-home .tshop-card .name{font-size:15px!important;line-height:1.45!important}
-.v118-signature-home .tshop-card small,.v118-signature-home .tshop-meta{font-size:12.5px!important;line-height:1.5!important}
-.v118-signature-home button,.v118-signature-home a{line-height:1.4}
+/* Accessible commerce typography — customer storefront */
+.v118-signature-home{font-size:17px;line-height:1.62}
+.v118-signature-home .tshop-searchbox input{font-size:17px!important;line-height:1.5!important}
+.v118-signature-home .shop-tabs button{font-size:16px!important;line-height:1.45!important;min-height:48px!important;padding-inline:16px!important}
+.v118-signature-home .quick-icons button{font-size:15px!important;line-height:1.45!important;min-height:48px!important}
+.v118-signature-home .v118-eyebrow{font-size:14px!important;line-height:1.45!important}
+.v118-signature-home .v118-hero-copy p{font-size:clamp(18px,1.45vw,21px)!important;line-height:1.78!important}
+.v118-signature-home .v118-hero-actions button{font-size:17px!important;min-height:54px!important;padding-inline:24px!important}
+.v118-signature-home .v118-hero-trust{font-size:15px!important;line-height:1.6!important}
+.v118-signature-home .v118-featured-product>span b{font-size:16px!important;line-height:1.5!important}
+.v118-signature-home .v118-featured-product>span small{font-size:19px!important;line-height:1.4!important}
+.v118-signature-home .v118-smart-head b{font-size:22px!important;line-height:1.35!important}
+.v118-signature-home .v118-smart-head small{font-size:15px!important;line-height:1.6!important}
+.v118-signature-home .v118-smart-head>button{font-size:16px!important;min-height:48px!important}
+.v118-signature-home .v118-smart-options>button{min-height:88px!important}
+.v118-signature-home .v118-smart-options b{font-size:16px!important;line-height:1.45!important}
+.v118-signature-home .v118-smart-options small{font-size:14px!important;line-height:1.55!important}
+.v118-signature-home .tshop-section-head h2,.v118-signature-home .recommend-head{line-height:1.35!important}
+.v118-signature-home .tshop-card b,.v118-signature-home .tshop-card .name{font-size:17px!important;line-height:1.5!important}
+.v118-signature-home .tshop-card small,.v118-signature-home .tshop-meta{font-size:14.5px!important;line-height:1.58!important}
+.v118-signature-home button,.v118-signature-home a{line-height:1.45}
 
 /* Product detail + trust */
-.v118-signature-pdp{font-size:16px;line-height:1.55}
-.v118-signature-pdp .v118-pdp-kicker>span:first-child{font-size:12.5px!important}
-.v118-signature-pdp .v118-pdp-kicker .ready,.v118-signature-pdp .v118-pdp-kicker .pending{font-size:12px!important}
-.v118-confidence-head small{font-size:13px!important;line-height:1.55!important}
-.v118-confidence-grid b{font-size:14px!important}
-.v118-confidence-grid small{font-size:12.5px!important;line-height:1.55!important}
-.v118-policy-links a{font-size:13px!important}
-.kch-pdp-assurance b{font-size:13px!important;line-height:1.4!important}
-.kch-pdp-assurance small{font-size:12px!important;line-height:1.5!important}
+.v118-signature-pdp{font-size:17px;line-height:1.62}
+.v118-signature-pdp .pdp-title{line-height:1.35!important}
+.v118-signature-pdp .v118-pdp-kicker>span:first-child{font-size:14px!important}
+.v118-signature-pdp .v118-pdp-kicker .ready,.v118-signature-pdp .v118-pdp-kicker .pending{font-size:13.5px!important;min-height:32px!important;padding-inline:11px!important}
+.v118-confidence-head b{font-size:18px!important;line-height:1.4!important}
+.v118-confidence-head small{font-size:15px!important;line-height:1.6!important}
+.v118-confidence-grid b{font-size:16px!important;line-height:1.45!important}
+.v118-confidence-grid small{font-size:14px!important;line-height:1.6!important}
+.v118-policy-links a{font-size:15px!important;line-height:1.5!important;min-height:40px!important;display:inline-flex!important;align-items:center!important}
+.kch-pdp-assurance b{font-size:15px!important;line-height:1.45!important}
+.kch-pdp-assurance small{font-size:14px!important;line-height:1.58!important}
+.v118-signature-pdp .pdp-bottom button,.v118-signature-pdp .buybar button{font-size:17px!important;min-height:54px!important}
 
 /* Sale-ready shelf + persistent cart */
-.kch-launch-status{font-size:13px!important;line-height:1.45!important}
-.kch-launch-status small{font-size:12px!important}
-.kch-ready-head span{font-size:12px!important}
-.kch-ready-head p{font-size:13px!important;line-height:1.55!important}
-.kch-ready-head button{font-size:13px!important}
-.kch-ready-copy b{font-size:14px!important;line-height:1.45!important}
-.kch-ready-copy small{font-size:16px!important}
-.kch-ready-copy em{font-size:12px!important}
-.kch-fast-cart-summary b{font-size:14px!important}
-.kch-fast-cart-summary small{font-size:12px!important}
-.kch-fast-cart-checkout{font-size:14px!important}
+.kch-launch-status{font-size:15px!important;line-height:1.55!important;padding:12px 16px!important}
+.kch-launch-status small{font-size:14px!important}
+.kch-ready-head span{font-size:14px!important;line-height:1.4!important}
+.kch-ready-head h2{line-height:1.3!important}
+.kch-ready-head p{font-size:15px!important;line-height:1.6!important}
+.kch-ready-head button{font-size:15px!important;min-height:48px!important;padding-inline:18px!important}
+.kch-ready-card{min-height:108px!important;padding:12px!important}
+.kch-ready-copy b{font-size:16px!important;line-height:1.5!important}
+.kch-ready-copy small{font-size:20px!important;line-height:1.35!important}
+.kch-ready-copy em{font-size:14px!important;line-height:1.45!important}
+.kch-fast-cart{padding:10px!important}
+.kch-fast-cart-summary{min-height:52px!important}
+.kch-fast-cart-summary b{font-size:16px!important;line-height:1.4!important}
+.kch-fast-cart-summary small{font-size:14px!important;line-height:1.45!important}
+.kch-fast-cart-checkout{font-size:16px!important;min-height:52px!important;min-width:138px!important}
 
-/* Checkout legibility */
-.checkout-form label,.payment label{font-size:14px!important;line-height:1.45!important}
-.checkout-form input,.checkout-form textarea,.checkout-form select{font-size:16px!important;line-height:1.45!important}
-.kch-checkout-progress b{font-size:13px!important}
-.kch-checkout-progress small{font-size:12px!important;line-height:1.4!important}
-.kch-cod-note b{font-size:13px!important}
-.kch-cod-note small{font-size:12px!important;line-height:1.55!important}
-.kch-system-note{font-size:12.5px!important;line-height:1.45!important}
-.kch-buy-hint b{font-size:13px!important}
-.kch-buy-hint small{font-size:12px!important;line-height:1.5!important}
+/* Checkout legibility + touch */
+.checkout-form label,.payment label{font-size:16px!important;line-height:1.5!important}
+.checkout-form input,.checkout-form textarea,.checkout-form select{font-size:17px!important;line-height:1.5!important;min-height:50px!important;padding:12px 14px!important}
+.kch-checkout-progress>div{min-height:58px!important}
+.kch-checkout-progress b{font-size:15px!important;line-height:1.45!important}
+.kch-checkout-progress small{font-size:14px!important;line-height:1.45!important}
+.kch-cod-note{padding:13px!important}
+.kch-cod-note b{font-size:15px!important;line-height:1.45!important}
+.kch-cod-note small{font-size:14px!important;line-height:1.6!important}
+.kch-system-note{font-size:14.5px!important;line-height:1.5!important;padding:12px!important}
+.kch-buy-hint{padding:13px 14px!important}
+.kch-buy-hint b{font-size:15px!important;line-height:1.45!important}
+.kch-buy-hint small{font-size:14px!important;line-height:1.58!important}
+.checkout-form button,.payment button,[data-place]{font-size:17px!important;min-height:54px!important}
 
 @media(max-width:699px){
-  .v118-signature-home{font-size:16px}
-  .v118-signature-home .shop-tabs button{font-size:14px!important;min-height:46px}
-  .v118-signature-home .quick-icons button{font-size:13px!important}
-  .v118-signature-home .v118-hero-copy p{font-size:16px!important;line-height:1.7!important}
-  .v118-signature-home .v118-hero-trust{font-size:13px!important}
-  .v118-signature-home .v118-smart-options b{font-size:14px!important}
-  .v118-signature-home .v118-smart-options small{font-size:13px!important}
-  .v118-signature-home .tshop-card b,.v118-signature-home .tshop-card .name{font-size:15px!important}
-  .v118-signature-pdp{font-size:16px}
-  .kch-pdp-assurance b{font-size:13px!important}
-  .kch-pdp-assurance small{font-size:12px!important}
-  .kch-fast-cart-summary b{font-size:14px!important}
-  .kch-fast-cart-summary small{font-size:12px!important}
-  .kch-fast-cart-checkout{font-size:14px!important;min-height:46px}
-  .kch-checkout-progress b{font-size:13px!important}
-  .checkout-form input,.checkout-form textarea,.checkout-form select{min-height:46px}
+  .v118-signature-home{font-size:17px;line-height:1.62}
+  .v118-signature-home .tshop-searchbox input{font-size:17px!important}
+  .v118-signature-home .shop-tabs button{font-size:16px!important;min-height:50px!important}
+  .v118-signature-home .quick-icons button{font-size:15px!important;min-height:50px!important}
+  .v118-signature-home .v118-hero-copy p{font-size:18px!important;line-height:1.72!important}
+  .v118-signature-home .v118-hero-actions button{font-size:17px!important;min-height:56px!important}
+  .v118-signature-home .v118-hero-trust{font-size:15px!important;line-height:1.6!important}
+  .v118-signature-home .v118-smart-options>button{min-height:92px!important}
+  .v118-signature-home .v118-smart-options b{font-size:16px!important}
+  .v118-signature-home .v118-smart-options small{font-size:14.5px!important}
+  .v118-signature-home .tshop-card b,.v118-signature-home .tshop-card .name{font-size:18px!important;line-height:1.5!important}
+  .v118-signature-home .tshop-card small,.v118-signature-home .tshop-meta{font-size:14.5px!important;line-height:1.58!important}
+  .v118-signature-pdp{font-size:17.5px;line-height:1.62}
+  .v118-confidence-head small{font-size:15px!important}
+  .v118-confidence-grid b{font-size:16px!important}
+  .v118-confidence-grid small{font-size:14px!important}
+  .kch-pdp-assurance b{font-size:15px!important}
+  .kch-pdp-assurance small{font-size:14px!important}
+  .kch-ready-copy b{font-size:17px!important}
+  .kch-ready-copy small{font-size:20px!important}
+  .kch-fast-cart-summary b{font-size:16px!important}
+  .kch-fast-cart-summary small{font-size:14px!important}
+  .kch-fast-cart-checkout{font-size:16px!important;min-height:54px!important;min-width:132px!important}
+  .kch-checkout-progress b{font-size:15px!important}
+  .checkout-form label,.payment label{font-size:16px!important}
+  .checkout-form input,.checkout-form textarea,.checkout-form select{font-size:17px!important;min-height:52px!important}
+  .checkout-form button,.payment button,[data-place]{font-size:17px!important;min-height:56px!important}
 }
 `;
   document.head.appendChild(style);
