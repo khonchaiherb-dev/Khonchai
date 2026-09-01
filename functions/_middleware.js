@@ -2,9 +2,9 @@ import {getCustomer} from './_lib/customer-auth.js';
 const digits=s=>String(s||'').replace(/\D/g,'');
 const phoneVariants=s=>{const d=digits(s);if(d.startsWith('66')&&d.length>=11)return [`0${d.slice(2)}`,d];if(d.startsWith('0')&&d.length>=9)return [d,`66${d.slice(1)}`];return [d,d]};
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
-const canonicalOrigin=env=>String(env?.SITE_ORIGIN||'https://khonchai.com').replace(/\/$/,'');
+const canonicalOrigin=env=>String(env?.SITE_ORIGIN||'https://khonchaiherb-commerce.pages.dev').replace(/\/$/,'');
 const canonicalHost=env=>new URL(canonicalOrigin(env)).host;
-const legacyHosts=new Set(['www.khonchai.com','khonchaiherb-commerce.pages.dev']);
+const legacyHosts=new Set(['khonchai.com','www.khonchai.com']);
 const canonicalRedirect=(request,env,u)=>{
   if(!['GET','HEAD'].includes(request.method))return null;
   const host=String(u.host||'').toLowerCase();
