@@ -23,6 +23,16 @@ jobs:
         env:
           CI: '1'
         run: npm run qa:e2e
+      - name: Upload Playwright diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: storefront-e2e-diagnostics
+          path: |
+            test-results
+            playwright-report
+          if-no-files-found: warn
+          retention-days: 7
       - name: Upload storefront previews
         if: always()
         uses: actions/upload-artifact@v6
