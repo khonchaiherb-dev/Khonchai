@@ -20,7 +20,15 @@
       }
     }catch{}
   };
-  const syncUi=()=>{try{const nav=document.querySelector('.tshop-bottom');if(nav)nav.hidden=typeof current!=='undefined'&&['product','checkout'].includes(current);if(typeof count==='function')document.querySelectorAll('.badge').forEach(x=>x.textContent=count());queueMicrotask?.(ensureBrandIdentity);if(typeof requestAnimationFrame==='function')requestAnimationFrame(ensureBrandIdentity)}catch{}};
+  const ensureFlagshipVisualPolish=()=>{
+    try{
+      if(typeof document==='undefined'||typeof document.createElement!=='function')return;
+      if(document.getElementById?.('kch-flagship-visual-polish'))return;
+      const style=document.createElement('style');style.id='kch-flagship-visual-polish';style.textContent='.v05-creator-section,.v118-brand-story{content-visibility:visible!important;contain-intrinsic-size:auto!important}.kch-launch-media img{display:block!important;opacity:1!important}';
+      const host=document.head||document.documentElement;if(host&&typeof host.appendChild==='function')host.appendChild(style);
+    }catch{}
+  };
+  const syncUi=()=>{try{const nav=document.querySelector('.tshop-bottom');if(nav)nav.hidden=typeof current!=='undefined'&&['product','checkout'].includes(current);if(typeof count==='function')document.querySelectorAll('.badge').forEach(x=>x.textContent=count());queueMicrotask?.(ensureBrandIdentity);queueMicrotask?.(ensureFlagshipVisualPolish);if(typeof requestAnimationFrame==='function')requestAnimationFrame(ensureBrandIdentity)}catch{}};
   const removeDrawer=()=>document.querySelector('#v05-product-drawer')?.remove();
   const interactiveTarget=target=>target?.closest?.('button,a,input,select,textarea,label');
   const openProductSlug=(slug,e)=>{
@@ -40,6 +48,7 @@
   };
   ensureMobileHitArea();
   ensureBrandIdentity();
+  ensureFlagshipVisualPolish();
   let productPointer=null,productTouch=null;
 
   document.addEventListener('pointerdown',e=>{
@@ -92,6 +101,6 @@
   },true);
 
   if(typeof navigator!=='undefined'&&'serviceWorker' in navigator){navigator.serviceWorker.addEventListener('controllerchange',()=>{try{const key='kch-sw-1.7.5-reloaded';if(!sessionStorage.getItem(key)){sessionStorage.setItem(key,'1');location.reload()}}catch{}})}
-  const boot=()=>{try{ensureMobileHitArea();ensureBrandIdentity();if(typeof current!=='undefined'&&current==='home'&&typeof home==='function')home();else if(typeof bind==='function')bind();syncUi()}catch(err){console.error('KCH interaction boot failed',err)}};
+  const boot=()=>{try{ensureMobileHitArea();ensureBrandIdentity();ensureFlagshipVisualPolish();if(typeof current!=='undefined'&&current==='home'&&typeof home==='function')home();else if(typeof bind==='function')bind();syncUi()}catch(err){console.error('KCH interaction boot failed',err)}};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else queueMicrotask(boot);
 })();
