@@ -38,12 +38,15 @@ test('capture latest customer-facing storefront without unverified commerce data
   await expect(page.locator('.tshop-hero')).toContainText('คุณชายสมุนไพร');
   await expect(page.locator('.tshop-hero')).toContainText('สมุนไพรไทยยุคใหม่');
   await expect(page.locator('.tshop-hero')).toContainText('รองรับเก็บเงินปลายทาง');
+  await expect(page.locator('.v118-launch-preview')).toHaveCount(3);
+  await expect(page.locator('.v118-hero-showcase')).toContainText('กำลังเตรียมเปิดจำหน่าย');
   await expect(page.locator('.kch-flagship-launch')).toBeVisible();
   await expect(page.locator('.kch-flagship-launch')).toContainText('เตรียมพบสินค้าใหม่จากคุณชายสมุนไพร');
   await expect(page.locator('.kch-flagship-launch')).toContainText('ราคาเร็ว ๆ นี้');
 
-  // Preview must not leak known seed/demo social proof into a customer-facing image.
+  // Preview must not leak known seed/demo price or social proof into a customer-facing image.
   const bodyText=await page.locator('body').innerText();
+  expect(bodyText).not.toContain('฿189');
   expect(bodyText).not.toContain('ขายแล้ว 1,248');
   expect(bodyText).not.toContain('ขายแล้ว 938');
   expect(bodyText).not.toContain('WELCOME50');
