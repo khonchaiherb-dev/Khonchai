@@ -6,6 +6,16 @@ const products=[
   {id:2,slug:'herbal-balm',sku:'KCH-BALM-001',name:'ยาหม่องสมุนไพรสูตรเข้มข้น',description:'กลิ่นสมุนไพรสดชื่น',category:'ดูแลร่างกาย',price:149,compare_at_price:199,rating:4.8,sold_count:938,stock:120,featured:1,image_url:null}
 ];
 
+const desktopMatrix=[
+  {width:1024,height:768,columns:3,label:'compact-1024'},
+  {width:1280,height:800,columns:4,label:'standard-1280'},
+  {width:1366,height:768,columns:4,label:'standard-1366'},
+  {width:1440,height:900,columns:4,label:'large-1440'},
+  {width:1600,height:900,columns:4,label:'large-1600'},
+  {width:1920,height:1080,columns:5,label:'wide-1920'},
+  {width:2560,height:1440,columns:5,label:'ultrawide-2560'}
+];
+
 async function mockPreview(page){
   await page.route('**/api/**',route=>{
     const u=new URL(route.request().url()),path=u.pathname;
@@ -20,6 +30,14 @@ async function mockPreview(page){
   });
 }
 
+async function waitForSignature(page){
+  await expect(page.locator('#product-grid [data-product]').first()).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>Boolean(window.__KCH_MEMBER_PERSONALIZATION__))).toBe(true);
+  await expect(page.locator('.shell')).toHaveClass(/v118-signature-home/);
+  await expect(page.locator('.tshop-hero')).toHaveAttribute('data-v118-signature','1');
+  await expect(page.locator('.v118-hero-showcase')).toBeVisible();
+}
+
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
 
 test('capture branded storefront home and product preview',async({page},testInfo)=>{
@@ -27,7 +45,7 @@ test('capture branded storefront home and product preview',async({page},testInfo
   page.on('pageerror',error=>pageErrors.push(error.message));
   await mockPreview(page);
   await page.goto('/?preview=1',{waitUntil:'domcontentloaded'});
-  await expect(page.locator('#product-grid [data-product]').first()).toBeVisible();
+  await waitForSignature(page);
 
   const runtime=await page.evaluate(()=>({
     memberRuntime:Boolean(window.__KCH_MEMBER_PERSONALIZATION__),
@@ -38,10 +56,6 @@ test('capture branded storefront home and product preview',async({page},testInfo
   }));
   console.log('v118 signature runtime:',JSON.stringify(runtime));
   if(pageErrors.length)console.log('browser page errors:',JSON.stringify(pageErrors));
-  await expect.poll(()=>page.evaluate(()=>Boolean(window.__KCH_MEMBER_PERSONALIZATION__))).toBe(true);
-  await expect(page.locator('.shell')).toHaveClass(/v118-signature-home/);
-  await expect(page.locator('.tshop-hero')).toHaveAttribute('data-v118-signature','1');
-  await expect(page.locator('.v118-hero-showcase')).toBeVisible();
 
   const pandan=page.locator('#product-grid [data-product="dried-pandan-leaves"]');
   await expect(pandan).toBeVisible();
@@ -79,4 +93,49 @@ test('capture branded storefront home and product preview',async({page},testInfo
   }
   await page.waitForTimeout(350);
   await page.screenshot({path:`preview-screenshots/${testInfo.project.name}-product.png`,fullPage:true});
+});
+
+test('desktop viewport matrix stays fluid without horizontal overflow',async({page},testInfo)=>{
+  test.skip(testInfo.project.name!=='desktop-1440','desktop matrix runs once on Chromium desktop project');
+  await mockPreview(page);
+  await mkdir('preview-screenshots',{recursive:true});
+
+  for(const viewport of desktopMatrix){
+    await page.setViewportSize({width:viewport.width,height:viewport.height});
+    await page.goto(`/?preview=${viewport.label}`,{waitUntil:'domcontentloaded'});
+    await waitForSignature(page);
+    await page.evaluate(async()=>{if(document.fonts?.ready)await document.fonts.ready});
+    await page.waitForTimeout(180);
+
+    const homeMetrics=await page.evaluate(()=>{
+      const root=document.documentElement,shell=document.querySelector('.v118-signature-home'),hero=document.querySelector('.tshop-hero'),nav=document.querySelector('.v115-desktop-nav'),grid=document.getElementById('product-grid');
+      const rect=el=>el?el.getBoundingClientRect():null;
+      const columns=grid?getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length:0;
+      return {scrollWidth:root.scrollWidth,clientWidth:root.clientWidth,shell:rect(shell),hero:rect(hero),nav:rect(nav),columns};
+    });
+    expect(homeMetrics.scrollWidth).toBeLessThanOrEqual(viewport.width+1);
+    expect(homeMetrics.clientWidth).toBe(viewport.width);
+    expect(homeMetrics.shell?.left??-2).toBeGreaterThanOrEqual(-1);
+    expect(homeMetrics.shell?.right??viewport.width+2).toBeLessThanOrEqual(viewport.width+1);
+    expect(homeMetrics.hero?.width??0).toBeGreaterThan(Math.min(760,viewport.width*0.68));
+    expect(homeMetrics.nav?.left??-2).toBeGreaterThanOrEqual(-1);
+    expect(homeMetrics.nav?.right??viewport.width+2).toBeLessThanOrEqual(viewport.width+1);
+    expect(homeMetrics.columns).toBe(viewport.columns);
+    await page.screenshot({path:`preview-screenshots/${viewport.label}-home-viewport.png`,fullPage:false});
+
+    await page.evaluate(()=>{const p=Array.isArray(PRODUCTS)?PRODUCTS.find(x=>x.slug==='rang-jued-tea'):null;if(p&&typeof product==='function')product(p)});
+    await expect(page.locator('.pdp-title')).toContainText('ชารางจืด');
+    await page.waitForTimeout(120);
+    const pdpMetrics=await page.evaluate(()=>{
+      const root=document.documentElement,pdp=document.querySelector('.tshop-pdp'),layout=document.querySelector('.v115-pdp-layout');
+      const rect=el=>el?el.getBoundingClientRect():null;
+      return {scrollWidth:root.scrollWidth,clientWidth:root.clientWidth,pdp:rect(pdp),layout:rect(layout)};
+    });
+    expect(pdpMetrics.scrollWidth).toBeLessThanOrEqual(viewport.width+1);
+    expect(pdpMetrics.clientWidth).toBe(viewport.width);
+    expect(pdpMetrics.pdp?.left??-2).toBeGreaterThanOrEqual(-1);
+    expect(pdpMetrics.pdp?.right??viewport.width+2).toBeLessThanOrEqual(viewport.width+1);
+    expect(pdpMetrics.layout?.width??0).toBeGreaterThan(Math.min(760,viewport.width*0.7));
+    await page.screenshot({path:`preview-screenshots/${viewport.label}-product-viewport.png`,fullPage:false});
+  }
 });
