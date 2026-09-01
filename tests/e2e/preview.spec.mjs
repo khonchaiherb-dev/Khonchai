@@ -52,12 +52,17 @@ test('capture latest customer-facing storefront without unverified commerce data
   await expect(page.locator('[data-scroll-voucher]:visible')).toHaveCount(0);
   await expect(page.locator('#recommend.recommend-head')).toHaveText('สินค้า');
   await expect(page.locator('[data-v116-sort] option[value="popular"]')).toHaveText('แนะนำ');
+  await expect(page.locator('#product-grid .tshop-card')).toHaveCount(0);
+  await expect(page.locator('[data-product="dried-pandan-leaves"]')).toHaveCount(0);
 
-  // Preview must not leak known seed/demo price or social proof into a customer-facing image.
+  // Preview must not leak seed/demo or staged zero-value commerce data into a customer-facing image.
   const bodyText=await page.locator('body').innerText();
   expect(bodyText).not.toContain('฿189');
+  expect(bodyText).not.toContain('฿0');
+  expect(bodyText).not.toContain('ขายแล้ว 0');
   expect(bodyText).not.toContain('ขายแล้ว 1,248');
   expect(bodyText).not.toContain('ขายแล้ว 938');
+  expect(bodyText).not.toContain('ใบเตยหอมอบแห้ง');
   expect(bodyText).not.toContain('WELCOME50');
   expect(bodyText).not.toContain('HERB10');
   expect(bodyText).not.toContain('สินค้าที่ได้รับความนิยม');
