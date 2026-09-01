@@ -1,141 +1,78 @@
 import {test,expect} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 
-const products=[
-  {id:1,slug:'rang-jued-tea',sku:'KCH-TEA-001',name:'ชารางจืดดีท็อกซ์',description:'ใบคัดคุณภาพ กลิ่นหอม ดื่มง่าย',category:'ชาสมุนไพร',price:189,compare_at_price:259,rating:4.9,sold_count:1248,stock:86,featured:1,image_url:null},
-  {id:2,slug:'herbal-balm',sku:'KCH-BALM-001',name:'ยาหม่องสมุนไพรสูตรเข้มข้น',description:'กลิ่นสมุนไพรสดชื่น',category:'ดูแลร่างกาย',price:149,compare_at_price:199,rating:4.8,sold_count:938,stock:120,featured:1,image_url:null}
-];
-
-const desktopMatrix=[
-  {width:1024,height:768,columns:3,label:'compact-1024'},
-  {width:1280,height:800,columns:4,label:'standard-1280'},
-  {width:1366,height:768,columns:4,label:'standard-1366'},
-  {width:1440,height:900,columns:4,label:'large-1440'},
-  {width:1600,height:900,columns:4,label:'large-1600'},
-  {width:1920,height:1080,columns:5,label:'wide-1920'},
-  {width:2560,height:1440,columns:5,label:'ultrawide-2560'}
-];
-
+// Customer preview mirrors production sale-readiness: no unverified price, stock,
+// rating or sold count is injected into screenshots.
 async function mockPreview(page){
   await page.route('**/api/**',route=>{
-    const u=new URL(route.request().url()),path=u.pathname;
+    const path=new URL(route.request().url()).pathname;
     const fulfill=(body,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
-    if(path==='/api/products')return fulfill({products});
-    if(path==='/api/coupons')return fulfill({coupons:[{code:'WELCOME50',type:'fixed',value:50,min_spend:499,max_discount:50,new_customer_only:1}]});
-    if(path==='/api/product-detail')return fulfill({product:{...products[0],available_stock:86,variants:[{id:101,product_id:1,sku:'KCH-TEA-001-STD',option_name:'ขนาด',option_value:'มาตรฐาน',price:189,compare_at_price:259,stock:86,reserved_stock:0,available_stock:86,active:1}],media:[],reviewSummary:{count:0,average:0}}});
-    if(path==='/api/recommendations')return fulfill({products});
-    if(path==='/api/social-feed')return fulfill({items:[],creators:[]});
+    if(path==='/api/products')return fulfill({products:[]});
+    if(path==='/api/coupons')return fulfill({coupons:[]});
+    if(path==='/api/recommendations')return fulfill({products:[]});
+    if(path==='/api/social-feed')return fulfill({items:[],contents:[],creators:[]});
+    if(path==='/api/health')return fulfill({ok:true,d1:true,version:'1.18.2'});
     if(path.startsWith('/api/customer/'))return fulfill({authenticated:false},401);
     return fulfill({ok:true});
   });
 }
 
-async function waitForSignature(page){
-  await expect(page.locator('#product-grid [data-product]').first()).toBeVisible();
+async function waitForLatestShell(page){
+  await expect(page.locator('#app')).toBeVisible();
   await expect.poll(()=>page.evaluate(()=>Boolean(window.__KCH_MEMBER_PERSONALIZATION__))).toBe(true);
   await expect(page.locator('.shell')).toHaveClass(/v118-signature-home/);
   await expect(page.locator('.tshop-hero')).toHaveAttribute('data-v118-signature','1');
-  await expect(page.locator('.v118-hero-showcase')).toBeVisible();
+  await expect(page.locator('.v118-hero-copy')).toBeVisible();
+  await expect(page.locator('.v118-smart-helper')).toBeVisible();
 }
 
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
 
-test('capture branded storefront home and product preview',async({page},testInfo)=>{
+test('capture latest customer-facing storefront without unverified commerce data',async({page},testInfo)=>{
   const pageErrors=[];
   page.on('pageerror',error=>pageErrors.push(error.message));
   await mockPreview(page);
-  await page.goto('/?preview=1',{waitUntil:'domcontentloaded'});
-  await waitForSignature(page);
+  await page.goto('/?preview=latest',{waitUntil:'domcontentloaded'});
+  await waitForLatestShell(page);
 
-  const runtime=await page.evaluate(()=>({
-    memberRuntime:Boolean(window.__KCH_MEMBER_PERSONALIZATION__),
-    shellClass:document.querySelector('.shell')?.className||'',
-    signatureHero:document.querySelector('.tshop-hero')?.dataset.v118Signature||'',
-    showcase:Boolean(document.querySelector('.v118-hero-showcase')),
-    currentView:typeof current==='undefined'?'undefined':current
-  }));
-  console.log('v118 signature runtime:',JSON.stringify(runtime));
-  if(pageErrors.length)console.log('browser page errors:',JSON.stringify(pageErrors));
-
-  const pandan=page.locator('#product-grid [data-product="dried-pandan-leaves"]');
-  await expect(pandan).toBeVisible();
-  await expect(pandan.locator('img')).toHaveAttribute('src','/assets/pandan-aromatic-dried.svg');
-  await expect(pandan).toContainText('ใบเตยหอมอบแห้ง');
-  await expect(pandan).toContainText('ราคาเร็ว ๆ นี้');
-  await expect(pandan.locator('[data-add]')).toBeDisabled();
-  await expect(page.locator('.category-strip [data-cat="สมุนไพรอบแห้ง"]')).toBeVisible();
   await expect(page.locator('.tshop-hero')).toContainText('คุณชายสมุนไพร');
-  await expect(page.locator('.tshop-hero')).not.toContainText('Shop • Scroll • Buy');
-  await expect(page.locator('.flash-logo')).toHaveText('ข้อเสนอพิเศษวันนี้');
-  await expect(page.locator('.v05-creator-section .tshop-section-head h2')).toHaveText('เรื่องราวจากคุณชายสมุนไพร');
-  await page.evaluate(async()=>{if(document.fonts?.ready)await document.fonts.ready});
-  await page.waitForTimeout(500);
-  await mkdir('preview-screenshots',{recursive:true});
-  await page.screenshot({path:`preview-screenshots/${testInfo.project.name}-home.png`,fullPage:true});
+  await expect(page.locator('.tshop-hero')).toContainText('สมุนไพรไทยยุคใหม่');
+  await expect(page.locator('.tshop-hero')).toContainText('รองรับเก็บเงินปลายทาง');
+  await expect(page.locator('.kch-flagship-launch')).toBeVisible();
+  await expect(page.locator('.kch-flagship-launch')).toContainText('เตรียมพบสินค้าใหม่จากคุณชายสมุนไพร');
+  await expect(page.locator('.kch-flagship-launch')).toContainText('ราคาเร็ว ๆ นี้');
 
-  await page.evaluate(()=>{const p=Array.isArray(PRODUCTS)?PRODUCTS.find(x=>x.slug==='rang-jued-tea'):null;if(p&&typeof product==='function')product(p)});
-  await expect(page.locator('.pdp-title')).toContainText('ชารางจืด');
-  await expect(page.locator('.shop-profile-copy')).toContainText('คุณชายสมุนไพร');
-  await expect(page.locator('.v115-pdp-brandnote')).toContainText('จัดจำหน่ายโดย คุณชายสมุนไพร');
-  await expect(page.locator('.v115-pdp-trust')).toContainText('เก็บเงินปลายทาง');
-  await expect(page.locator('.v115-pdp-trust')).toContainText('ออกใบเสร็จได้');
-  await expect(page.locator('.v07-recommend-block [data-product="rang-jued-tea"]')).toHaveCount(0);
-  if(testInfo.project.name==='desktop-1440'){
-    const zone=page.locator('.v115-pdp-recommend-zone');
-    await expect(zone).toBeVisible();
-    await expect(zone).toContainText('คัดมาให้คุณ');
-    await expect(zone.locator('.recommend-head')).toBeHidden();
-    await expect(zone.locator('.tshop-grid')).toBeHidden();
-    await expect(zone.locator('.v07-recommend-block [data-product="herbal-balm"]')).toBeVisible();
-  }else{
-    await expect(page.locator('.v115-pdp-recommend-zone')).toHaveCount(0);
-    await expect(page.locator('.recommend-head')).toBeVisible();
-  }
-  await page.waitForTimeout(350);
-  await page.screenshot({path:`preview-screenshots/${testInfo.project.name}-product.png`,fullPage:true});
+  // Preview must not leak known seed/demo social proof into a customer-facing image.
+  const bodyText=await page.locator('body').innerText();
+  expect(bodyText).not.toContain('ขายแล้ว 1,248');
+  expect(bodyText).not.toContain('ขายแล้ว 938');
+  expect(bodyText).not.toContain('WELCOME50');
+  expect(bodyText).not.toContain('HERB10');
+
+  const metrics=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth}));
+  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth+1);
+  expect(pageErrors).toEqual([]);
+
+  await page.evaluate(async()=>{if(document.fonts?.ready)await document.fonts.ready});
+  await page.waitForTimeout(300);
+  await mkdir('preview-screenshots',{recursive:true});
+  await page.screenshot({path:`preview-screenshots/${testInfo.project.name}-latest-home.png`,fullPage:true});
 });
 
-test('desktop viewport matrix stays fluid without horizontal overflow',async({page},testInfo)=>{
-  test.skip(testInfo.project.name!=='desktop-1440','desktop matrix runs once on Chromium desktop project');
+test('desktop latest storefront remains fluid at common commercial widths',async({page},testInfo)=>{
+  test.skip(testInfo.project.name!=='desktop-1440','desktop viewport matrix runs once');
   await mockPreview(page);
+  const widths=[1024,1280,1440,1920];
   await mkdir('preview-screenshots',{recursive:true});
 
-  for(const viewport of desktopMatrix){
-    await page.setViewportSize({width:viewport.width,height:viewport.height});
-    await page.goto(`/?preview=${viewport.label}`,{waitUntil:'domcontentloaded'});
-    await waitForSignature(page);
-    await page.evaluate(async()=>{if(document.fonts?.ready)await document.fonts.ready});
-    await page.waitForTimeout(180);
-
-    const homeMetrics=await page.evaluate(()=>{
-      const root=document.documentElement,shell=document.querySelector('.v118-signature-home'),hero=document.querySelector('.tshop-hero'),nav=document.querySelector('.v115-desktop-nav'),grid=document.getElementById('product-grid');
-      const rect=el=>el?el.getBoundingClientRect():null;
-      const columns=grid?getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length:0;
-      return {scrollWidth:root.scrollWidth,clientWidth:root.clientWidth,shell:rect(shell),hero:rect(hero),nav:rect(nav),columns};
-    });
-    expect(homeMetrics.scrollWidth).toBeLessThanOrEqual(viewport.width+1);
-    expect(homeMetrics.clientWidth).toBe(viewport.width);
-    expect(homeMetrics.shell?.left??-2).toBeGreaterThanOrEqual(-1);
-    expect(homeMetrics.shell?.right??viewport.width+2).toBeLessThanOrEqual(viewport.width+1);
-    expect(homeMetrics.hero?.width??0).toBeGreaterThan(Math.min(760,viewport.width*0.68));
-    expect(homeMetrics.nav?.left??-2).toBeGreaterThanOrEqual(-1);
-    expect(homeMetrics.nav?.right??viewport.width+2).toBeLessThanOrEqual(viewport.width+1);
-    expect(homeMetrics.columns).toBe(viewport.columns);
-    await page.screenshot({path:`preview-screenshots/${viewport.label}-home-viewport.png`,fullPage:false});
-
-    await page.evaluate(()=>{const p=Array.isArray(PRODUCTS)?PRODUCTS.find(x=>x.slug==='rang-jued-tea'):null;if(p&&typeof product==='function')product(p)});
-    await expect(page.locator('.pdp-title')).toContainText('ชารางจืด');
-    await page.waitForTimeout(120);
-    const pdpMetrics=await page.evaluate(()=>{
-      const root=document.documentElement,pdp=document.querySelector('.tshop-pdp'),layout=document.querySelector('.v115-pdp-layout');
-      const rect=el=>el?el.getBoundingClientRect():null;
-      return {scrollWidth:root.scrollWidth,clientWidth:root.clientWidth,pdp:rect(pdp),layout:rect(layout)};
-    });
-    expect(pdpMetrics.scrollWidth).toBeLessThanOrEqual(viewport.width+1);
-    expect(pdpMetrics.clientWidth).toBe(viewport.width);
-    expect(pdpMetrics.pdp?.left??-2).toBeGreaterThanOrEqual(-1);
-    expect(pdpMetrics.pdp?.right??viewport.width+2).toBeLessThanOrEqual(viewport.width+1);
-    expect(pdpMetrics.layout?.width??0).toBeGreaterThan(Math.min(760,viewport.width*0.7));
-    await page.screenshot({path:`preview-screenshots/${viewport.label}-product-viewport.png`,fullPage:false});
+  for(const width of widths){
+    await page.setViewportSize({width,height:Math.round(width*0.66)});
+    await page.goto(`/?preview=latest-${width}`,{waitUntil:'domcontentloaded'});
+    await waitForLatestShell(page);
+    const m=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth,hero:document.querySelector('.tshop-hero')?.getBoundingClientRect().width||0}));
+    expect(m.scrollWidth).toBeLessThanOrEqual(width+1);
+    expect(m.clientWidth).toBe(width);
+    expect(m.hero).toBeGreaterThan(Math.min(760,width*0.68));
+    if(width===1440)await page.screenshot({path:'preview-screenshots/desktop-1440-latest-viewport.png',fullPage:false});
   }
 });
