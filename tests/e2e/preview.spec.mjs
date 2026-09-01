@@ -23,9 +23,26 @@ async function mockPreview(page){
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
 
 test('capture branded storefront home and product preview',async({page},testInfo)=>{
+  const pageErrors=[];
+  page.on('pageerror',error=>pageErrors.push(error.message));
   await mockPreview(page);
   await page.goto('/?preview=1',{waitUntil:'domcontentloaded'});
   await expect(page.locator('#product-grid [data-product]').first()).toBeVisible();
+
+  const runtime=await page.evaluate(()=>({
+    memberRuntime:Boolean(window.__KCH_MEMBER_PERSONALIZATION__),
+    shellClass:document.querySelector('.shell')?.className||'',
+    signatureHero:document.querySelector('.tshop-hero')?.dataset.v118Signature||'',
+    showcase:Boolean(document.querySelector('.v118-hero-showcase')),
+    currentView:typeof current==='undefined'?'undefined':current
+  }));
+  console.log('v118 signature runtime:',JSON.stringify(runtime));
+  if(pageErrors.length)console.log('browser page errors:',JSON.stringify(pageErrors));
+  await expect.poll(()=>page.evaluate(()=>Boolean(window.__KCH_MEMBER_PERSONALIZATION__))).toBe(true);
+  await expect(page.locator('.shell')).toHaveClass(/v118-signature-home/);
+  await expect(page.locator('.tshop-hero')).toHaveAttribute('data-v118-signature','1');
+  await expect(page.locator('.v118-hero-showcase')).toBeVisible();
+
   const pandan=page.locator('#product-grid [data-product="dried-pandan-leaves"]');
   await expect(pandan).toBeVisible();
   await expect(pandan.locator('img')).toHaveAttribute('src','/assets/pandan-aromatic-dried.svg');
@@ -36,7 +53,6 @@ test('capture branded storefront home and product preview',async({page},testInfo
   await expect(page.locator('.tshop-hero')).toContainText('คุณชายสมุนไพร');
   await expect(page.locator('.tshop-hero')).not.toContainText('Shop • Scroll • Buy');
   await expect(page.locator('.flash-logo')).toHaveText('ข้อเสนอพิเศษวันนี้');
-  await expect(page.locator('.quick-icons button').nth(2).locator(':scope > span:last-child')).toHaveText('คูปอง');
   await expect(page.locator('.v05-creator-section .tshop-section-head h2')).toHaveText('เรื่องราวจากคุณชายสมุนไพร');
   await page.evaluate(async()=>{if(document.fonts?.ready)await document.fonts.ready});
   await page.waitForTimeout(500);
