@@ -91,8 +91,8 @@ test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear(
 
 test('browse → variant-safe cart → checkout → COD confirmation on real browser',async({page},testInfo)=>{
   const state={orderPayload:null};await mockCommerce(page,state);await page.goto('/?e2e=stability',{waitUntil:'domcontentloaded'});await expect(page.locator('#product-grid [data-product="rang-jued-tea-e2e"]')).toBeVisible();
-  const viewport=page.viewportSize(),shellWidth=await page.locator('.shell').first().evaluate(el=>el.getBoundingClientRect().width);expect(shellWidth).toBeGreaterThan(0);expect(shellWidth).toBeLessThanOrEqual(viewport.width+1);
-  if(viewport.width>=1024){expect(shellWidth).toBeGreaterThan(900);await expect(page.locator('.v115-desktop-nav')).toBeVisible();await expect(page.locator('nav.tshop-bottom')).toBeHidden()}else{await expect(page.locator('nav.tshop-bottom')).toBeVisible();expect(shellWidth).toBeGreaterThan(viewport.width*0.9)}
+  const viewport=page.viewportSize(),shell=page.locator('.shell').first(),shellWidth=await shell.evaluate(el=>el.getBoundingClientRect().width);expect(shellWidth).toBeGreaterThan(0);expect(shellWidth).toBeLessThanOrEqual(viewport.width+1);await expect(shell).toHaveClass(/v118-signature-home/);
+  if(viewport.width>=1024){expect(shellWidth).toBeGreaterThan(900);await expect(page.locator('.v118-hero-copy')).toBeVisible();await expect(page.locator('nav.tshop-bottom')).toBeHidden()}else{await expect(page.locator('nav.tshop-bottom')).toBeVisible();expect(shellWidth).toBeGreaterThan(viewport.width*0.9)}
 
   const productCard=page.locator('#product-grid [data-product="rang-jued-tea-e2e"]'),productTitle=productCard.locator('.tshop-card-title');await expect(productCard.locator('.tshop-card-info')).toBeVisible();await expect(productTitle).toContainText('ชารางจืด');
   if(viewport.width<=390){
