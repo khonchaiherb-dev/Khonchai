@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 
 // Customer preview mirrors production sale-readiness: no unverified price, stock,
-// rating or sold count is injected into screenshots.
+// rating, sold count, promotion or social proof is injected into screenshots.
 async function mockPreview(page){
   await page.route('**/api/**',route=>{
     const path=new URL(route.request().url()).pathname;
@@ -44,6 +44,15 @@ test('capture latest customer-facing storefront without unverified commerce data
   await expect(page.locator('.kch-flagship-launch')).toContainText('เตรียมพบสินค้าใหม่จากคุณชายสมุนไพร');
   await expect(page.locator('.kch-flagship-launch')).toContainText('ราคาเร็ว ๆ นี้');
 
+  // Empty verified feeds must remain truly empty on the customer surface.
+  await expect(page.locator('[data-live-jump]:visible')).toHaveCount(0);
+  await expect(page.locator('[data-v05-nav="live"]:visible')).toHaveCount(0);
+  await expect(page.locator('[data-v05-nav="video"]:visible')).toHaveCount(0);
+  await expect(page.locator('[data-scroll-deals]:visible')).toHaveCount(0);
+  await expect(page.locator('[data-scroll-voucher]:visible')).toHaveCount(0);
+  await expect(page.locator('#recommend.recommend-head')).toHaveText('สินค้า');
+  await expect(page.locator('[data-v116-sort] option[value="popular"]')).toHaveText('แนะนำ');
+
   // Preview must not leak known seed/demo price or social proof into a customer-facing image.
   const bodyText=await page.locator('body').innerText();
   expect(bodyText).not.toContain('฿189');
@@ -51,6 +60,9 @@ test('capture latest customer-facing storefront without unverified commerce data
   expect(bodyText).not.toContain('ขายแล้ว 938');
   expect(bodyText).not.toContain('WELCOME50');
   expect(bodyText).not.toContain('HERB10');
+  expect(bodyText).not.toContain('สินค้าที่ได้รับความนิยม');
+  expect(bodyText).not.toContain('12,800 ผู้ติดตาม');
+  expect(bodyText).not.toContain('1.2K');
 
   const metrics=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth}));
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth+1);
