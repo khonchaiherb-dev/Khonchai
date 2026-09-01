@@ -101,6 +101,19 @@
   },true);
 
   if(typeof navigator!=='undefined'&&'serviceWorker' in navigator){navigator.serviceWorker.addEventListener('controllerchange',()=>{try{const key='kch-sw-1.7.5-reloaded';if(!sessionStorage.getItem(key)){sessionStorage.setItem(key,'1');location.reload()}}catch{}})}
+  const installVerifiedFinalGuard=()=>{
+    try{
+      if(typeof v118PolishHomeCopy==='function'&&!v118PolishHomeCopy.__kchVerifiedGuard){
+        const base=v118PolishHomeCopy;
+        const guarded=function(){const out=base.apply(this,arguments);try{if(typeof kchV121SyncCatalogClaims==='function')kchV121SyncCatalogClaims()}catch{}return out};
+        guarded.__kchVerifiedGuard=true;
+        v118PolishHomeCopy=guarded;
+      }
+      if(typeof kchV121ApplyVerifiedDataGate==='function')kchV121ApplyVerifiedDataGate();
+      if(typeof kchV121SyncVerifiedUi==='function'){queueMicrotask(kchV121SyncVerifiedUi);requestAnimationFrame(kchV121SyncVerifiedUi)}
+    }catch{}
+  };
+  window.addEventListener('load',installVerifiedFinalGuard,{once:true});
   const boot=()=>{try{ensureMobileHitArea();ensureBrandIdentity();ensureFlagshipVisualPolish();if(typeof current!=='undefined'&&current==='home'&&typeof home==='function')home();else if(typeof bind==='function')bind();syncUi()}catch(err){console.error('KCH interaction boot failed',err)}};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else queueMicrotask(boot);
 })();
