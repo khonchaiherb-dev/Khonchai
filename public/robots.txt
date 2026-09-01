@@ -3,3 +3,5 @@ Allow: /
 Disallow: /api/admin/
 Disallow: /seller
 Disallow: /admin
+
+Sitemap: https://khonchai.com/sitemap.xml
