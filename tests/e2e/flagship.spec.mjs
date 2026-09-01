@@ -1,8 +1,10 @@
 import {test,expect} from '@playwright/test';
 
+// Browser-only fixtures intentionally use non-production IDs and zero social proof.
+// They verify interaction paths without presenting seed/demo metrics as real store data.
 const products=[
-  {id:1,slug:'rang-jued-tea',sku:'KCH-TEA-001',name:'ชารางจืดคัดพิเศษ',description:'ใบคัดคุณภาพ กลิ่นหอม ดื่มง่าย',category:'ชาสมุนไพร',price:189,compare_at_price:259,rating:4.9,sold_count:1248,stock:86,featured:1,image_url:null},
-  {id:2,slug:'herbal-balm',sku:'KCH-BALM-001',name:'บาล์มสมุนไพรสูตรเข้มข้น',description:'กลิ่นสมุนไพรสดชื่น',category:'ดูแลร่างกาย',price:149,compare_at_price:199,rating:4.8,sold_count:938,stock:120,featured:1,image_url:null}
+  {id:901,slug:'rang-jued-tea-e2e',sku:'E2E-TEA-901',name:'ชารางจืดสำหรับทดสอบระบบ',description:'ข้อมูลสำหรับทดสอบเส้นทางเลือกซื้อเท่านั้น',category:'ชาสมุนไพร',price:190,compare_at_price:null,rating:0,sold_count:0,stock:5,featured:1,image_url:'/assets/products/rang-jued-tea-360.webp'},
+  {id:902,slug:'chiang-da-tea-e2e',sku:'E2E-TEA-902',name:'ชาเชียงดาสำหรับทดสอบระบบ',description:'ข้อมูลสำหรับทดสอบเส้นทางเลือกซื้อเท่านั้น',category:'ชาสมุนไพร',price:220,compare_at_price:null,rating:0,sold_count:0,stock:5,featured:1,image_url:'/assets/products/chiang-da-tea-360.webp'}
 ];
 
 async function mockStore(page){
@@ -13,6 +15,7 @@ async function mockStore(page){
     if(path==='/api/coupons')return fulfill({coupons:[]});
     if(path==='/api/recommendations')return fulfill({products});
     if(path==='/api/social-feed')return fulfill({items:[],contents:[],creators:[]});
+    if(path==='/api/health')return fulfill({ok:true,d1:true,version:'1.18.2'});
     if(path.startsWith('/api/customer/'))return fulfill({authenticated:false},401);
     return fulfill({ok:true});
   });
