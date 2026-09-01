@@ -17,7 +17,8 @@ export async function onRequestGet({request,env}){
       WHERE created_at>=datetime('now','-30 day') AND product_id IS NOT NULL
       GROUP BY product_id
     ) e ON e.product_id=p.id
-    WHERE p.active=1 AND p.stock>0
+    WHERE p.active=1 AND p.sale_verified=1 AND p.price>0 AND MAX(0,p.stock-COALESCE(p.reserved_stock,0))>0
+      AND EXISTS(SELECT 1 FROM product_media m WHERE m.product_id=p.id AND m.active=1)
     LIMIT 200`).all();
   const rows=r.results||[];
   const current=productId?rows.find(x=>Number(x.id)===productId):null,currentCategory=norm(current?.category);
