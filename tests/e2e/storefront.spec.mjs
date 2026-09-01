@@ -20,7 +20,7 @@ async function mockCommerce(page,state){
     if(path==='/api/health')return fulfill({ok:true,d1:true,version:'1.18.2'});
     if(path==='/api/customer/me'||path==='/api/customer/favorites'||path==='/api/customer/personalized'||path==='/api/customer/recent'||path==='/api/customer/rewards')return fulfill({authenticated:false},401);
     if(path==='/api/recommendations')return fulfill({products});
-    if(path==='/api/social-feed')return fulfill({items:[],creators:[]});
+    if(path==='/api/social-feed')return fulfill({items:[],creators:[],contents:[]});
     if(path==='/api/commerce-event'&&method==='POST')return fulfill({ok:true});
     if(path==='/api/orders'&&method==='POST'){
       state.orderPayload=JSON.parse(req.postData()||'{}');
@@ -90,7 +90,7 @@ async function activateNavigation(locator){await locator.evaluate(el=>el.click()
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
 
 test('browse → variant-safe cart → checkout → COD confirmation on real browser',async({page},testInfo)=>{
-  const state={orderPayload:null};await mockCommerce(page,state);await page.goto('/?e2e=stability',{waitUntil:'domcontentloaded'});await expect(page.locator('#product-grid [data-product]').first()).toBeVisible();
+  const state={orderPayload:null};await mockCommerce(page,state);await page.goto('/?e2e=stability',{waitUntil:'domcontentloaded'});await expect(page.locator('#product-grid [data-product="rang-jued-tea-e2e"]')).toBeVisible();
   const viewport=page.viewportSize(),shellWidth=await page.locator('.shell').first().evaluate(el=>el.getBoundingClientRect().width);expect(shellWidth).toBeGreaterThan(0);expect(shellWidth).toBeLessThanOrEqual(viewport.width+1);
   if(viewport.width>=1024){expect(shellWidth).toBeGreaterThan(900);await expect(page.locator('.v115-desktop-nav')).toBeVisible();await expect(page.locator('nav.tshop-bottom')).toBeHidden()}else{await expect(page.locator('nav.tshop-bottom')).toBeVisible();expect(shellWidth).toBeGreaterThan(viewport.width*0.9)}
 
