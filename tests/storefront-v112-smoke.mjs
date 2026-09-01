@@ -19,8 +19,8 @@ assert.match(source,/ซื้อซ้ำ 1 แตะ/);assert.match(source,/da
 assert.match(reviews,/issueRewardCoupon/);assert.match(reviews,/RVW\$\{Number\(reviewId\)\}/);assert.match(reviews,/INSERT INTO coupons/);assert.match(reviews,/reward_coupon_issued=1/);assert.match(reviews,/usageLimit:1/);assert.match(reviews,/rewardCoupon/);
 assert.match(coupons,/code NOT LIKE 'RVW%'/);assert.match(coupons,/private_coupon/);
 assert.match(middleware,/u\.pathname==='\/api\/orders'/);assert.match(middleware,/\^RVW\(\\d\+\)-\[A-Z0-9\]\{12\}\$/);assert.match(middleware,/reward_coupon_issued/);assert.match(middleware,/Number\(review\.customer_id\)!==customerId/);
-assert.match(middleware,/SITE_ORIGIN/);assert.match(middleware,/www\.khonchai\.com/);assert.match(middleware,/khonchaiherb-commerce\.pages\.dev/);assert.match(middleware,/status:301/);assert.match(middleware,/rel=\"canonical\"/);assert.match(middleware,/property=\"og:url\"/);
-assert.match(wrangler,/"SITE_ORIGIN": "https:\/\/khonchai\.com"/);assert.match(robots,/Sitemap: https:\/\/khonchai\.com\/sitemap\.xml/);assert.match(sitemap,/<loc>https:\/\/khonchai\.com\/<\/loc>/);assert.doesNotMatch(sitemap,/seller-center/);
+assert.match(middleware,/SITE_ORIGIN/);assert.match(middleware,/khonchai\.com/);assert.match(middleware,/khonchaiherb-commerce\.pages\.dev/);assert.match(middleware,/status:301/);assert.match(middleware,/rel=\"canonical\"/);assert.match(middleware,/property=\"og:url\"/);
+assert.match(wrangler,/"SITE_ORIGIN": "https:\/\/khonchaiherb-commerce\.pages\.dev"/);assert.match(robots,/Sitemap: https:\/\/khonchaiherb-commerce\.pages\.dev\/sitemap\.xml/);assert.match(sitemap,/<loc>https:\/\/khonchaiherb-commerce\.pages\.dev\/<\/loc>/);assert.doesNotMatch(sitemap,/seller-center/);
 assert.match(customerOrders,/reviewed/);assert.match(customerOrders,/EXISTS\(SELECT 1 FROM reviews/);assert.match(orderStatus,/reviewed/);assert.match(orderStatus,/EXISTS\(SELECT 1 FROM reviews/);
 assert.ok(pkg.scripts['qa:v112']);assert.match(pkg.scripts.check,/storefront-v112-smoke\.mjs/);
-console.log('storefront v1.12 post-purchase + canonical domain smoke: OK');
+console.log('storefront v1.12 post-purchase + Cloudflare Pages canonical smoke: OK');
