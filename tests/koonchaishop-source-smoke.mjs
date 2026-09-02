@@ -8,6 +8,7 @@ const storefront=read('public/kch-koonchaishop-commerce.js');
 const css=read('public/tshop-v130-koonchaishop.css');
 const legacy=read('public/tshop-v114.js');
 const middleware=read('functions/_middleware.js');
+const d1Workflow=read('.github/workflows/d1-production-migration.yml');
 
 assert.match(migration,/THLCRLWLHR/,'migration must register the authorized Koonchaishop shop code');
 assert.match(migration,/owner_authorized_media_content_reviews/,'source authorization scope must be explicit');
@@ -26,9 +27,16 @@ assert.match(storefront,/data-kch-source-product/,'source media must be able to 
 assert.match(storefront,/kch-koonchaishop-home/,'home must have a dedicated source-aware social proof section');
 assert.match(storefront,/kch-koonchaishop-pdp/,'PDP must have a product-filtered source-aware section');
 assert.match(storefront,/kch-source-pdp-chip/,'PDP must expose a compact source-proof jump affordance');
+assert.match(storefront,/const directVideo=\/\\\.\(\?:mp4\|webm\)/,'video player must be limited to direct MP4/WebM media URLs');
+assert.doesNotMatch(storefront,/const videoLike=type==='video'/,'TikTok page URLs must not be treated as direct video files');
 assert.match(css,/\.kch-source-section/,'v1.30 must style the source-aware section');
 assert.match(css,/\.kch-source-pdp-chip/,'v1.30 must style the PDP source-proof affordance');
 assert.doesNotMatch(legacy,/\/api\/koonchaishop-feed/,'legacy responsive runtime must no longer mount duplicate source proof');
 assert.match(middleware,/tshop-v130-koonchaishop\.css\?v=1\.30\.0/,'Cloudflare HTML middleware must load v1.30 source styles');
-assert.match(middleware,/kch-koonchaishop-commerce\.js\?v=1\.30\.0/,'Cloudflare HTML middleware must load v1.30 source runtime');
-console.log('Koonchaishop source provenance + v1.30 storefront disclosure contracts: OK');
+assert.match(middleware,/kch-koonchaishop-commerce\.js\?v=1\.30\.1/,'Cloudflare HTML middleware must load hardened v1.30.1 source runtime');
+assert.match(d1Workflow,/0021_koonchaishop_source_library\.sql/,'guarded production workflow must explicitly allow migration 0021');
+assert.match(d1Workflow,/APPLY-PRODUCTION-D1/,'production D1 migration must retain explicit confirmation guard');
+assert.match(d1Workflow,/verified_on_site guard must reject imported reviews/,'disposable validation must test the imported-review verification constraint');
+assert.match(d1Workflow,/Verify production Koonchaishop source schema/,'production workflow must verify the Koonchaishop schema after migration');
+assert.match(d1Workflow,/d1 execute \"\$DATABASE_NAME\" --remote/,'production migration must target remote D1 explicitly');
+console.log('Koonchaishop source provenance + v1.30 storefront + guarded production migration contracts: OK');
