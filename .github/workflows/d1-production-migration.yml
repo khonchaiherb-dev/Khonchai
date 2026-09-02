@@ -10,6 +10,7 @@ on:
         options:
           - 0019_inventory_fefo.sql
           - 0020_operational_alert_state.sql
+          - 0021_koonchaishop_source_library.sql
       confirmation:
         description: Type APPLY-PRODUCTION-D1 to confirm
         required: true
@@ -82,6 +83,24 @@ jobs:
             indexes={r[1] for r in db.execute("pragma index_list('operational_alert_state')")}
             assert 'idx_operational_alert_state_status' in indexes
             assert 'idx_operational_alert_state_assigned' in indexes
+          if target=='0021_koonchaishop_source_library.sql':
+            tables={r[0] for r in db.execute("select name from sqlite_master where type='table'")}
+            assert {'commerce_sources','source_assets','source_reviews','source_product_links'} <= tables
+            source=db.execute("select platform,shop_code,shop_name,authorization_scope,active from commerce_sources where shop_code='THLCRLWLHR'").fetchone()
+            assert source==('tiktok_shop','THLCRLWLHR','Koonchaishop','owner_authorized_media_content_reviews',1)
+            review_cols={r[1] for r in db.execute("pragma table_info('source_reviews')")}
+            assert {'source_verified','verified_on_site','status','media_json','source_created_at'} <= review_cols
+            indexes={r[1] for r in db.execute("pragma index_list('source_reviews')")}
+            assert 'idx_source_reviews_public' in indexes
+            asset_indexes={r[1] for r in db.execute("pragma index_list('source_assets')")}
+            assert 'idx_source_assets_public' in asset_indexes
+            link_indexes={r[1] for r in db.execute("pragma index_list('source_product_links')")}
+            assert 'idx_source_product_links_product' in link_indexes
+            try:
+              db.execute("insert into source_reviews(source_id,external_id,rating,review_text,verified_on_site) values((select id from commerce_sources where shop_code='THLCRLWLHR'),'guard-check',5,'guard',1)")
+              raise AssertionError('verified_on_site guard must reject imported reviews')
+            except sqlite3.IntegrityError:
+              pass
           print('Migration validation passed:',target)
           PY
 
@@ -107,3 +126,15 @@ jobs:
           npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="SELECT name FROM sqlite_master WHERE type='table' AND name='operational_alert_state';"
           npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA table_info('operational_alert_state');"
           npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA index_list('operational_alert_state');"
+
+      - name: Verify production Koonchaishop source schema
+        if: ${{ inputs.migration == '0021_koonchaishop_source_library.sql' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="SELECT name FROM sqlite_master WHERE type='table' AND name IN ('commerce_sources','source_assets','source_reviews','source_product_links') ORDER BY name;"
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="SELECT platform,shop_code,shop_name,authorization_scope,active FROM commerce_sources WHERE shop_code='THLCRLWLHR';"
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA table_info('source_reviews');"
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA index_list('source_assets');"
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA index_list('source_reviews');"
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA index_list('source_product_links');"
