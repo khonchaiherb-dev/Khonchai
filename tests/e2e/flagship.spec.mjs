@@ -64,7 +64,37 @@ test('master storefront discovery is readable, Thai-first and stable across view
   expect(bodyText).not.toContain('088-5807909');
   expect(bodyText).not.toContain('0885807909');
 
-  const metrics=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth}));
-  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth+1);
+  const metrics=await page.evaluate(()=>{
+    const root=document.documentElement;
+    const clientWidth=root.clientWidth;
+    const offenders=[...document.querySelectorAll('body *')].map((el,index)=>{
+      const rect=el.getBoundingClientRect();
+      const cs=getComputedStyle(el);
+      const visible=cs.display!=='none'&&cs.visibility!=='hidden'&&rect.width>0&&rect.height>0;
+      if(!visible)return null;
+      const rightOverflow=Math.max(0,rect.right-clientWidth);
+      const leftOverflow=Math.max(0,-rect.left);
+      if(rightOverflow<=1&&leftOverflow<=1)return null;
+      const cls=typeof el.className==='string'?el.className.trim().split(/\s+/).slice(0,5).join('.'):'';
+      return {
+        index,
+        selector:`${el.tagName.toLowerCase()}${el.id?`#${el.id}`:''}${cls?`.${cls}`:''}`,
+        left:Math.round(rect.left*10)/10,
+        right:Math.round(rect.right*10)/10,
+        width:Math.round(rect.width*10)/10,
+        rightOverflow:Math.round(rightOverflow*10)/10,
+        leftOverflow:Math.round(leftOverflow*10)/10,
+        scrollWidth:el.scrollWidth,
+        clientWidth:el.clientWidth,
+        position:cs.position,
+        display:cs.display,
+        overflowX:cs.overflowX,
+        whiteSpace:cs.whiteSpace,
+        text:String(el.textContent||'').replace(/\s+/g,' ').trim().slice(0,80)
+      };
+    }).filter(Boolean).sort((a,b)=>Math.max(b.rightOverflow,b.leftOverflow)-Math.max(a.rightOverflow,a.leftOverflow)).slice(0,20);
+    return {scrollWidth:root.scrollWidth,clientWidth,offenders};
+  });
+  expect(metrics.scrollWidth,`horizontal overflow diagnostics: ${JSON.stringify(metrics.offenders)}`).toBeLessThanOrEqual(metrics.clientWidth+1);
   expect(errors).toEqual([]);
 });
