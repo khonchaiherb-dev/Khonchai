@@ -1,8 +1,8 @@
-/* KHONCHAIHERB v1.31.1 — conversion-first top storefront behavior */
+/* KHONCHAIHERB v1.31.2 — conversion-first top storefront behavior */
 (()=>{
   'use strict';
   if(typeof document==='undefined')return;
-  const BUILD='1.31.1';
+  const BUILD='1.31.2';
   if(window.__KCH_TOP_CONVERSION__===BUILD)return;
   window.__KCH_TOP_CONVERSION__=BUILD;
 
@@ -132,20 +132,28 @@
     const p=$('.kch-master-section-head p',section);if(p)p.textContent='เลือกจากสินค้าที่มีข้อมูลราคาและสถานะพร้อมให้ตรวจสอบก่อนสั่งซื้อ';
   }
 
+  function ensureSearchRule(){
+    if(document.getElementById('kch-v131-search-rule'))return;
+    const style=document.createElement('style');
+    style.id='kch-v131-search-rule';
+    style.textContent='.kch-master-home .kch-master-product[data-kch-v131-search-match="0"]{display:none!important}';
+    (document.head||document.documentElement).appendChild(style);
+  }
+
   function applyMasterSearch(){
     if(!isHome())return;
     const input=$('.tshop-topbar .tshop-searchbox input');
     const grid=$('.kch-master-products');
     if(!input||!grid)return;
+    ensureSearchRule();
     const q=normalize(input.value);
-    if(!q)return;
+    const cards=$$('.kch-master-product',grid);
+    if(!q){cards.forEach(card=>card.removeAttribute('data-kch-v131-search-match'));return}
     const tokens=q.split(' ').filter(Boolean);
-    $$('.kch-master-product',grid).forEach(card=>{
+    cards.forEach(card=>{
       const hay=normalize([card.dataset?.kchName,card.dataset?.product,card.dataset?.kchCat,text(card)].filter(Boolean).join(' '));
       const match=tokens.every(token=>hay.includes(token));
-      card.dataset.kchSearchMatch=match?'1':'0';
-      card.hidden=!match;
-      card.setAttribute('aria-hidden',match?'false':'true');
+      card.dataset.kchV131SearchMatch=match?'1':'0';
     });
   }
 
