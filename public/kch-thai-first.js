@@ -1,7 +1,7 @@
-/* KHONCHAIHERB Thai-first customer UI v1.23.0 */
+/* KHONCHAIHERB Thai-first customer UI v1.23.1 */
 (()=>{
-  if(typeof document==='undefined'||window.__KCH_THAI_FIRST__==='1.23.0')return;
-  window.__KCH_THAI_FIRST__='1.23.0';
+  if(typeof document==='undefined'||window.__KCH_THAI_FIRST__==='1.23.1')return;
+  window.__KCH_THAI_FIRST__='1.23.1';
   document.documentElement.lang='th';
 
   const exact=new Map([
@@ -18,25 +18,49 @@
     ['Ancient Wisdom. Future Wellness.','ภูมิปัญญาสมุนไพรไทย สู่การดูแลสุขภาพยุคใหม่'],
     ['Account','บัญชีของฉัน'],['My Account','บัญชีของฉัน'],
     ['Wishlist','รายการโปรด'],['Favorites','รายการโปรด'],
-    ['Cart','ตะกร้าสินค้า'],['Shopping Cart','ตะกร้าสินค้า'],
+    ['Cart','ตะกร้าสินค้า'],['Shopping Cart','ตะกร้าสินค้า'],['Your Cart','ตะกร้าสินค้าของคุณ'],
     ['Orders','คำสั่งซื้อ'],['My Orders','คำสั่งซื้อของฉัน'],['Me','บัญชีของฉัน'],
     ['LIVE','ไลฟ์'],['Live','ไลฟ์'],
     ['Search','ค้นหา'],['Search products','ค้นหาสินค้า'],
-    ['Product Details','รายละเอียดสินค้า'],['Description','รายละเอียด'],
+    ['Product Details','รายละเอียดสินค้า'],['Description','รายละเอียด'],['Product Information','ข้อมูลสินค้า'],
     ['Add to cart','เพิ่มลงตะกร้า'],['Add to Cart','เพิ่มลงตะกร้า'],
     ['Buy now','ซื้อเลย'],['Buy Now','ซื้อเลย'],
     ['Checkout','ชำระเงิน'],['Continue Shopping','เลือกซื้อสินค้าต่อ'],
     ['Order Summary','สรุปคำสั่งซื้อ'],['Subtotal','ยอดสินค้า'],['Shipping','ค่าจัดส่ง'],
-    ['Discount','ส่วนลด'],['Total','ยอดรวม'],
-    ['Cash on Delivery','เก็บเงินปลายทาง'],['Place Order','ยืนยันคำสั่งซื้อ'],
-    ['Track Order','ติดตามคำสั่งซื้อ'],['Order Tracking','ติดตามคำสั่งซื้อ'],
+    ['Discount','ส่วนลด'],['Total','ยอดรวม'],['Grand Total','ยอดชำระทั้งหมด'],
+    ['Cash on Delivery','เก็บเงินปลายทาง'],['Payment Method','วิธีชำระเงิน'],['Payment','การชำระเงิน'],
+    ['Place Order','ยืนยันคำสั่งซื้อ'],['Confirm Order','ยืนยันคำสั่งซื้อ'],
+    ['Track Order','ติดตามคำสั่งซื้อ'],['Order Tracking','ติดตามคำสั่งซื้อ'],['Order Status','สถานะคำสั่งซื้อ'],
+    ['Shipping Address','ที่อยู่จัดส่ง'],['Delivery Address','ที่อยู่จัดส่ง'],['Address','ที่อยู่'],
+    ['Full Name','ชื่อ-นามสกุล'],['Name','ชื่อ'],['Phone','เบอร์โทรศัพท์'],['Phone Number','เบอร์โทรศัพท์'],
+    ['Email','อีเมล'],['Province','จังหวัด'],['District','อำเภอ/เขต'],['Subdistrict','ตำบล/แขวง'],
+    ['Postal Code','รหัสไปรษณีย์'],['Zip Code','รหัสไปรษณีย์'],['Note','หมายเหตุ'],['Order Note','หมายเหตุคำสั่งซื้อ'],
+    ['Quantity','จำนวน'],['Qty','จำนวน'],['Price','ราคา'],['Unit Price','ราคาต่อหน่วย'],['Items','รายการสินค้า'],
+    ['Receipt','ใบเสร็จรับเงิน'],['Download Receipt','ดูใบเสร็จรับเงิน'],['Order Number','เลขที่คำสั่งซื้อ'],
+    ['Order Date','วันที่สั่งซื้อ'],['Customer Details','ข้อมูลผู้สั่งซื้อ'],['Recipient','ผู้รับสินค้า'],
+    ['Pending','รอดำเนินการ'],['Confirmed','ยืนยันแล้ว'],['Processing','กำลังเตรียมสินค้า'],['Shipped','จัดส่งแล้ว'],
+    ['Delivered','จัดส่งสำเร็จ'],['Completed','สำเร็จ'],['Cancelled','ยกเลิกแล้ว'],
+    ['Empty Cart','ตะกร้าสินค้าว่าง'],['Your cart is empty','ยังไม่มีสินค้าในตะกร้า'],
+    ['Out of Stock','สินค้าหมด'],['In Stock','มีสินค้า'],['Coming Soon','เร็ว ๆ นี้'],
     ['Sign in','เข้าสู่ระบบ'],['Sign In','เข้าสู่ระบบ'],
-    ['Sign out','ออกจากระบบ'],['Sign Out','ออกจากระบบ'],
+    ['Sign out','ออกจากระบบ'],['Sign Out','ออกจากระบบ'],['Register','สมัครสมาชิก'],['Create Account','สมัครสมาชิก'],
     ['Recommended','แนะนำ'],['Newest','ใหม่ล่าสุด'],
     ['Price: Low to High','ราคา: ต่ำไปสูง'],['Price: High to Low','ราคา: สูงไปต่ำ'],
     ['No results','ไม่พบสินค้า'],['No products found','ไม่พบสินค้า'],
-    ['Back','ย้อนกลับ'],['Close','ปิด'],['Save','บันทึก'],['Continue','ดำเนินการต่อ'],
+    ['Back','ย้อนกลับ'],['Close','ปิด'],['Save','บันทึก'],['Continue','ดำเนินการต่อ'],['Cancel','ยกเลิก'],
+    ['Edit','แก้ไข'],['Delete','ลบ'],['Remove','นำออก'],['Apply','ใช้'],['Coupon','คูปอง'],['Promotion','โปรโมชั่น'],
     ['COD','เก็บเงินปลายทาง (COD)'],['TRACK','ติดตามพัสดุ'],['RECEIPT','ใบเสร็จรับเงิน']
+  ]);
+
+  const placeholders=new Map([
+    ['Search products','ค้นหาสินค้าและสมุนไพร'],
+    ['Search products...','ค้นหาสินค้าและสมุนไพร'],
+    ['Full name','ชื่อ-นามสกุล'],['Full Name','ชื่อ-นามสกุล'],
+    ['Phone number','เบอร์โทรศัพท์'],['Phone Number','เบอร์โทรศัพท์'],
+    ['Email address','อีเมล'],['Address','บ้านเลขที่ ถนน ซอย หมู่บ้าน'],
+    ['Province','จังหวัด'],['District','อำเภอ/เขต'],['Subdistrict','ตำบล/แขวง'],
+    ['Postal code','รหัสไปรษณีย์'],['Postal Code','รหัสไปรษณีย์'],
+    ['Order note','หมายเหตุเพิ่มเติมสำหรับคำสั่งซื้อ'],['Coupon code','กรอกรหัสคูปอง']
   ]);
 
   const menuLabels=['หน้าแรก','สินค้าทั้งหมด','สินค้าแนะนำ','สินค้าใหม่','โปรโมชั่น','เกี่ยวกับเรา','ติดต่อเรา'];
@@ -100,7 +124,8 @@
     document.querySelectorAll('[data-go="orders"]').forEach(el=>el.setAttribute('aria-label','คำสั่งซื้อ'));
     document.querySelectorAll('input[placeholder],textarea[placeholder]').forEach(el=>{
       const p=el.getAttribute('placeholder')||'';
-      if(exact.has(p))el.setAttribute('placeholder',exact.get(p));
+      if(placeholders.has(p))el.setAttribute('placeholder',placeholders.get(p));
+      else if(exact.has(p))el.setAttribute('placeholder',exact.get(p));
     });
     document.querySelectorAll('option').forEach(el=>{
       const t=el.textContent.trim();
@@ -149,6 +174,7 @@
       .kch-ref-menu button,.kch-ref-mobile-panel button{letter-spacing:0!important;font-weight:800!important;line-height:1.45!important}
       .kch-master-kicker{letter-spacing:.02em!important}
       .kch-master-payments span{white-space:nowrap!important}
+      label,.label,.field-label{line-height:1.5!important}
       @media(max-width:699px){
         .kch-ref-mobile-panel button{font-size:16px!important;line-height:1.5!important}
         .kch-master-hero-actions button{font-size:15px!important}
