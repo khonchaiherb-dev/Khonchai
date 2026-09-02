@@ -4,8 +4,8 @@
 /* Critical customer safeguards run synchronously with the storefront shell.
    They must not depend on asynchronously fetched hardening layers. */
 (()=>{
-  if(typeof document==='undefined'||window.__KCH_CRITICAL_STOREFRONT__==='1.21.3')return;
-  window.__KCH_CRITICAL_STOREFRONT__='1.21.3';
+  if(typeof document==='undefined'||window.__KCH_CRITICAL_STOREFRONT__==='1.21.4')return;
+  window.__KCH_CRITICAL_STOREFRONT__='1.21.4';
   const head=document.head||document.documentElement;
   const style=document.createElement('style');
   style.id='kch-critical-storefront-style';
@@ -32,8 +32,20 @@
   }
   ensureStoreStructuredData();
 
-  let frame=0,searchQuery=String(document.querySelector('.tshop-searchbox input')?.value||'');
+  const masterSearch=window.__KCH_MASTER_SEARCH__=window.__KCH_MASTER_SEARCH__||{query:'',revision:0,source:'boot'};
+  if(!masterSearch.query){masterSearch.query=String(document.querySelector('.tshop-searchbox input')?.value||'')}
+  let frame=0;
   const schedule=()=>{if(frame)return;frame=requestAnimationFrame(run)};
+
+  function setMasterQuery(value,{force=false,trusted=false,source='unknown'}={}){
+    const next=String(value||'');
+    /* Ignore synthetic empty resets while a real query is active. Genuine user
+       clears and the explicit Master reset button remain authoritative. */
+    if(!force&&!trusted&&!next&&masterSearch.query)return masterSearch.query;
+    if(next!==masterSearch.query){masterSearch.query=next;masterSearch.revision=Number(masterSearch.revision||0)+1;masterSearch.source=source}
+    return masterSearch.query;
+  }
+
   function neutralize(){
     document.querySelectorAll('span,small,b,strong,h2,h3,button,option,a').forEach(el=>{
       if(el.children.length)return;
@@ -44,15 +56,19 @@
     });
     document.querySelectorAll('.rating').forEach(el=>{if(/(?:^|\s)0(?:\.0)?(?:\s|$)/.test(el.textContent||''))el.remove()});
   }
-  function syncSearchQueryFromDom(){
+
+  function adoptLiveInput(){
     const input=document.querySelector('.tshop-searchbox input');
     if(!input)return;
     const domValue=String(input.value||'');
-    if(domValue||!searchQuery)searchQuery=domValue;
+    if(domValue)setMasterQuery(domValue,{source:'dom'});
+    else if(!masterSearch.query)setMasterQuery('',{force:true,source:'dom-empty'});
+    else if(input.value!==masterSearch.query)input.value=masterSearch.query;
   }
-  function search(){
-    syncSearchQueryFromDom();
-    const q=String(searchQuery||'').trim().toLowerCase();
+
+  function applyMasterSearch(){
+    adoptLiveInput();
+    const q=String(masterSearch.query||'').trim().toLowerCase();
     document.querySelectorAll('.kch-master-product').forEach(card=>{
       const name=String(card.dataset.kchName||card.querySelector('h3')?.textContent||'').toLowerCase();
       const cat=String(card.dataset.kchCat||'').toLowerCase();
@@ -64,30 +80,37 @@
       card.setAttribute('aria-hidden',String(!match));
     });
   }
-  function run(){frame=0;ensureStoreStructuredData();neutralize();search();document.querySelectorAll('[data-go="seller"]').forEach(el=>el.remove())}
 
-  // On the approved Master Storefront this is the authoritative early text-search
-  // safeguard. It adopts the live input value so asynchronously loaded hardening
-  // code cannot reset an already active mobile search back to an empty query.
+  masterSearch.set=(value,options={})=>{setMasterQuery(value,options);applyMasterSearch();return masterSearch.query};
+  masterSearch.apply=applyMasterSearch;
+  masterSearch.get=()=>String(masterSearch.query||'');
+  masterSearch.clear=()=>{setMasterQuery('',{force:true,trusted:true,source:'reset'});const input=document.querySelector('.tshop-searchbox input');if(input)input.value='';applyMasterSearch()};
+
+  function run(){frame=0;ensureStoreStructuredData();neutralize();applyMasterSearch();document.querySelectorAll('[data-go="seller"]').forEach(el=>el.remove())}
+
+  // Single Master Storefront text-search owner. Capture stops legacy discovery
+  // handlers from mutating the Master DOM after this state has been committed.
   document.addEventListener('input',event=>{
     if(!event.target?.matches?.('.tshop-searchbox input'))return;
-    searchQuery=String(event.target.value||'');
+    setMasterQuery(event.target.value,{trusted:event.isTrusted,source:event.isTrusted?'user-input':'synthetic-input'});
     if(document.querySelector('.kch-master-shell'))event.stopImmediatePropagation();
-    search();
-    queueMicrotask(search);
-    requestAnimationFrame(search);
-    setTimeout(search,0);
-    setTimeout(search,50);
+    applyMasterSearch();
+    queueMicrotask(applyMasterSearch);
+    requestAnimationFrame(applyMasterSearch);
   },true);
   document.addEventListener('search',event=>{
     if(!event.target?.matches?.('.tshop-searchbox input'))return;
-    searchQuery=String(event.target.value||'');
+    setMasterQuery(event.target.value,{force:event.isTrusted,trusted:event.isTrusted,source:event.isTrusted?'user-search':'synthetic-search'});
     if(document.querySelector('.kch-master-shell'))event.stopImmediatePropagation();
-    search();
-    queueMicrotask(search);
+    applyMasterSearch();
   },true);
-  const root=document.getElementById('app');if(root)new MutationObserver(schedule).observe(root,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['hidden','class','style','aria-hidden']});
-  syncSearchQueryFromDom();
+  document.addEventListener('click',event=>{
+    if(!document.querySelector('.kch-master-shell'))return;
+    if(event.target?.closest?.('[data-kch-reset]'))masterSearch.clear();
+  },true);
+
+  const root=document.getElementById('app');if(root)new MutationObserver(schedule).observe(root,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['hidden','class','style','aria-hidden','data-kch-search-match']});
+  adoptLiveInput();
   schedule();
 })();
 
@@ -123,7 +146,7 @@ if(kchPublicRoot)new MutationObserver(()=>document.querySelectorAll('[data-go="s
   addCss('/tshop-v119.css?v=1.19.0','kch-v119');
   addCss('/tshop-v120.css?v=1.20.0','kch-v120');
   const boot=()=>{
-    addScript('/kch-production-guard.js?v=1.21.2','kch-production-guard');
+    addScript('/kch-production-guard.js?v=1.21.3','kch-production-guard');
     addScript('/tshop-v119.js?v=1.19.0','kch-v119',()=>addScript('/tshop-v120.js?v=1.20.0','kch-v120'));
   };
   if(document.readyState==='complete')boot();else window.addEventListener('load',boot,{once:true});
