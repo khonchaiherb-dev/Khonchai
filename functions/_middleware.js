@@ -7,6 +7,7 @@ const canonicalHost=env=>new URL(canonicalOrigin(env)).host;
 const legacyHosts=new Set(['khonchai.com','www.khonchai.com']);
 const SELLER_KOONCHAISHOP='/seller-koonchaishop.html';
 const KOONCHAISHOP_ADMIN_GUARD='/kch-koonchaishop-admin-readiness.js?v=1.0.1';
+const noIndexPath=pathname=>/\/(?:account|login|register|member|seller(?:-[^/]+)?|seller-center(?:-v2)?)\.html$/i.test(String(pathname||''));
 const canonicalRedirect=(request,env,u)=>{
   if(!['GET','HEAD'].includes(request.method))return null;
   const host=String(u.host||'').toLowerCase();
@@ -20,9 +21,12 @@ const withCanonicalMetadata=(response,env,pathname='')=>{
   const type=String(response.headers.get('content-type')||'').toLowerCase();
   if(!type.includes('text/html')||typeof HTMLRewriter==='undefined')return response;
   const origin=canonicalOrigin(env);
+  const canonicalPath=!pathname||pathname==='/'||pathname==='/index.html'?'/':pathname;
+  const pageUrl=new URL(canonicalPath,`${origin}/`).toString();
   return new HTMLRewriter().on('head',{element(head){
-    head.append(`<link rel="canonical" href="${origin}/" />`,{html:true});
-    head.append(`<meta property="og:url" content="${origin}/" />`,{html:true});
+    head.append(`<link rel="canonical" href="${pageUrl}" />`,{html:true});
+    head.append(`<meta property="og:url" content="${pageUrl}" />`,{html:true});
+    if(noIndexPath(pathname))head.append('<meta name="robots" content="noindex,nofollow,noarchive" />',{html:true});
     head.append('<link rel="stylesheet" href="/tshop-v127-footer-premium.css?v=1.27.0">',{html:true});
     head.append('<link rel="stylesheet" href="/tshop-v128-future-standard.css?v=1.28.0">',{html:true});
     head.append('<link rel="stylesheet" href="/tshop-v129-readable-future.css?v=1.29.0">',{html:true});
