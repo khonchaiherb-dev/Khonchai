@@ -38,7 +38,7 @@ jobs:
             "REQUIRED_TABLES=['commerce_sources','source_assets','source_reviews','source_product_links']",
             'databaseReady',
             'writeEnabled',
-            "blocker:'migration_0021_required'",
+            "databaseReady?null:'migration_0021_required'",
             'missingTables',
             'sourceRegistered'
           ]
@@ -53,10 +53,11 @@ jobs:
               raise SystemExit('GET does not check library readiness')
           if 'const readiness=await libraryReadiness(env);' not in post_body:
               raise SystemExit('POST does not check library readiness')
-          if "if(!readiness.databaseReady)return json({error:'source_library_not_ready',...readiness},503);" not in post_body:
+          guard="if(!readiness.databaseReady)return json({error:'source_library_not_ready',...readiness},503);"
+          if guard not in post_body:
               raise SystemExit('POST must fail closed before source initialization')
-          if 'ensureSource(env)' not in post_body:
-              raise SystemExit('POST must initialize source only after readiness succeeds')
+          if post_body.index(guard)>post_body.index('ensureSource(env)'):
+              raise SystemExit('source initialization occurs before readiness fail-closed guard')
           print('Koonchaishop admin API readiness contract: OK')
           PY
 
@@ -81,15 +82,15 @@ jobs:
             'databaseReady===true',
             'writeEnabled===true',
             'migration_0021_required',
-            "setForms(false)",
-            "el.disabled=!enabled",
+            'setForms(false)',
+            'el.disabled=!enabled',
             '/api/admin/koonchaishop-source',
             '__KCH_KOONCHAISHOP_ADMIN_READINESS__'
           ]
           missing=[x for x in required_guard if x not in g]
           if missing:
               raise SystemExit('admin readiness guard missing: '+', '.join(missing))
-          if "button[type=\"submit\"]" not in g:
+          if 'button[type="submit"]' not in g:
               raise SystemExit('guard must visibly cover submit controls')
           print('Koonchaishop seller readiness wiring: OK')
           PY
@@ -98,7 +99,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'verified_on_site,status' functions/api/admin/koonchaishop-source.js
-          grep -q 'verified_on_site=0' functions/api/admin/koonchaishop-source.js
-          ! grep -Eq 'verified_on_site[^\n]*(=|VALUES[^\n]*)1' functions/api/admin/koonchaishop-source.js
-          echo 'External review verification boundary: OK'
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('functions/api/admin/koonchaishop-source.js').read_text()
+          required=[
+            'source_verified,verified_on_site,status',
+            'VALUES(?,?,?,?,?,?,?,?,?,0,?,datetime(\'now\'))',
+            'verified_on_site=0',
+            'verifiedOnSite:false'
+          ]
+          missing=[x for x in required if x not in s]
+          if missing:
+              raise SystemExit('external review verification boundary missing: '+', '.join(missing))
+          forbidden=['verified_on_site=1','verifiedOnSite:true']
+          bad=[x for x in forbidden if x in s]
+          if bad:
+              raise SystemExit('external review must never become on-site verified: '+', '.join(bad))
+          print('External review verification boundary: OK')
+          PY
