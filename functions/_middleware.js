@@ -21,7 +21,9 @@ const withCanonicalMetadata=(response,env)=>{
   return new HTMLRewriter().on('head',{element(head){
     head.append(`<link rel="canonical" href="${origin}/" />`,{html:true});
     head.append(`<meta property="og:url" content="${origin}/" />`,{html:true});
+    head.append('<link rel="stylesheet" href="/tshop-v127-footer-premium.css?v=1.27.0">',{html:true});
     head.append('<script defer src="/kch-thai-first.js?v=1.23.1"></script>',{html:true});
+    head.append('<script defer src="/kch-footer-premium.js?v=1.27.0"></script>',{html:true});
   }}).transform(response);
 };
 export async function onRequest({request,env,next}){
