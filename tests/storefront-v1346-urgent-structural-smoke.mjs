@@ -25,7 +25,7 @@ assert.match(css,/\.kch-v134-action-icon svg/);
 
 assert.match(middleware,/tshop-v134-structural-storefront\.css\?v=1\.34\.6/);
 assert.match(middleware,/kch-v134-structural-storefront\.js\?v=1\.34\.6/);
-assert.match(sw,/khonchaiherb-v1\.34\.6/);
+assert.match(sw,/khonchaiherb-v1\.18\.2-ui1\.34\.6/);
 assert.match(sw,/tshop-v134-structural-storefront\.css\?v=1\.34\.6/);
 assert.match(sw,/kch-v134-structural-storefront\.js\?v=1\.34\.6/);
 
