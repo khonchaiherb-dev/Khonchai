@@ -8,6 +8,7 @@ on:
       - 'functions/api/admin/koonchaishop-source.js'
       - 'functions/seller-koonchaishop.html.js'
       - 'functions/_middleware.js'
+      - 'public/seller-koonchaishop.html'
       - 'public/kch-koonchaishop-admin-readiness.js'
       - '.github/workflows/koonchaishop-admin-readiness-check.yml'
   workflow_dispatch:
@@ -59,9 +60,12 @@ jobs:
           from pathlib import Path
           r=Path('functions/seller-koonchaishop.html.js').read_text()
           m=Path('functions/_middleware.js').read_text()
+          h=Path('public/seller-koonchaishop.html').read_text()
           g=Path('public/kch-koonchaishop-admin-readiness.js').read_text()
+          token='/kch-koonchaishop-admin-readiness.js?v=1.0.1'
+          if token not in h: raise SystemExit('static Seller HTML must load the readiness guard directly')
           required_route=[
-            '/kch-koonchaishop-admin-readiness.js?v=1.0.1',
+            token,
             'const response=await next()',
             "type.includes('text/html')",
             "new HTMLRewriter().on('head'",
@@ -89,7 +93,7 @@ jobs:
           missing=[x for x in required_guard if x not in g]
           if missing: raise SystemExit('admin readiness guard missing: '+', '.join(missing))
           if 'button[type="submit"]' not in g: raise SystemExit('guard must visibly cover submit controls')
-          print('Koonchaishop Seller readiness route + global fallback: OK')
+          print('Koonchaishop Seller static guard + route/global fallback: OK')
           PY
 
       - name: Verify no external reviews become on-site verified
