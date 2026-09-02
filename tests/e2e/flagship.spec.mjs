@@ -30,6 +30,7 @@ async function loadV131(page){
 
 async function loadV132(page){
   await page.addStyleTag({path:'public/tshop-v132-conversion-storefront.css'});
+  await page.addStyleTag({path:'public/tshop-v1321-search-visibility-fix.css'});
   await page.addScriptTag({path:'public/kch-conversion-storefront.js'});
   await expect.poll(()=>page.evaluate(()=>window.__KCH_CONVERSION_STOREFRONT__)).toBe('1.32.0');
 }
