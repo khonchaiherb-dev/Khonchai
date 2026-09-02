@@ -22,6 +22,7 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PAGES_PROJECT: khonchaiherb-commerce
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -29,16 +30,48 @@ jobs:
       - name: Verify Cloudflare credentials
         shell: bash
         run: |
+          set -euo pipefail
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
             echo "Cloudflare deployment requires CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets."
             exit 1
           fi
 
-      - name: Deploy storefront to Cloudflare Pages
+      - name: Resolve configured Pages production branch
+        id: pages
         shell: bash
         run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H 'Content-Type: application/json' \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PAGES_PROJECT" \
+            > pages-project.json
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json,re
+          from pathlib import Path
+          d=json.loads(Path('pages-project.json').read_text())
+          if not d.get('success'):
+              raise SystemExit('Cloudflare Pages project lookup failed')
+          branch=str((d.get('result') or {}).get('production_branch') or '').strip()
+          if not branch or not re.fullmatch(r'[A-Za-z0-9._/-]{1,200}',branch):
+              raise SystemExit('Cloudflare Pages production branch is missing or invalid')
+          print('production_branch='+branch)
+          PY
+          echo "Resolved Cloudflare Pages production target without changing project settings."
+
+      - name: Deploy storefront to Cloudflare Pages production target
+        shell: bash
+        run: |
+          set -euo pipefail
           npx --yes wrangler@latest pages deploy public \
-            --project-name=khonchaiherb-commerce \
-            --branch=storefront-social-commerce \
+            --project-name="$PAGES_PROJECT" \
+            --branch="${{ steps.pages.outputs.production_branch }}" \
             --commit-hash="$GITHUB_SHA" \
             --commit-message="${{ github.event.head_commit.message || 'KHONCHAIHERB production deployment' }}"
+
+      - name: Report production target
+        shell: bash
+        run: |
+          echo "### KHONCHAIHERB Pages production deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "Production branch resolved from Cloudflare project configuration: \`${{ steps.pages.outputs.production_branch }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Source commit: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
