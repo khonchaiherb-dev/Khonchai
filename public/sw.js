@@ -1,4 +1,4 @@
-const CACHE='khonchaiherb-v1.34.1';
+const CACHE='khonchaiherb-v1.18.2';
 const CORE=[
   '/',
   '/index.html',
