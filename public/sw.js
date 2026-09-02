@@ -1,4 +1,4 @@
-const CACHE='khonchaiherb-v1.34.0';
+const CACHE='khonchaiherb-v1.34.1';
 const CORE=[
   '/',
   '/index.html',
@@ -34,6 +34,7 @@ const CORE=[
   '/tshop-v132-conversion-storefront.css?v=1.32.0',
   '/tshop-v1321-search-visibility-fix.css?v=1.32.1',
   '/tshop-v134-structural-storefront.css?v=1.34.0',
+  '/tshop-v1341-header-dedupe.css?v=1.34.1',
   '/app-core.js',
   '/app-shop.js',
   '/app-account.js',
@@ -68,6 +69,7 @@ const CORE=[
   '/kch-top-conversion.js?v=1.31.2',
   '/kch-conversion-storefront.js?v=1.32.0',
   '/kch-v134-structural-storefront.js?v=1.34.0',
+  '/kch-v1341-header-dedupe.js?v=1.34.1',
   '/assets/products/rang-jued-tea-360.webp',
   '/assets/products/chiang-da-tea-360.webp',
   '/assets/products/gymnema-capsules-100-512.webp',
