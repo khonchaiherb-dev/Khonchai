@@ -24,42 +24,45 @@ jobs:
     env:
       SITE_ORIGIN: https://khonchaiherb-commerce.pages.dev
     steps:
-      - name: Check deployed storefront HTML
+      - name: Check deployed storefront v1.32 HTML
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location \
-            --retry 12 --retry-all-errors --retry-delay 3 \
-            --max-time 20 \
-            "$SITE_ORIGIN/" > storefront.html
-          python3 - <<'PY'
-          from pathlib import Path
-          html=Path('storefront.html').read_text(errors='replace')
-          required=[
-            '/tshop-v130-koonchaishop.css?v=1.30.0',
-            '/kch-koonchaishop-commerce.js?v=1.30.1',
-            'KHONCHAIHERB'
-          ]
-          missing=[token for token in required if token not in html]
-          if missing:
-              raise SystemExit('deployed storefront is missing expected v1.30 assets: '+', '.join(missing))
-          print('Deployed storefront v1.30 assets: OK')
-          PY
+          ok=0
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error --location --max-time 20 \
+              "$SITE_ORIGIN/" > storefront.html; then
+              if grep -q '/tshop-v132-conversion-storefront.css?v=1.32.0' storefront.html \
+                && grep -q '/kch-conversion-storefront.js?v=1.32.0' storefront.html \
+                && grep -q '/kch-top-conversion.js?v=1.31.2' storefront.html \
+                && grep -q 'KHONCHAIHERB' storefront.html; then
+                ok=1
+                break
+              fi
+            fi
+            echo "Storefront v1.32 not visible yet (attempt $attempt/30); waiting for Pages deploy..."
+            sleep 3
+          done
+          if [ "$ok" != "1" ]; then
+            echo 'Latest storefront v1.32 assets were not observed on Production.' >&2
+            exit 1
+          fi
+          echo 'Deployed storefront v1.32 assets: OK'
 
       - name: Verify deployed Seller Manager readiness guard
         shell: bash
         run: |
           set -euo pipefail
           ok=0
-          for attempt in $(seq 1 15); do
+          for attempt in $(seq 1 20); do
             if curl --fail --silent --show-error --location --max-time 20 \
               "$SITE_ORIGIN/seller-koonchaishop.html" > seller-koonchaishop.html; then
-              if grep -q '/kch-koonchaishop-admin-readiness.js?v=1.0.0' seller-koonchaishop.html; then
+              if grep -q '/kch-koonchaishop-admin-readiness.js?v=1.0.1' seller-koonchaishop.html; then
                 ok=1
                 break
               fi
             fi
-            echo "Seller readiness guard not visible yet (attempt $attempt/15); waiting for Pages deploy..."
+            echo "Seller readiness guard v1.0.1 not visible yet (attempt $attempt/20); waiting for Pages deploy..."
             sleep 3
           done
           if [ "$ok" != "1" ]; then
@@ -67,11 +70,13 @@ jobs:
             exit 1
           fi
           curl --fail --silent --show-error --location --max-time 20 \
-            "$SITE_ORIGIN/kch-koonchaishop-admin-readiness.js?v=1.0.0" > admin-readiness.js
+            "$SITE_ORIGIN/kch-koonchaishop-admin-readiness.js?v=1.0.1" > admin-readiness.js
+          grep -q "const BUILD='1.0.1'" admin-readiness.js
+          grep -q '__KCH_KOONCHAISHOP_ADMIN_READINESS_BOOT__' admin-readiness.js
           grep -q '__KCH_KOONCHAISHOP_ADMIN_READINESS__' admin-readiness.js
           grep -q 'migration_0021_required' admin-readiness.js
           grep -q 'setForms(false)' admin-readiness.js
-          echo 'Production Seller Manager readiness guard: OK'
+          echo 'Production Seller Manager readiness guard v1.0.1: OK'
 
       - name: Check public Koonchaishop feed contract
         id: source
@@ -131,6 +136,12 @@ jobs:
             "$SITE_ORIGIN/kch-koonchaishop-commerce.js?v=1.30.1" > source-runtime.js
           curl --fail --silent --show-error --location --max-time 20 \
             "$SITE_ORIGIN/tshop-v130-koonchaishop.css?v=1.30.0" > source-styles.css
+          curl --fail --silent --show-error --location --max-time 20 \
+            "$SITE_ORIGIN/kch-conversion-storefront.js?v=1.32.0" > conversion-runtime.js
+          curl --fail --silent --show-error --location --max-time 20 \
+            "$SITE_ORIGIN/tshop-v132-conversion-storefront.css?v=1.32.0" > conversion-styles.css
           grep -q '__KCH_KOONCHAISHOP_COMMERCE__' source-runtime.js
           grep -q '.kch-source-section' source-styles.css
-          echo "Production source runtime + styles: OK"
+          grep -q '__KCH_CONVERSION_STOREFRONT__' conversion-runtime.js
+          grep -q '.kch-v132-card-cta' conversion-styles.css
+          echo "Production Koonchaishop + v1.32 conversion assets: OK"
