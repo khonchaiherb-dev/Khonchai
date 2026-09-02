@@ -25,7 +25,7 @@ async function mockStore(page){
 async function loadV131(page){
   await page.addStyleTag({path:'public/tshop-v131-top-conversion.css'});
   await page.addScriptTag({path:'public/kch-top-conversion.js'});
-  await expect.poll(()=>page.evaluate(()=>window.__KCH_TOP_CONVERSION__)).toBe('1.31.1');
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_TOP_CONVERSION__)).toBe('1.31.2');
 }
 
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
@@ -69,8 +69,9 @@ test('master storefront discovery is readable, Thai-first and stable across view
   await search.fill('ชารางจืด');
   await expect(grid.locator('[data-product="rang-jued-tea-e2e"]')).toBeVisible();
   await expect(grid.locator('[data-product="chiang-da-tea-e2e"]')).toBeHidden();
-  await expect(grid.locator('[data-product="chiang-da-tea-e2e"]')).toHaveAttribute('data-kch-search-match','0');
+  await expect(grid.locator('[data-product="chiang-da-tea-e2e"]')).toHaveAttribute('data-kch-v131-search-match','0');
   await search.fill('');
+  await expect(grid.locator('[data-product="chiang-da-tea-e2e"]')).not.toHaveAttribute('data-kch-v131-search-match','0');
 
   const bodyText=await page.locator('body').innerText();
   expect(bodyText).not.toContain('ขายแล้ว 0');
