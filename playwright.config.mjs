@@ -16,7 +16,8 @@ export default defineConfig({
   projects:[
     {name:'mobile-390',use:{...devices['iPhone 13'],browserName:'chromium',viewport:{width:390,height:844},screen:{width:390,height:844}}},
     {name:'tablet-820',use:{viewport:{width:820,height:1180},hasTouch:true}},
-    {name:'desktop-1440',use:{viewport:{width:1440,height:1000}}}
+    {name:'desktop-1440',use:{viewport:{width:1440,height:1000}}},
+    {name:'desktop-1920',use:{viewport:{width:1920,height:1080}}}
   ],
   webServer:{
     command:'python3 -m http.server 4173 -d public',
