@@ -22,17 +22,26 @@ async function mockStore(page){
   });
 }
 
+async function loadV131(page){
+  await page.addStyleTag({path:'public/tshop-v131-top-conversion.css'});
+  await page.addScriptTag({path:'public/kch-top-conversion.js'});
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_TOP_CONVERSION__)).toBe('1.31.1');
+}
+
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
 
 test('master storefront discovery is readable, Thai-first and stable across viewports',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await mockStore(page);
   await page.goto('/?flagship=master',{waitUntil:'domcontentloaded'});
+  await loadV131(page);
 
   await expect(page.locator('.shell')).toHaveClass(/kch-master-shell/);
+  await expect(page.locator('.shell')).toHaveClass(/kch-v131/);
   await expect(page.locator('.kch-master-home')).toBeVisible();
+  await expect(page.locator('.kch-master-home')).toHaveClass(/kch-v131-home/);
   await expect(page.getByRole('heading',{level:1})).toContainText('KHONCHAIHERB');
-  await expect(page.getByRole('heading',{level:1})).toContainText('คุณชายสมุนไพร');
+  await expect(page.getByRole('heading',{level:1})).toContainText('สมุนไพรไทยที่คัดสรร');
 
   const nav=page.locator('.kch-ref-menu');
   if((page.viewportSize()?.width||0)>=700){
@@ -41,10 +50,16 @@ test('master storefront discovery is readable, Thai-first and stable across view
   }
 
   const hero=page.locator('.kch-master-hero');
-  await expect(hero).toContainText('ภูมิปัญญาสมุนไพรไทย');
+  await expect(hero).toContainText('เพื่อการดูแลสุขภาพในทุกวัน');
+  await expect(hero).toContainText('เก็บเงินปลายทาง');
   await expect(page.locator('.kch-master-showcase')).toHaveCount(3);
   await expect(page.locator('.kch-master-showcase img[src="/assets/products/chiang-da-tea-360.webp"]')).toBeVisible();
   await expect(page.locator('.kch-master-showcase img[src="/assets/products/gymnema-capsules-100-512.webp"]')).toBeVisible();
+
+  const memberInterrupt=page.locator('.kch-v131-member-interrupt');
+  await expect(memberInterrupt).toHaveCount(1);
+  await expect(memberInterrupt).toBeHidden();
+  await expect(page.locator('.kch-master-range')).toBeHidden();
 
   const grid=page.locator('.kch-master-products');
   await expect(grid).toBeVisible();
@@ -54,6 +69,7 @@ test('master storefront discovery is readable, Thai-first and stable across view
   await search.fill('ชารางจืด');
   await expect(grid.locator('[data-product="rang-jued-tea-e2e"]')).toBeVisible();
   await expect(grid.locator('[data-product="chiang-da-tea-e2e"]')).toBeHidden();
+  await expect(grid.locator('[data-product="chiang-da-tea-e2e"]')).toHaveAttribute('data-kch-search-match','0');
   await search.fill('');
 
   const bodyText=await page.locator('body').innerText();
