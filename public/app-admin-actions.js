@@ -4,13 +4,14 @@
 /* Critical customer safeguards run synchronously with the storefront shell.
    They must not depend on asynchronously fetched hardening layers. */
 (()=>{
-  if(typeof document==='undefined'||window.__KCH_CRITICAL_STOREFRONT__==='1.20.0')return;
-  window.__KCH_CRITICAL_STOREFRONT__='1.20.0';
+  if(typeof document==='undefined'||window.__KCH_CRITICAL_STOREFRONT__==='1.20.1')return;
+  window.__KCH_CRITICAL_STOREFRONT__='1.20.1';
   const head=document.head||document.documentElement;
   const style=document.createElement('style');
   style.id='kch-critical-storefront-style';
   style.textContent=`
     .kch-master-newsletter{display:none!important}
+    .kch-critical-search-hidden{display:none!important}
     @media(max-width:1023px){
       .pdp-bottom,.kch-pdp-20 .pdp-bottom{box-sizing:border-box!important;width:auto!important;height:auto!important;grid-template-columns:48px 48px minmax(112px,1fr) minmax(122px,1.12fr)!important;align-items:stretch!important;overflow:visible!important;transform:none!important}
       .pdp-bottom .pdp-mini{min-width:0!important;padding:4px 2px!important}.pdp-bottom .pdp-add,.pdp-bottom .pdp-buy{min-width:0!important;padding-inline:8px!important;white-space:nowrap!important}
@@ -21,6 +22,14 @@
     }
   `;
   head.appendChild(style);
+
+  function ensureStoreStructuredData(){
+    let el=document.getElementById('kch-store-jsonld');
+    if(!el){el=document.createElement('script');el.type='application/ld+json';el.id='kch-store-jsonld';head.appendChild(el)}
+    const origin=location.origin;
+    el.textContent=JSON.stringify({'@context':'https://schema.org','@graph':[{'@type':'Organization','@id':`${origin}/#organization`,name:'KHONCHAIHERB',alternateName:'คุณชายสมุนไพร',url:`${origin}/`},{'@type':'WebSite','@id':`${origin}/#website`,url:`${origin}/`,name:'KHONCHAIHERB',alternateName:'คุณชายสมุนไพร',inLanguage:'th-TH',publisher:{'@id':`${origin}/#organization`}}]});
+  }
+  ensureStoreStructuredData();
 
   let frame=0,searchQuery='';
   const schedule=()=>{if(frame)return;frame=requestAnimationFrame(run)};
@@ -39,16 +48,23 @@
     document.querySelectorAll('.kch-master-product').forEach(card=>{
       const name=String(card.dataset.kchName||card.querySelector('h3')?.textContent||'').toLowerCase();
       const cat=String(card.dataset.kchCat||'').toLowerCase();
-      card.hidden=Boolean(q)&&!(name.includes(q)||cat.includes(q));
+      const match=!q||name.includes(q)||cat.includes(q);
+      card.hidden=!match;
+      card.classList.toggle('kch-critical-search-hidden',!match);
+      card.setAttribute('aria-hidden',String(!match));
     });
   }
-  function run(){frame=0;neutralize();search();document.querySelectorAll('[data-go="seller"]').forEach(el=>el.remove())}
+  function run(){frame=0;ensureStoreStructuredData();neutralize();search();document.querySelectorAll('[data-go="seller"]').forEach(el=>el.remove())}
   document.addEventListener('input',event=>{
     if(!event.target?.matches?.('.tshop-searchbox input'))return;
     searchQuery=String(event.target.value||'');
-    setTimeout(schedule,0);
+    search();
+    queueMicrotask(search);
+    requestAnimationFrame(search);
+    setTimeout(search,0);
+    setTimeout(search,50);
   },true);
-  const root=document.getElementById('app');if(root)new MutationObserver(schedule).observe(root,{childList:true,subtree:true,characterData:true});
+  const root=document.getElementById('app');if(root)new MutationObserver(schedule).observe(root,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['hidden','class','style']});
   schedule();
 })();
 
@@ -84,7 +100,7 @@ if(kchPublicRoot)new MutationObserver(()=>document.querySelectorAll('[data-go="s
   addCss('/tshop-v119.css?v=1.19.0','kch-v119');
   addCss('/tshop-v120.css?v=1.20.0','kch-v120');
   const boot=()=>{
-    addScript('/kch-production-guard.js?v=1.20.0','kch-production-guard');
+    addScript('/kch-production-guard.js?v=1.20.1','kch-production-guard');
     addScript('/tshop-v119.js?v=1.19.0','kch-v119',()=>addScript('/tshop-v120.js?v=1.20.0','kch-v120'));
   };
   if(document.readyState==='complete')boot();else window.addEventListener('load',boot,{once:true});
