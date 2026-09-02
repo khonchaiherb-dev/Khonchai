@@ -1,9 +1,9 @@
 import {test,expect} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 
-// Customer preview mirrors production sale-readiness: no unverified price, stock,
-// rating, sold count, promotion or social proof is injected into screenshots.
 async function mockPreview(page){
+  await page.route('https://fonts.googleapis.com/**',route=>route.fulfill({status:200,contentType:'text/css',body:''}));
+  await page.route('https://fonts.gstatic.com/**',route=>route.fulfill({status:204,body:''}));
   await page.route('**/api/**',route=>{
     const path=new URL(route.request().url()).pathname;
     const fulfill=(body,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
@@ -17,82 +17,73 @@ async function mockPreview(page){
   });
 }
 
-async function waitForLatestShell(page){
+async function waitForMaster(page){
   await expect(page.locator('#app')).toBeVisible();
-  await expect.poll(()=>page.evaluate(()=>Boolean(window.__KCH_MEMBER_PERSONALIZATION__))).toBe(true);
-  await expect(page.locator('.shell')).toHaveClass(/v118-signature-home/);
-  await expect(page.locator('.tshop-hero')).toHaveAttribute('data-v118-signature','1');
-  await expect(page.locator('.v118-hero-copy')).toBeVisible();
-  await expect(page.locator('.v118-smart-helper')).toBeVisible();
+  await expect(page.locator('.shell')).toHaveClass(/kch-master-shell/);
+  await expect(page.locator('.kch-master-home')).toBeVisible();
+  await expect(page.locator('.kch-master-hero')).toBeVisible();
+  await expect(page.locator('.kch-master-products')).toBeVisible();
 }
 
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
 
-test('capture latest customer-facing storefront without unverified commerce data',async({page},testInfo)=>{
-  const pageErrors=[];
-  page.on('pageerror',error=>pageErrors.push(error.message));
+test('capture current customer-facing storefront without unverified commerce data',async({page},testInfo)=>{
+  const pageErrors=[];page.on('pageerror',error=>pageErrors.push(error.message));
   await mockPreview(page);
-  await page.goto('/?preview=latest',{waitUntil:'domcontentloaded'});
-  await waitForLatestShell(page);
+  await page.goto('/?preview=master',{waitUntil:'domcontentloaded'});
+  await waitForMaster(page);
 
-  await expect(page.locator('.tshop-hero')).toContainText('คุณชายสมุนไพร');
-  await expect(page.locator('.tshop-hero')).toContainText('สมุนไพรไทยยุคใหม่');
-  await expect(page.locator('.tshop-hero')).toContainText('รองรับเก็บเงินปลายทาง');
-  await expect(page.locator('.v118-launch-preview')).toHaveCount(3);
-  await expect(page.locator('.v118-hero-showcase')).toContainText('กำลังเตรียมเปิดจำหน่าย');
-  await expect(page.locator('.kch-flagship-launch')).toBeVisible();
-  await expect(page.locator('.kch-flagship-launch')).toContainText('เตรียมพบสินค้าใหม่จากคุณชายสมุนไพร');
-  await expect(page.locator('.kch-flagship-launch')).toContainText('ราคาเร็ว ๆ นี้');
+  await expect(page.getByRole('heading',{level:1})).toContainText('KHONCHAIHERB');
+  await expect(page.getByRole('heading',{level:1})).toContainText('คุณชายสมุนไพร');
+  await expect(page.locator('.kch-master-showcase')).toHaveCount(3);
+  await expect(page.locator('.kch-master-product')).toHaveCount(3);
+  await expect(page.locator('.kch-master-price')).toHaveCount(0);
+  await expect(page.locator('.kch-master-no-price')).toHaveCount(3);
 
-  // Empty verified feeds must remain truly empty on the customer surface.
-  await expect(page.locator('[data-live-jump]:visible')).toHaveCount(0);
-  await expect(page.locator('[data-v05-nav="live"]:visible')).toHaveCount(0);
-  await expect(page.locator('[data-v05-nav="video"]:visible')).toHaveCount(0);
-  await expect(page.locator('[data-scroll-deals]:visible')).toHaveCount(0);
-  await expect(page.locator('[data-scroll-voucher]:visible')).toHaveCount(0);
-  await expect(page.locator('#recommend.recommend-head')).toHaveText('สินค้า');
-  await expect(page.locator('[data-v116-sort] option[value="popular"]')).toHaveText('แนะนำ');
-  await expect(page.locator('#product-grid .tshop-card')).toHaveCount(0);
-  await expect(page.locator('[data-product="dried-pandan-leaves"]')).toHaveCount(0);
-
-  // Preview must not leak seed/demo or staged zero-value commerce data into a customer-facing image.
   const bodyText=await page.locator('body').innerText();
-  expect(bodyText).not.toContain('฿189');
-  expect(bodyText).not.toContain('฿0');
-  expect(bodyText).not.toContain('ขายแล้ว 0');
-  expect(bodyText).not.toContain('ขายแล้ว 1,248');
-  expect(bodyText).not.toContain('ขายแล้ว 938');
-  expect(bodyText).not.toContain('ใบเตยหอมอบแห้ง');
+  expect(bodyText).not.toContain('ขายแล้ว');
+  expect(bodyText).not.toContain('Verified Purchase');
+  expect(bodyText).not.toContain('FLASH DEAL');
   expect(bodyText).not.toContain('WELCOME50');
   expect(bodyText).not.toContain('HERB10');
-  expect(bodyText).not.toContain('สินค้าที่ได้รับความนิยม');
-  expect(bodyText).not.toContain('12,800 ผู้ติดตาม');
-  expect(bodyText).not.toContain('1.2K');
+  expect(bodyText).not.toContain('สินค้าขายดี');
+  expect(bodyText).not.toContain('088-5807909');
+  expect(bodyText).not.toContain('0885807909');
+  await expect(page.locator('.rating')).toHaveCount(0);
+  await expect(page.locator('.review-promo')).toHaveCount(0);
+  await expect(page.locator('.kch-master-newsletter:visible')).toHaveCount(0);
+
+  const jsonLd=page.locator('#kch-store-jsonld');
+  await expect(jsonLd).toHaveCount(1);
+  const structured=JSON.parse(await jsonLd.textContent());
+  expect(JSON.stringify(structured)).not.toContain('aggregateRating');
+  expect(JSON.stringify(structured)).not.toContain('reviewRating');
 
   const metrics=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth}));
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth+1);
   expect(pageErrors).toEqual([]);
 
   await page.evaluate(async()=>{if(document.fonts?.ready)await document.fonts.ready});
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(150);
   await mkdir('preview-screenshots',{recursive:true});
-  await page.screenshot({path:`preview-screenshots/${testInfo.project.name}-latest-home.png`,fullPage:true});
+  await page.screenshot({path:`preview-screenshots/${testInfo.project.name}-master-home.png`,fullPage:true});
 });
 
-test('desktop latest storefront remains fluid at common commercial widths',async({page},testInfo)=>{
+test('desktop master storefront remains fluid at common commercial widths',async({page},testInfo)=>{
   test.skip(testInfo.project.name!=='desktop-1440','desktop viewport matrix runs once');
   await mockPreview(page);
   const widths=[1024,1280,1440,1920];
   await mkdir('preview-screenshots',{recursive:true});
 
   for(const width of widths){
-    await page.setViewportSize({width,height:Math.round(width*0.66)});
-    await page.goto(`/?preview=latest-${width}`,{waitUntil:'domcontentloaded'});
-    await waitForLatestShell(page);
-    const m=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth,hero:document.querySelector('.tshop-hero')?.getBoundingClientRect().width||0}));
+    await page.setViewportSize({width,height:Math.round(width*.66)});
+    await page.goto(`/?preview=master-${width}`,{waitUntil:'domcontentloaded'});
+    await waitForMaster(page);
+    const m=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth,hero:document.querySelector('.kch-master-hero')?.getBoundingClientRect().width||0,shell:document.querySelector('.shell')?.getBoundingClientRect().width||0}));
     expect(m.scrollWidth).toBeLessThanOrEqual(width+1);
     expect(m.clientWidth).toBe(width);
-    expect(m.hero).toBeGreaterThan(Math.min(760,width*0.68));
-    if(width===1440)await page.screenshot({path:'preview-screenshots/desktop-1440-latest-viewport.png',fullPage:false});
+    expect(m.shell).toBeLessThanOrEqual(width+1);
+    expect(m.hero).toBeGreaterThan(Math.min(760,width*.68));
+    if(width===1440)await page.screenshot({path:'preview-screenshots/desktop-1440-master-viewport.png',fullPage:false});
   }
 });
