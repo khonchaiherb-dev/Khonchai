@@ -1,198 +1,221 @@
-/* KHONCHAIHERB v1.34.0 — structural storefront header and navigation */
+/* KHONCHAIHERB v1.34.2 — structural cleanup on the canonical master storefront */
 (()=>{
   'use strict';
   if(typeof document==='undefined')return;
-  const BUILD='1.34.0';
-  if(window.__KCH_V134_STRUCTURAL__===BUILD)return;
-  window.__KCH_V134_STRUCTURAL__=BUILD;
+  const BUILD='1.34.2';
+  if(window.__KCH_STRUCTURAL_STOREFRONT__===BUILD)return;
+  window.__KCH_STRUCTURAL_STOREFRONT__=BUILD;
 
   const $=(s,r=document)=>r?.querySelector?.(s)||null;
   const $$=(s,r=document)=>Array.from(r?.querySelectorAll?.(s)||[]);
-  const clean=s=>String(s||'').replace(/\s+/g,' ').trim();
+  const text=el=>String(el?.textContent||'').replace(/\s+/g,' ').trim();
+  const normalize=v=>String(v??'').normalize('NFKC').toLocaleLowerCase('th-TH').replace(/\s+/g,' ').trim();
+  const icon=n=>`<span class="material-symbols-rounded" aria-hidden="true">${n}</span>`;
 
-  function shell(){
-    const root=$('.kch-master-shell')||$('#app>.shell')||$('.shell');
-    if(!root)return null;
-    root.classList.add('kch-master-shell','kch-v134-active');
-    root.dataset.kchUi=BUILD;
-    return root;
+  function isHome(){
+    try{if(typeof current!=='undefined')return current==='home'}catch{}
+    return Boolean($('.kch-master-home'));
   }
 
-  function legacyGo(go,root){
-    return $$(`[data-go="${go}"]`,root||document).find(el=>!el.closest('#kch-v134-header'))||null;
+  function moveBaselineLast(){
+    const node=$('link[href*="tshop-v134-structural-storefront.css"],style[data-kch-v134-baseline]');
+    if(node&&node.parentNode===document.head&&document.head.lastElementChild!==node)document.head.appendChild(node);
   }
 
-  function activate(go,root){
-    const legacy=legacyGo(go,root);
-    if(legacy){legacy.click();return true}
-    const candidates={
-      home:['home','renderHome'],
-      account:['account','accountPage','memberPage'],
-      orders:['orders','ordersPage','orderPage'],
-      cart:['cartPage','cart'],
-    }[go]||[];
-    for(const name of candidates){
-      if(typeof window[name]==='function'){
-        try{window[name]();return true}catch{}
-      }
+  function canonicalShell(){
+    const shell=$('.shell.kch-master-shell')||$('.shell');
+    if(!shell)return null;
+    shell.classList.add('kch-master-shell','kch-v134-active');
+    shell.dataset.kchUi=BUILD;
+    return shell;
+  }
+
+  function removeInjectedHeader(){
+    $$('#kch-v134-header,.kch-v134-header').forEach(el=>el.remove());
+  }
+
+  function removeDuplicateChrome(shell,canonicalTop,canonicalNav){
+    Array.from(shell.children).forEach(el=>{
+      if(el===canonicalTop||el===canonicalNav)return;
+      if(el.matches?.('.tshop-topbar,.topbar,.kch-ref-menu,.tshop-menu,.tshop-nav'))el.remove();
+    });
+  }
+
+  function ensureBrand(top){
+    let brand=$('.kch-brand-lockup',top);
+    if(!brand){
+      brand=document.createElement('button');
+      brand.type='button';
+      brand.className='kch-brand-lockup';
+      brand.dataset.go='home';
     }
-    if(go==='account'){location.href='/account.html';return true}
-    if(go==='home'){location.href='/';return true}
-    return false;
+    brand.setAttribute('aria-label','KHONCHAIHERB คุณชายสมุนไพร หน้าแรก');
+    brand.innerHTML='<b>KHONCHAIHERB</b><small>คุณชายสมุนไพร</small>';
+    return brand;
   }
 
-  function markLegacy(root){
-    $$('.tshop-topbar,.topbar',root).forEach(el=>{
-      if(!el.closest('#kch-v134-header'))el.classList.add('kch-v134-obsolete-header');
-    });
-    $$('.kch-ref-menu,.tshop-menu,.tshop-nav',root).forEach(el=>{
-      if(!el.closest('#kch-v134-header')&&!el.matches('nav.bottom,nav.tshop-bottom'))el.classList.add('kch-v134-obsolete-menu');
-    });
-    const candidates=$$('a,button,div,section',root).filter(el=>{
-      if(el.closest('#kch-v134-header')||el.matches('nav.bottom,nav.tshop-bottom')||el.closest('nav.bottom,nav.tshop-bottom'))return false;
-      const t=clean(el.textContent);
-      return t.length>0&&t.length<260&&t.includes('เข้าสู่ระบบ')&&t.includes('สมัครสมาชิก');
-    });
-    candidates.filter(el=>!candidates.some(other=>other!==el&&el.contains(other))).forEach(el=>el.classList.add('kch-v134-obsolete-account-strip'));
+  function ensureSearch(top){
+    const search=$('.tshop-searchbox',top)||$('.search',top);
+    if(!search)return null;
+    search.classList.add('kch-master-searchbox');
+    const input=$('input',search);
+    if(input){
+      input.id='kch-master-search';
+      input.placeholder='ค้นหาสินค้า ชาสมุนไพร และผลิตภัณฑ์สุขภาพ';
+      input.setAttribute('aria-label',input.placeholder);
+      input.setAttribute('autocomplete','off');
+    }
+    const button=$('button',search);
+    if(button){button.textContent='ค้นหา';button.setAttribute('aria-label','ค้นหาสินค้า')}
+    return search;
   }
 
-  function currentCartCount(){
+  function utilityButton(go,material,title,sub,badge=false){
+    return `<button type="button" class="kch-master-utility kch-master-utility-${go}" data-go="${go}" aria-label="${title} ${sub}">${icon(material)}<span class="kch-master-utility-copy"><b>${title}</b><small>${sub}</small></span>${badge?'<i class="badge">0</i>':''}</button>`;
+  }
+
+  function ensureActions(top){
+    let actions=$('.tshop-top-actions',top)||$('.actions',top);
+    if(!actions){actions=document.createElement('div');top.appendChild(actions)}
+    actions.className='tshop-top-actions kch-master-actions';
+    if(actions.dataset.kchStructural!==BUILD){
+      actions.innerHTML=utilityButton('account','person','บัญชีสมาชิก','เข้าสู่ระบบ / สมาชิก')+utilityButton('orders','inventory_2','คำสั่งซื้อ','ติดตามสถานะ')+utilityButton('cart','shopping_cart','ตะกร้า','ดูสินค้าที่เลือก',true);
+      actions.dataset.kchStructural=BUILD;
+    }
+    const badge=$('.badge',actions);
+    try{if(badge&&typeof count==='function')badge.textContent=String(count())}catch{}
+    return actions;
+  }
+
+  function ensureBurger(top){
+    let burger=$('.kch-ref-hamburger',top);
+    if(!burger){burger=document.createElement('button');burger.type='button';burger.className='kch-ref-hamburger';burger.setAttribute('aria-label','เปิดเมนู');burger.innerHTML=icon('menu')}
+    return burger;
+  }
+
+  const navItems=[
+    ['หน้าหลัก','home'],['สินค้าทั้งหมด','products'],['สินค้าแนะนำ','recommended'],['สินค้าใหม่','new'],['โปรโมชั่น','promotions'],['เกี่ยวกับเรา','story'],['ติดต่อเรา','footer']
+  ];
+  function ensureNav(shell,top){
+    const navs=$$('.kch-ref-menu',shell);
+    let nav=navs.shift()||document.createElement('nav');
+    navs.forEach(el=>el.remove());
+    nav.className='kch-ref-menu kch-master-nav';
+    nav.setAttribute('aria-label','เมนูหลัก');
+    if(nav.dataset.kchStructural!==BUILD){
+      nav.innerHTML=navItems.map(([label,id],i)=>`<button type="button" class="${i===0?'active':''}" data-kch-jump="${id}">${label}</button>`).join('');
+      nav.dataset.kchStructural=BUILD;
+    }
+    if(nav.parentNode!==shell)top.insertAdjacentElement('afterend',nav);
+    else if(top.nextElementSibling!==nav)top.insertAdjacentElement('afterend',nav);
+    return nav;
+  }
+
+  function removeLegacyAccountStrip(shell,top,nav){
+    const candidates=$$('section,div,aside',shell).filter(el=>{
+      if(el===top||el===nav||top.contains(el)||nav.contains(el))return false;
+      if(el.closest('.kch-master-home,.kch-member-wrap,.kch-master-footer'))return false;
+      const t=text(el);
+      return t.length>0&&t.length<420&&t.includes('เข้าสู่ระบบ')&&t.includes('สมัครสมาชิก');
+    });
+    candidates.filter(el=>!candidates.some(other=>other!==el&&el.contains(other))).forEach(el=>el.remove());
+  }
+
+  function route(go){
     try{
-      const rows=JSON.parse(localStorage.getItem('kch-cart')||'[]');
-      return Array.isArray(rows)?rows.reduce((sum,row)=>sum+(Number(row?.qty)||0),0):0;
-    }catch{return 0}
+      if(typeof window.go==='function'){window.go(go);return}
+      if(go==='account'&&typeof window.account==='function'){window.account();return}
+      if(go==='orders'&&typeof window.orders==='function'){window.orders();return}
+      if(go==='cart'&&typeof window.cartPage==='function'){window.cartPage();return}
+      if(go==='home'&&typeof window.home==='function'){window.home();return}
+    }catch{}
   }
 
-  function syncCartCount(root){
-    const badge=$('#kch-v134-cart-count',root);
-    if(!badge)return;
-    let n=currentCartCount();
-    const legacy=legacyGo('cart',root);
-    const oldBadge=legacy?$('.badge,.tshop-badge,[data-cart-count]',legacy):null;
-    const parsed=Number.parseInt(clean(oldBadge?.textContent),10);
-    if(Number.isFinite(parsed))n=parsed;
-    badge.textContent=String(Math.max(0,n));
-    badge.hidden=n<=0;
-  }
-
-  function findLegacySearch(root){
-    const selectors=['#shop-search','.tshop-searchbox input','.kch-header-search input','.kch-ref-search input','.tshop-search input'];
-    for(const s of selectors){
-      const el=$$(s,root).find(x=>x.id!=='kch-v134-search'&&!x.closest('#kch-v134-header'));
-      if(el)return el;
-    }
-    return null;
-  }
-
-  function syncSearch(value,root,submit=false){
-    const old=findLegacySearch(root);
-    if(old){
-      old.value=value;
-      old.dispatchEvent(new Event('input',{bubbles:true}));
-      old.dispatchEvent(new Event('change',{bubbles:true}));
-      if(submit){
-        const btn=$('#search-btn',root)||$('.tshop-searchbox button',root)||$('.kch-header-search button',root);
-        if(btn&&!btn.closest('#kch-v134-header'))btn.click();
-        else old.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',bubbles:true}));
-      }
-      return;
-    }
-    if(submit&&value.trim()){
-      const products=$('#kch-products',root)||$('#product-grid',root)||$('#recommend',root);
-      products?.scrollIntoView?.({behavior:'smooth',block:'start'});
-    }
-  }
-
-  function scrollTarget(kind,root){
-    const map={
-      products:['#kch-products','#product-grid','#recommend','.kch-master-products'],
-      recommended:['#kch-products','#recommend','.kch-master-products'],
-      promotions:['.kch-master-promo','.coupon','.promo','.kch-v132-promo'],
-      about:['footer','.kch-footer'],
-      contact:['footer','.kch-footer']
-    };
-    for(const sel of map[kind]||[]){
-      const el=$(sel,root)||$(sel);
-      if(el){el.scrollIntoView({behavior:'smooth',block:'start'});return true}
-    }
-    return false;
-  }
-
-  function headerMarkup(){
-    return `<header id="kch-v134-header" class="kch-v134-header" data-kch-v134="${BUILD}" aria-label="เมนูหลัก KHONCHAIHERB">
-      <div class="kch-v134-top">
-        <button type="button" class="kch-v134-brand" data-v134-go="home" aria-label="กลับหน้าหลัก KHONCHAIHERB">
-          <strong>KHONCHAIHERB</strong><span>คุณชายสมุนไพร</span>
-        </button>
-        <form class="kch-v134-search" role="search" aria-label="ค้นหาสินค้า" data-v134-search-form>
-          <input id="kch-v134-search" type="search" autocomplete="off" placeholder="ค้นหาสินค้า ชาสมุนไพร และผลิตภัณฑ์สุขภาพ" aria-label="ค้นหาสินค้า">
-          <button class="kch-v134-search-submit" type="submit">ค้นหา</button>
-        </form>
-        <div class="kch-v134-actions" aria-label="เมนูบัญชีและคำสั่งซื้อ">
-          <button type="button" class="kch-v134-action" data-v134-go="account" aria-label="บัญชีสมาชิก เข้าสู่ระบบหรือสมัครสมาชิก">
-            <span class="kch-v134-action-icon" aria-hidden="true">👤</span><span class="kch-v134-action-copy"><b>บัญชีสมาชิก</b><small>เข้าสู่ระบบ / สมัครสมาชิก</small></span>
-          </button>
-          <button type="button" class="kch-v134-action" data-v134-go="orders" aria-label="คำสั่งซื้อและติดตามสถานะ">
-            <span class="kch-v134-action-icon" aria-hidden="true">📦</span><span class="kch-v134-action-copy"><b>คำสั่งซื้อ</b><small>ติดตามสถานะ</small></span>
-          </button>
-          <button type="button" class="kch-v134-action" data-v134-go="cart" aria-label="เปิดตะกร้าสินค้า">
-            <span class="kch-v134-action-icon" aria-hidden="true">🛒</span><span class="kch-v134-action-copy"><b>ตะกร้า <i id="kch-v134-cart-count">0</i></b><small>ดูสินค้าที่เลือก</small></span>
-          </button>
-        </div>
-      </div>
-      <nav id="kch-v134-nav" aria-label="เมนูร้านค้า">
-        <button type="button" data-v134-nav="home">หน้าหลัก</button>
-        <button type="button" data-v134-nav="products">สินค้าทั้งหมด</button>
-        <button type="button" data-v134-nav="recommended">สินค้าแนะนำ</button>
-        <button type="button" data-v134-nav="products">สินค้าใหม่</button>
-        <button type="button" data-v134-nav="promotions">โปรโมชั่น</button>
-        <button type="button" data-v134-nav="about">เกี่ยวกับเรา</button>
-        <button type="button" data-v134-nav="contact">ติดต่อเรา</button>
-      </nav>
-    </header>`;
-  }
-
-  function bindHeader(header,root){
-    if(header.dataset.bound==='1')return;
-    header.dataset.bound='1';
-    header.addEventListener('click',event=>{
-      const go=event.target.closest('[data-v134-go]')?.dataset?.v134Go;
-      if(go){event.preventDefault();activate(go,root);return}
-      const nav=event.target.closest('[data-v134-nav]')?.dataset?.v134Nav;
-      if(!nav)return;
-      event.preventDefault();
-      if(nav==='home')activate('home',root);else scrollTarget(nav,root);
+  function bindHeader(top){
+    if(top.dataset.kchStructuralBound===BUILD)return;
+    top.dataset.kchStructuralBound=BUILD;
+    top.addEventListener('click',e=>{
+      const b=e.target.closest?.('.kch-master-utility[data-go],.kch-brand-lockup[data-go]');
+      if(!b)return;
+      e.preventDefault();
+      route(b.dataset.go);
     });
-    const form=$('[data-v134-search-form]',header),input=$('#kch-v134-search',header);
-    input?.addEventListener('input',()=>syncSearch(input.value,root,false));
-    form?.addEventListener('submit',event=>{event.preventDefault();syncSearch(input?.value||'',root,true)});
+  }
+
+  function jump(id){
+    if(id==='home'){route('home');return}
+    const map={
+      products:'#kch-products,.kch-master-products',
+      recommended:'#kch-products,.kch-master-products',
+      new:'#kch-products,.kch-master-products',
+      promotions:'.kch-master-promo-grid,.kch-master-promotions',
+      story:'.kch-master-story',
+      footer:'.kch-master-footer,footer'
+    };
+    const target=$(map[id]||'');
+    target?.scrollIntoView?.({behavior:'smooth',block:'start'});
+  }
+
+  function bindNav(nav){
+    if(nav.dataset.kchBound===BUILD)return;
+    nav.dataset.kchBound=BUILD;
+    nav.addEventListener('click',e=>{
+      const b=e.target.closest?.('[data-kch-jump]');if(!b)return;
+      e.preventDefault();
+      nav.querySelectorAll('[data-kch-jump]').forEach(x=>x.classList.toggle('active',x===b));
+      jump(b.dataset.kchJump);
+    });
+  }
+
+  function bindBurger(top,shell){
+    const burger=$('.kch-ref-hamburger',top);if(!burger||burger.dataset.kchBound===BUILD)return;
+    burger.dataset.kchBound=BUILD;
+    burger.addEventListener('click',()=>shell.classList.toggle('kch-mobile-menu-open'));
+  }
+
+  function applySearch(){
+    if(!isHome())return;
+    const input=$('#kch-master-search');
+    const cards=$$('.kch-master-products .kch-master-product');
+    if(!input||!cards.length)return;
+    const q=normalize(input.value),tokens=q.split(' ').filter(Boolean);
+    cards.forEach(card=>{
+      if(!q){card.removeAttribute('data-kch-structural-search');return}
+      const hay=normalize([card.dataset.product,card.dataset.kchName,card.dataset.kchCat,text(card)].filter(Boolean).join(' '));
+      card.dataset.kchStructuralSearch=tokens.every(token=>hay.includes(token))?'1':'0';
+    });
+  }
+
+  function bindSearch(top){
+    const input=$('#kch-master-search',top);if(!input||input.dataset.kchStructuralBound===BUILD)return;
+    input.dataset.kchStructuralBound=BUILD;
+    input.addEventListener('input',()=>{queueMicrotask(applySearch);requestAnimationFrame(applySearch)});
+    input.addEventListener('search',applySearch);
   }
 
   function install(){
-    const root=shell();
-    if(!root)return;
-    markLegacy(root);
-    let header=$('#kch-v134-header',root);
-    if(!header){
-      const host=document.createElement('div');host.innerHTML=headerMarkup().trim();header=host.firstElementChild;
-      root.insertBefore(header,root.firstChild);
-    }
-    bindHeader(header,root);
-    const old=findLegacySearch(root),input=$('#kch-v134-search',header);
-    if(input&&old&&document.activeElement!==input&&!input.value)input.value=old.value||'';
-    syncCartCount(root);
+    removeInjectedHeader();
+    const shell=canonicalShell();if(!shell)return;
+    const tops=Array.from(shell.children).filter(el=>el.matches?.('.tshop-topbar,.topbar'));
+    const top=tops.find(el=>el.classList.contains('tshop-topbar'))||tops[0];
+    if(!top)return;
+    top.classList.add('tshop-topbar','kch-master-topbar','kch-structural-canonical-header');
+    const brand=ensureBrand(top),search=ensureSearch(top),actions=ensureActions(top),burger=ensureBurger(top);
+    [burger,brand,search,actions].filter(Boolean).forEach(el=>top.appendChild(el));
+    const nav=ensureNav(shell,top);
+    removeDuplicateChrome(shell,top,nav);
+    removeLegacyAccountStrip(shell,top,nav);
+    bindHeader(top);bindNav(nav);bindBurger(top,shell);bindSearch(top);
+    applySearch();
+    moveBaselineLast();
   }
 
-  let raf=0;
-  const schedule=()=>{
-    if(raf)return;
-    raf=requestAnimationFrame(()=>{raf=0;install()});
-  };
-  const app=$('#app')||document.body;
-  if(app&&typeof MutationObserver!=='undefined')new MutationObserver(schedule).observe(app,{childList:true,subtree:true});
+  let frame=0;
+  const schedule=()=>{if(frame)return;frame=requestAnimationFrame(()=>{frame=0;install()})};
+  const root=$('#app')||document.body;
+  if(root&&typeof MutationObserver!=='undefined')new MutationObserver(records=>{if(records.some(r=>r.addedNodes?.length||r.removedNodes?.length))schedule()}).observe(root,{childList:true,subtree:true});
   window.addEventListener('pageshow',schedule,{passive:true});
   window.addEventListener('resize',schedule,{passive:true});
-  window.addEventListener('storage',schedule);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});else schedule();
-  setTimeout(schedule,60);setTimeout(schedule,280);setInterval(()=>{const root=shell();if(root)syncCartCount(root)},1600);
+  setTimeout(schedule,80);setTimeout(schedule,300);
 })();
