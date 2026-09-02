@@ -166,8 +166,8 @@
     const search=top.querySelector('.tshop-searchbox');if(search)top.prepend(search);
     let actions=top.querySelector('.tshop-top-actions');if(!actions){actions=top.querySelector('.actions');if(actions)actions.classList.add('tshop-top-actions')}
     let burger=top.querySelector('.kch-ref-hamburger');if(!burger){burger=document.createElement('button');burger.type='button';burger.className='kch-ref-hamburger';burger.setAttribute('aria-label','เปิดเมนู');burger.innerHTML=icon('menu');top.prepend(burger)}
-    if(!shell.querySelector('.kch-ref-menu')){const nav=document.createElement('nav');nav.className='kch-ref-menu';nav.setAttribute('aria-label','เมนูหลัก');nav.innerHTML=[['HOME','home'],['SHOP','products'],['BEST SELLERS','products'],['NEW ARRIVALS','products'],['PROMOTIONS','promotions'],['ABOUT US','story'],['CONTACT','footer']].map(([label,id],i)=>`<button type="button" class="${i===0?'active':''}" data-kch-jump="${id}">${label}</button>`).join('');top.insertAdjacentElement('afterend',nav)}
-    let mobile=shell.querySelector('.kch-ref-mobile-panel');if(!mobile){mobile=document.createElement('div');mobile.className='kch-ref-mobile-panel';mobile.innerHTML=[['HOME','home'],['SHOP','products'],['BEST SELLERS','products'],['NEW ARRIVALS','products'],['PROMOTIONS','promotions'],['ABOUT US','story'],['CONTACT','footer']].map(([label,id])=>`<button type="button" data-kch-jump="${id}">${label}</button>`).join('');shell.appendChild(mobile)}burger.onclick=()=>mobile.classList.toggle('open')
+    if(!shell.querySelector('.kch-ref-menu')){const nav=document.createElement('nav');nav.className='kch-ref-menu';nav.setAttribute('aria-label','เมนูหลัก');nav.innerHTML=[['หน้าแรก','home'],['สินค้าทั้งหมด','products'],['สินค้าแนะนำ','products'],['สินค้าใหม่','products'],['โปรโมชั่น','promotions'],['เกี่ยวกับเรา','story'],['ติดต่อเรา','footer']].map(([label,id],i)=>`<button type="button" class="${i===0?'active':''}" data-kch-jump="${id}">${label}</button>`).join('');top.insertAdjacentElement('afterend',nav)}
+    let mobile=shell.querySelector('.kch-ref-mobile-panel');if(!mobile){mobile=document.createElement('div');mobile.className='kch-ref-mobile-panel';mobile.innerHTML=[['หน้าแรก','home'],['สินค้าทั้งหมด','products'],['สินค้าแนะนำ','products'],['สินค้าใหม่','products'],['โปรโมชั่น','promotions'],['เกี่ยวกับเรา','story'],['ติดต่อเรา','footer']].map(([label,id])=>`<button type="button" data-kch-jump="${id}">${label}</button>`).join('');shell.appendChild(mobile)}burger.onclick=()=>mobile.classList.toggle('open')
   }
 
   const catIcon=c=>({'ทั้งหมด':'apps','ชาสมุนไพร':'emoji_food_beverage','ชาและสมุนไพร':'emoji_food_beverage','ผลิตภัณฑ์สมุนไพร':'nutrition','พร้อมส่ง':'inventory_2','สินค้าขายดี':'star','สินค้ายอดนิยม':'star','ของฝาก':'redeem','ชุดของขวัญ':'redeem','ดูแลร่างกาย':'spa'}[c]||'eco');
@@ -179,13 +179,13 @@
   function promotionCards(){
     let promos=[];try{if(typeof V07_PROMOTIONS!=='undefined'&&Array.isArray(V07_PROMOTIONS))promos=V07_PROMOTIONS}catch{}if(!promos.length){try{if(typeof COUPONS!=='undefined'&&Array.isArray(COUPONS))promos=COUPONS}catch{}}
     if(promos.length)return promos.slice(0,3).map((p,i)=>{const pct=String(p.type||'')==='percent',value=pct?`ลด ${Number(p.value||0)}%`:`ลด ${money(p.value||0)}`,min=Number(p.minSpend||p.min_spend||0);return `<div class="kch-master-promo">${icon(i===2?'local_shipping':'redeem')}<b>${escHtml(p.name||p.code||'สิทธิพิเศษ')}</b><strong>${escHtml(value)}</strong><small>${min>0?`เมื่อยอดสั่งซื้อตั้งแต่ ${money(min)}`:'ตรวจสอบเงื่อนไขก่อนยืนยันคำสั่งซื้อ'}</small></div>`}).join('');
-    return [['payments','เก็บเงินปลายทาง','COD','รองรับในคำสั่งซื้อที่เข้าเงื่อนไข'],['local_shipping','ติดตามคำสั่งซื้อ','TRACK','ตรวจสถานะคำสั่งซื้อได้สะดวก'],['receipt_long','ใบเสร็จ','RECEIPT','รับใบเสร็จหลังชำระเงินหรือรับเงินปลายทางสำเร็จ']].map(([ic,b,strong,sm])=>`<div class="kch-master-promo">${icon(ic)}<b>${b}</b><strong>${strong}</strong><small>${sm}</small></div>`).join('')
+    return [['payments','เก็บเงินปลายทาง','ชำระปลายทาง','รองรับในคำสั่งซื้อที่เข้าเงื่อนไข'],['local_shipping','ติดตามคำสั่งซื้อ','ติดตามพัสดุ','ตรวจสถานะคำสั่งซื้อได้สะดวก'],['receipt_long','ใบเสร็จ','ใบเสร็จรับเงิน','รับใบเสร็จหลังชำระเงินหรือรับเงินปลายทางสำเร็จ']].map(([ic,b,strong,sm])=>`<div class="kch-master-promo">${icon(ic)}<b>${b}</b><strong>${strong}</strong><small>${sm}</small></div>`).join('')
   }
-  function safeReviewCards(){return [['verified_user','รีวิวจากการซื้อจริง','รีวิวเชื่อมกับคำสั่งซื้อที่จัดส่งสำเร็จเท่านั้น'],['fact_check','ข้อมูลตรวจสอบได้','คะแนนและความคิดเห็นจะแสดงจากข้อมูลที่ยืนยันแล้ว'],['inventory_2','ประสบการณ์หลังสั่งซื้อ','ให้ความสำคัญกับสินค้า การแพ็ก การจัดส่ง และบริการ']].map(([ic,b,p])=>`<article class="kch-master-review"><div class="kch-master-review-head"><div class="kch-master-avatar">${icon(ic)}</div><div><b>${b}</b><div class="stars">★★★★★</div></div></div><p>${p}</p><small>มาตรฐานรีวิว KHONCHAIHERB</small></article>`).join('')}
+  function safeReviewCards(){return [['verified_user','รีวิวจากการซื้อจริง','รีวิวเชื่อมกับคำสั่งซื้อที่จัดส่งสำเร็จเท่านั้น'],['fact_check','ข้อมูลตรวจสอบได้','คะแนนและความคิดเห็นจะแสดงจากข้อมูลที่ยืนยันแล้ว'],['inventory_2','ประสบการณ์หลังสั่งซื้อ','ให้ความสำคัญกับสินค้า การแพ็ก การจัดส่ง และบริการ']].map(([ic,b,p])=>`<article class="kch-master-review"><div class="kch-master-review-head"><div class="kch-master-avatar">${icon(ic)}</div><div><b>${b}</b><div class="stars">ตรวจสอบจากคำสั่งซื้อ</div></div></div><p>${p}</p><small>มาตรฐานรีวิว KHONCHAIHERB</small></article>`).join('')}
 
   function buildHome(){
     const products=displayProducts(),hero=heroProducts(),cats=categoryNames(),storyImage=products.find(p=>imgOf(p))?.image||launch[1].image,maxPrice=Math.max(1000,...products.map(p=>Number(p.price||0)));
-    return `<main class="kch-master-home" id="kch-home"><section class="kch-master-hero"><div class="kch-master-hero-copy"><span class="kch-master-kicker">KHONCHAIHERB • PREMIUM THAI HERBAL</span><h1>KHONCHAIHERB<small>คุณชายสมุนไพร</small></h1><div class="kch-master-tagline">Ancient Wisdom. Future Wellness.</div><p class="kch-master-desc">สมุนไพรไทยในประสบการณ์ช้อปยุคใหม่ เลือกสินค้าได้ง่าย ตรวจสอบข้อมูลสำคัญก่อนสั่งซื้อ และติดตามคำสั่งซื้อได้ในที่เดียว</p><div class="kch-master-hero-actions"><button type="button" class="kch-master-shop" data-kch-jump="products">SHOP NOW 🌿</button><button type="button" class="kch-master-explore" data-kch-jump="categories">EXPLORE COLLECTION</button></div></div><div class="kch-master-stage">${hero.map((p,i)=>`<button type="button" class="kch-master-showcase" ${catalog().some(x=>String(x.slug)===String(p.slug))?`data-product="${escHtml(p.slug)}"`:''} aria-label="${escHtml(p.name)}"><img src="${escHtml(imgOf(p)||launch[i].image)}" alt="${escHtml(p.name)}" ${i===0?'fetchpriority="high"':'loading="lazy"'} decoding="async"></button>`).join('')}</div><div class="kch-master-hero-benefits"><div>${icon('verified')}<span><b>สมุนไพรคุณภาพ</b><small>คัดสรรข้อมูลสินค้าอย่างชัดเจน</small></span></div><div>${icon('workspace_premium')}<span><b>ปลอดภัย มั่นใจได้</b><small>เลือกจากข้อมูลที่ร้านยืนยัน</small></span></div><div>${icon('fact_check')}<span><b>ข้อมูลโปร่งใส</b><small>ตรวจสอบก่อนตัดสินใจซื้อ</small></span></div><div>${icon('support_agent')}<span><b>ดูแลทุกคำสั่งซื้อ</b><small>ติดตามสถานะได้ในระบบ</small></span></div></div></section><section class="kch-master-finder" aria-label="ค้นหาและเลือกสินค้า"><h2>ค้นหาและเลือกสินค้า</h2><button class="kch-master-filter active" type="button" data-kch-filter="ทั้งหมด">แนะนำ</button>${cats.slice(1,5).map(c=>`<button class="kch-master-filter" type="button" data-kch-filter="${escHtml(c)}">${escHtml(c)}</button>`).join('')}<div class="kch-master-range"><span>฿0</span><input type="range" min="0" max="${Math.ceil(maxPrice/100)*100}" step="50" value="${Math.ceil(maxPrice/100)*100}" data-kch-price aria-label="ราคาสูงสุด"><span data-kch-price-label>${money(Math.ceil(maxPrice/100)*100)}</span></div><button type="button" class="kch-master-reset" data-kch-reset>ล้างตัวกรอง</button></section><section class="kch-master-section" id="kch-products"><div class="kch-master-section-head"><div><h2>สินค้าแนะนำ</h2><p>เลือกจากสินค้าที่มีข้อมูลและภาพพร้อมแสดงบนหน้าร้าน</p></div><button type="button" data-kch-reset>ดูทั้งหมด →</button></div><div class="kch-master-products">${products.map(productCard).join('')}</div></section><section class="kch-master-trust"><div class="kch-master-trust-inner"><div class="kch-master-trust-item">${icon('assignment_turned_in')}<span><b>สั่งซื้อง่าย</b><small>เลือกสินค้าได้สะดวก</small></span></div><div class="kch-master-trust-item">${icon('payments')}<span><b>เก็บเงินปลายทาง</b><small>จ่ายเมื่อได้รับสินค้า</small></span></div><div class="kch-master-trust-item">${icon('local_shipping')}<span><b>ติดตามคำสั่งซื้อ</b><small>ตรวจสถานะได้ในระบบ</small></span></div><div class="kch-master-trust-item">${icon('verified_user')}<span><b>ร้านทางการ</b><small>ข้อมูลจากร้านโดยตรง</small></span></div></div></section><section class="kch-master-section" id="kch-categories"><div class="kch-master-section-head"><div><h2>เลือกช้อปตามหมวดหมู่</h2></div><button type="button" data-kch-reset>ดูทั้งหมด →</button></div><div class="kch-master-categories">${cats.map((c,i)=>{const ci=categoryImage(c,products);return `<button type="button" class="kch-master-category" data-kch-filter="${escHtml(c)}"><span class="kch-master-category-media">${ci?`<img src="${escHtml(ci)}" alt="" loading="lazy">`:icon(catIcon(c))}</span><span><b>${escHtml(c)}</b><small>${i===0?'สินค้าแนะนำ':'เลือกตามหมวดสินค้า'}</small></span></button>`}).join('')}</div></section><section class="kch-master-section kch-master-split" id="kch-promotions"><div><div class="kch-master-section-head"><div><h2>สิทธิพิเศษและบริการ</h2><p>สิทธิพิเศษที่พร้อมใช้งานกับคำสั่งซื้อของคุณ</p></div></div><div class="kch-master-promo-grid">${promotionCards()}</div></div><div><div class="kch-master-section-head"><div><h2>มาตรฐานรีวิวจากผู้ซื้อจริง</h2><p>ไม่แสดงคะแนนหรือความคิดเห็นที่ไม่ได้มาจากการซื้อจริง</p></div></div><div class="kch-master-review-grid">${safeReviewCards()}</div></div></section><section class="kch-master-story" id="kch-story"><div class="kch-master-story-visual"><img src="${escHtml(storyImage)}" alt="ผลิตภัณฑ์ KHONCHAIHERB" loading="lazy"></div><div class="kch-master-story-copy"><div><span class="eyebrow">เรื่องราวของเรา</span><h2>KHONCHAIHERB คุณชายสมุนไพร</h2><p>เราพัฒนาประสบการณ์เลือกซื้อสมุนไพรไทยให้ทันสมัย ใช้ง่าย และตรวจสอบข้อมูลสำคัญได้ก่อนสั่งซื้อ ตั้งแต่รายละเอียดสินค้า การชำระเงิน การจัดส่ง ไปจนถึงบริการหลังการขาย</p><button type="button" data-kch-jump="footer">รู้จักเราเพิ่มเติม 🌿</button></div><div class="kch-master-story-points"><div class="kch-master-story-point">${icon('eco')}<span><b>คัดสรรสินค้า</b><small>แสดงข้อมูลตามที่ร้านยืนยัน</small></span></div><div class="kch-master-story-point">${icon('fact_check')}<span><b>ข้อมูลชัดเจน</b><small>ดูรายละเอียดก่อนสั่งซื้อ</small></span></div><div class="kch-master-story-point">${icon('support_agent')}<span><b>ดูแลคำสั่งซื้อ</b><small>ติดตามสถานะได้สะดวก</small></span></div><div class="kch-master-story-point">${icon('local_shipping')}<span><b>จัดส่งทั่วประเทศ</b><small>เชื่อมกับสถานะการจัดส่ง</small></span></div></div></div></section><section class="kch-master-newsletter"><div class="kch-master-newsletter-inner"><div class="kch-master-news-copy">${icon('mail')}<span><b>รับข่าวสารและโปรโมชั่นพิเศษ</b><small>อัปเดตสินค้าใหม่และข้อเสนอจาก KHONCHAIHERB</small></span></div><form class="kch-master-news-form" data-kch-news><input type="email" placeholder="อีเมลของคุณ" aria-label="อีเมล"><button type="submit">สมัครรับข่าวสาร</button></form><div class="kch-master-social"><b>ติดตามเรา</b><span>LINE</span><span>f</span><span>IG</span><span>▶</span><span>♪</span></div></div></section><footer class="kch-master-footer" id="kch-footer"><div class="kch-master-footer-inner"><div class="kch-master-footer-brand"><h3>KHONCHAIHERB</h3><b>คุณชายสมุนไพร</b><p>Ancient Wisdom.<br>Future Wellness.</p></div><div class="kch-master-footer-col"><h4>ช็อปสินค้า</h4><button data-kch-jump="products">ทั้งหมด</button><button data-kch-filter="ชาและสมุนไพร">ชาและสมุนไพร</button><button data-kch-filter="ผลิตภัณฑ์สมุนไพร">ผลิตภัณฑ์สมุนไพร</button><button data-kch-jump="products">สินค้าแนะนำ</button></div><div class="kch-master-footer-col"><h4>บริการลูกค้า</h4><button data-kch-jump="products">วิธีการสั่งซื้อ</button><button data-go="cart">ตะกร้าสินค้า</button><button data-go="orders">ติดตามคำสั่งซื้อ</button><a href="/shipping-returns.html">การจัดส่งและคืนสินค้า</a></div><div class="kch-master-footer-col"><h4>เกี่ยวกับเรา</h4><button data-kch-jump="story">เกี่ยวกับ KHONCHAIHERB</button><a href="/privacy.html">นโยบายความเป็นส่วนตัว</a><a href="/terms.html">ข้อกำหนดการใช้งาน</a></div><div class="kch-master-footer-col"><h4>ติดต่อเรา</h4><a href="tel:0885807909">088-5807909</a><span style="display:block;padding:4px 0;font-size:8.5px;color:#c1d0c8">Line: 0885807909</span><span style="display:block;padding:4px 0;font-size:8.5px;color:#c1d0c8">ประเทศไทย</span></div></div><div class="kch-master-footer-bottom"><div><span>© KHONCHAIHERB คุณชายสมุนไพร</span><div class="kch-master-payments"><span>COD</span><span>VISA</span><span>MASTER</span></div></div></div></footer></main>`
+    return `<main class="kch-master-home" id="kch-home"><section class="kch-master-hero"><div class="kch-master-hero-copy"><span class="kch-master-kicker">KHONCHAIHERB • สมุนไพรไทยพรีเมียม</span><h1>KHONCHAIHERB<small>คุณชายสมุนไพร</small></h1><div class="kch-master-tagline">ภูมิปัญญาสมุนไพรไทย สู่การดูแลสุขภาพยุคใหม่</div><p class="kch-master-desc">สมุนไพรไทยในประสบการณ์ช้อปยุคใหม่ เลือกสินค้าได้ง่าย ตรวจสอบข้อมูลสำคัญก่อนสั่งซื้อ และติดตามคำสั่งซื้อได้ในที่เดียว</p><div class="kch-master-hero-actions"><button type="button" class="kch-master-shop" data-kch-jump="products">เลือกซื้อสินค้า 🌿</button><button type="button" class="kch-master-explore" data-kch-jump="categories">เลือกดูหมวดสินค้า</button></div></div><div class="kch-master-stage">${hero.map((p,i)=>`<button type="button" class="kch-master-showcase" ${catalog().some(x=>String(x.slug)===String(p.slug))?`data-product="${escHtml(p.slug)}"`:''} aria-label="${escHtml(p.name)}"><img src="${escHtml(imgOf(p)||launch[i].image)}" alt="${escHtml(p.name)}" ${i===0?'fetchpriority="high"':'loading="lazy"'} decoding="async"></button>`).join('')}</div><div class="kch-master-hero-benefits"><div>${icon('verified')}<span><b>สมุนไพรคุณภาพ</b><small>คัดสรรข้อมูลสินค้าอย่างชัดเจน</small></span></div><div>${icon('workspace_premium')}<span><b>ปลอดภัย มั่นใจได้</b><small>เลือกจากข้อมูลที่ร้านยืนยัน</small></span></div><div>${icon('fact_check')}<span><b>ข้อมูลโปร่งใส</b><small>ตรวจสอบก่อนตัดสินใจซื้อ</small></span></div><div>${icon('support_agent')}<span><b>ดูแลทุกคำสั่งซื้อ</b><small>ติดตามสถานะได้ในระบบ</small></span></div></div></section><section class="kch-master-finder" aria-label="ค้นหาและเลือกสินค้า"><h2>ค้นหาและเลือกสินค้า</h2><button class="kch-master-filter active" type="button" data-kch-filter="ทั้งหมด">แนะนำ</button>${cats.slice(1,5).map(c=>`<button class="kch-master-filter" type="button" data-kch-filter="${escHtml(c)}">${escHtml(c)}</button>`).join('')}<div class="kch-master-range"><span>฿0</span><input type="range" min="0" max="${Math.ceil(maxPrice/100)*100}" step="50" value="${Math.ceil(maxPrice/100)*100}" data-kch-price aria-label="ราคาสูงสุด"><span data-kch-price-label>${money(Math.ceil(maxPrice/100)*100)}</span></div><button type="button" class="kch-master-reset" data-kch-reset>ล้างตัวกรอง</button></section><section class="kch-master-section" id="kch-products"><div class="kch-master-section-head"><div><h2>สินค้าแนะนำ</h2><p>เลือกจากสินค้าที่มีข้อมูลและภาพพร้อมแสดงบนหน้าร้าน</p></div><button type="button" data-kch-reset>ดูทั้งหมด →</button></div><div class="kch-master-products">${products.map(productCard).join('')}</div></section><section class="kch-master-trust"><div class="kch-master-trust-inner"><div class="kch-master-trust-item">${icon('assignment_turned_in')}<span><b>สั่งซื้อง่าย</b><small>เลือกสินค้าได้สะดวก</small></span></div><div class="kch-master-trust-item">${icon('payments')}<span><b>เก็บเงินปลายทาง</b><small>จ่ายเมื่อได้รับสินค้า</small></span></div><div class="kch-master-trust-item">${icon('local_shipping')}<span><b>ติดตามคำสั่งซื้อ</b><small>ตรวจสถานะได้ในระบบ</small></span></div><div class="kch-master-trust-item">${icon('verified_user')}<span><b>ร้านทางการ</b><small>ข้อมูลจากร้านโดยตรง</small></span></div></div></section><section class="kch-master-section" id="kch-categories"><div class="kch-master-section-head"><div><h2>เลือกช้อปตามหมวดหมู่</h2></div><button type="button" data-kch-reset>ดูทั้งหมด →</button></div><div class="kch-master-categories">${cats.map((c,i)=>{const ci=categoryImage(c,products);return `<button type="button" class="kch-master-category" data-kch-filter="${escHtml(c)}"><span class="kch-master-category-media">${ci?`<img src="${escHtml(ci)}" alt="" loading="lazy">`:icon(catIcon(c))}</span><span><b>${escHtml(c)}</b><small>${i===0?'สินค้าแนะนำ':'เลือกตามหมวดสินค้า'}</small></span></button>`}).join('')}</div></section><section class="kch-master-section kch-master-split" id="kch-promotions"><div><div class="kch-master-section-head"><div><h2>สิทธิพิเศษและบริการ</h2><p>สิทธิพิเศษที่พร้อมใช้งานกับคำสั่งซื้อของคุณ</p></div></div><div class="kch-master-promo-grid">${promotionCards()}</div></div><div><div class="kch-master-section-head"><div><h2>มาตรฐานรีวิวจากผู้ซื้อจริง</h2><p>ไม่แสดงคะแนนหรือความคิดเห็นที่ไม่ได้มาจากการซื้อจริง</p></div></div><div class="kch-master-review-grid">${safeReviewCards()}</div></div></section><section class="kch-master-story" id="kch-story"><div class="kch-master-story-visual"><img src="${escHtml(storyImage)}" alt="ผลิตภัณฑ์ KHONCHAIHERB" loading="lazy"></div><div class="kch-master-story-copy"><div><span class="eyebrow">เรื่องราวของเรา</span><h2>KHONCHAIHERB คุณชายสมุนไพร</h2><p>เราพัฒนาประสบการณ์เลือกซื้อสมุนไพรไทยให้ทันสมัย ใช้ง่าย และตรวจสอบข้อมูลสำคัญได้ก่อนสั่งซื้อ ตั้งแต่รายละเอียดสินค้า การชำระเงิน การจัดส่ง ไปจนถึงบริการหลังการขาย</p><button type="button" data-kch-jump="footer">รู้จักเราเพิ่มเติม 🌿</button></div><div class="kch-master-story-points"><div class="kch-master-story-point">${icon('eco')}<span><b>คัดสรรสินค้า</b><small>แสดงข้อมูลตามที่ร้านยืนยัน</small></span></div><div class="kch-master-story-point">${icon('fact_check')}<span><b>ข้อมูลชัดเจน</b><small>ดูรายละเอียดก่อนสั่งซื้อ</small></span></div><div class="kch-master-story-point">${icon('support_agent')}<span><b>ดูแลคำสั่งซื้อ</b><small>ติดตามสถานะได้สะดวก</small></span></div><div class="kch-master-story-point">${icon('local_shipping')}<span><b>จัดส่งทั่วประเทศ</b><small>เชื่อมกับสถานะการจัดส่ง</small></span></div></div></div></section><section class="kch-master-newsletter"><div class="kch-master-newsletter-inner"><div class="kch-master-news-copy">${icon('mail')}<span><b>รับข่าวสารและโปรโมชั่นพิเศษ</b><small>อัปเดตสินค้าใหม่และข้อเสนอจาก KHONCHAIHERB</small></span></div><form class="kch-master-news-form" data-kch-news><input type="email" placeholder="อีเมลของคุณ" aria-label="อีเมล"><button type="submit">สมัครรับข่าวสาร</button></form><div class="kch-master-social"><b>ติดตามเรา</b><span>LINE</span><span>f</span><span>IG</span><span>▶</span><span>♪</span></div></div></section><footer class="kch-master-footer" id="kch-footer"><div class="kch-master-footer-inner"><div class="kch-master-footer-brand"><h3>KHONCHAIHERB</h3><b>คุณชายสมุนไพร</b><p>ภูมิปัญญาสมุนไพรไทย<br>สู่การดูแลสุขภาพยุคใหม่</p></div><div class="kch-master-footer-col"><h4>ช็อปสินค้า</h4><button data-kch-jump="products">ทั้งหมด</button><button data-kch-filter="ชาและสมุนไพร">ชาและสมุนไพร</button><button data-kch-filter="ผลิตภัณฑ์สมุนไพร">ผลิตภัณฑ์สมุนไพร</button><button data-kch-jump="products">สินค้าแนะนำ</button></div><div class="kch-master-footer-col"><h4>บริการลูกค้า</h4><button data-kch-jump="products">วิธีการสั่งซื้อ</button><button data-go="cart">ตะกร้าสินค้า</button><button data-go="orders">ติดตามคำสั่งซื้อ</button><a href="/shipping-returns.html">การจัดส่งและคืนสินค้า</a></div><div class="kch-master-footer-col"><h4>เกี่ยวกับเรา</h4><button data-kch-jump="story">เกี่ยวกับ KHONCHAIHERB</button><a href="/privacy.html">นโยบายความเป็นส่วนตัว</a><a href="/terms.html">ข้อกำหนดการใช้งาน</a></div><div class="kch-master-footer-col"><h4>ติดต่อเรา</h4><a href="tel:0885807909">088-5807909</a><span style="display:block;padding:4px 0;font-size:8.5px;color:#c1d0c8">Line: 0885807909</span><span style="display:block;padding:4px 0;font-size:8.5px;color:#c1d0c8">ประเทศไทย</span></div></div><div class="kch-master-footer-bottom"><div><span>© KHONCHAIHERB คุณชายสมุนไพร</span><div class="kch-master-payments"><span>เก็บเงินปลายทาง (COD)</span></div></div></div></footer></main>`
   }
 
   /* Compatibility names retained for storefront checks: EASY ORDERING, CASH ON DELIVERY, SHIPMENT TRACKING, OFFICIAL STORE, SHOP BY CATEGORY. */
@@ -203,4 +203,141 @@
   let globalBound=false;function bindGlobal(){if(globalBound)return;globalBound=true;document.addEventListener('click',e=>{const jump=e.target.closest?.('.kch-ref-menu [data-kch-jump],.kch-ref-mobile-panel [data-kch-jump]');if(jump){document.querySelector('.kch-ref-mobile-panel')?.classList.remove('open');document.querySelectorAll('.kch-ref-menu button').forEach(b=>b.classList.toggle('active',b===jump));scrollToId(jump.dataset.kchJump)}});document.addEventListener('input',e=>{if(!e.target.matches?.('.tshop-searchbox input'))return;const q=String(e.target.value||'').trim().toLowerCase(),cards=[...document.querySelectorAll('.kch-master-product')];if(!cards.length)return;let visible=0;cards.forEach(c=>{const show=!q||String(c.dataset.kchName||'').includes(q)||String(c.dataset.kchCat||'').toLowerCase().includes(q);c.hidden=!show;if(show)visible++});if(!visible)cards.forEach(c=>c.hidden=false)})}
   function schedule(force=false){if(frame&&!force)return;frame=requestAnimationFrame(()=>{frame=0;applyMaster(force);bindGlobal()})}
   const root=document.getElementById('app');if(root)new MutationObserver(()=>schedule()).observe(root,{childList:true,subtree:true});window.addEventListener('load',()=>{schedule(true);setTimeout(()=>schedule(true),120)},{once:true});if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>schedule(true),{once:true});else schedule(true);
+})();
+
+/* KHONCHAIHERB Thai-first UI v1.23.0 */
+(()=>{
+  if(typeof document==='undefined'||window.__KCH_THAI_FIRST__==='1.23.0')return;
+  window.__KCH_THAI_FIRST__='1.23.0';
+  document.documentElement.lang='th';
+
+  const exact=new Map([
+    ['HOME','หน้าแรก'],['Home','หน้าแรก'],['SHOP','สินค้าทั้งหมด'],['Shop','สินค้าทั้งหมด'],
+    ['BEST SELLERS','สินค้าแนะนำ'],['Best Sellers','สินค้าแนะนำ'],['NEW ARRIVALS','สินค้าใหม่'],['New Arrivals','สินค้าใหม่'],
+    ['PROMOTIONS','โปรโมชั่น'],['Promotions','โปรโมชั่น'],['ABOUT US','เกี่ยวกับเรา'],['About Us','เกี่ยวกับเรา'],
+    ['CONTACT','ติดต่อเรา'],['Contact','ติดต่อเรา'],['SHOP NOW 🌿','เลือกซื้อสินค้า 🌿'],['SHOP NOW','เลือกซื้อสินค้า'],
+    ['EXPLORE COLLECTION','เลือกดูหมวดสินค้า'],['PREMIUM THAI HERBAL','สมุนไพรไทยพรีเมียม'],
+    ['Ancient Wisdom. Future Wellness.','ภูมิปัญญาสมุนไพรไทย สู่การดูแลสุขภาพยุคใหม่'],
+    ['Account','บัญชีของฉัน'],['My Account','บัญชีของฉัน'],['Wishlist','รายการโปรด'],['Favorites','รายการโปรด'],
+    ['Cart','ตะกร้าสินค้า'],['Shopping Cart','ตะกร้าสินค้า'],['Orders','คำสั่งซื้อ'],['My Orders','คำสั่งซื้อของฉัน'],
+    ['Me','บัญชีของฉัน'],['LIVE','ไลฟ์'],['Search','ค้นหา'],['Search products','ค้นหาสินค้า'],
+    ['Product Details','รายละเอียดสินค้า'],['Description','รายละเอียด'],['Add to cart','เพิ่มลงตะกร้า'],['Add to Cart','เพิ่มลงตะกร้า'],
+    ['Buy now','ซื้อเลย'],['Buy Now','ซื้อเลย'],['Checkout','ชำระเงิน'],['Continue Shopping','เลือกซื้อสินค้าต่อ'],
+    ['Order Summary','สรุปคำสั่งซื้อ'],['Subtotal','ยอดสินค้า'],['Shipping','ค่าจัดส่ง'],['Discount','ส่วนลด'],['Total','ยอดรวม'],
+    ['Cash on Delivery','เก็บเงินปลายทาง'],['Place Order','ยืนยันคำสั่งซื้อ'],['Track Order','ติดตามคำสั่งซื้อ'],
+    ['Sign in','เข้าสู่ระบบ'],['Sign In','เข้าสู่ระบบ'],['Sign out','ออกจากระบบ'],['Sign Out','ออกจากระบบ'],
+    ['Recommended','แนะนำ'],['Newest','ใหม่ล่าสุด'],['Price: Low to High','ราคา: ต่ำไปสูง'],['Price: High to Low','ราคา: สูงไปต่ำ'],
+    ['No results','ไม่พบสินค้า'],['No products found','ไม่พบสินค้า'],['Back','ย้อนกลับ'],['Close','ปิด'],['Save','บันทึก'],
+    ['COD','เก็บเงินปลายทาง (COD)'],['TRACK','ติดตามพัสดุ'],['RECEIPT','ใบเสร็จรับเงิน']
+  ]);
+
+  const skip=el=>Boolean(el?.closest?.('script,style,code,pre,.material-symbols-rounded,.kch-brand-lockup,.kch-master-hero h1'));
+
+  function translateText(root){
+    if(!root)return;
+    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+    const nodes=[];let n;
+    while((n=walker.nextNode()))nodes.push(n);
+    for(const node of nodes){
+      const parent=node.parentElement;
+      if(!parent||skip(parent))continue;
+      const raw=node.nodeValue||'',trim=raw.trim();
+      if(!trim||!exact.has(trim))continue;
+      node.nodeValue=raw.replace(trim,exact.get(trim));
+    }
+  }
+
+  function setText(el,text){
+    if(!el)return;
+    const label=el.querySelector?.(':scope > span:last-child');
+    if(label&&label.textContent.trim()&&!label.classList.contains('material-symbols-rounded'))label.textContent=text;
+    else {
+      [...el.childNodes].filter(n=>n.nodeType===Node.TEXT_NODE&&n.nodeValue.trim()).forEach(n=>{n.nodeValue=text});
+    }
+  }
+
+  function localize(){
+    document.documentElement.lang='th';
+
+    const search=document.querySelector('.tshop-searchbox input');
+    if(search){
+      search.placeholder='ค้นหาสินค้าและสมุนไพร';
+      search.setAttribute('aria-label','ค้นหาสินค้าและสมุนไพร');
+    }
+
+    document.querySelectorAll('.kch-ref-menu button,.kch-ref-mobile-panel button').forEach(b=>{
+      const t=b.textContent.trim();
+      if(exact.has(t))b.textContent=exact.get(t);
+    });
+
+    const navMap=[
+      ['[data-go="home"]','หน้าแรก'],
+      ['[data-go="orders"]','คำสั่งซื้อ'],
+      ['[data-go="account"]','บัญชีของฉัน']
+    ];
+    for(const [sel,label] of navMap){
+      document.querySelectorAll(`.tshop-bottom ${sel}`).forEach(el=>{
+        setText(el,label);
+        el.setAttribute('aria-label',label);
+      });
+    }
+
+    document.querySelectorAll('.tshop-bottom [data-v05-nav="live"],[data-live-nav]').forEach(el=>{
+      setText(el,'ไลฟ์');
+      el.setAttribute('aria-label','ไลฟ์');
+    });
+
+    document.querySelectorAll('[data-go="account"]').forEach(el=>el.setAttribute('aria-label','บัญชีของฉัน'));
+    document.querySelectorAll('[data-go="cart"]').forEach(el=>el.setAttribute('aria-label','ตะกร้าสินค้า'));
+    document.querySelectorAll('[data-go="orders"]').forEach(el=>el.setAttribute('aria-label','คำสั่งซื้อ'));
+
+    document.querySelectorAll('.kch-master-review .stars').forEach(el=>el.textContent='ตรวจสอบจากคำสั่งซื้อ');
+    document.querySelectorAll('.kch-master-payments span').forEach(el=>{
+      const t=el.textContent.trim().toUpperCase();
+      if(t==='VISA'||t==='MASTER')el.remove();
+      else if(t==='COD')el.textContent='เก็บเงินปลายทาง (COD)';
+    });
+
+    document.querySelectorAll('input[placeholder],textarea[placeholder]').forEach(el=>{
+      const p=el.getAttribute('placeholder')||'';
+      if(exact.has(p))el.setAttribute('placeholder',exact.get(p));
+    });
+    document.querySelectorAll('option').forEach(el=>{
+      const t=el.textContent.trim();
+      if(exact.has(t))el.textContent=exact.get(t);
+    });
+
+    translateText(document.body);
+  }
+
+  if(!document.getElementById('kch-thai-first-style')){
+    const style=document.createElement('style');
+    style.id='kch-thai-first-style';
+    style.textContent=`
+      body,button,input,textarea,select{font-family:'Noto Sans Thai','Tahoma',sans-serif!important}
+      .kch-brand-lockup b,.kch-master-hero h1{font-family:Georgia,'Times New Roman','Noto Sans Thai',serif!important}
+      .kch-master-tagline{font-family:'Noto Sans Thai','Tahoma',sans-serif!important;font-weight:700!important;line-height:1.55!important}
+      .kch-ref-menu button,.kch-ref-mobile-panel button{letter-spacing:0!important;font-weight:800!important}
+      .kch-master-kicker{letter-spacing:.02em!important}
+      .kch-master-payments span{white-space:nowrap!important}
+      @media(max-width:699px){
+        .kch-ref-mobile-panel button{font-size:16px!important;line-height:1.5!important}
+        .kch-master-hero-actions button{font-size:15px!important}
+      }
+    `;
+    (document.head||document.documentElement).appendChild(style);
+  }
+
+  let frame=0;
+  const schedule=()=>{
+    if(frame)return;
+    frame=requestAnimationFrame(()=>{frame=0;localize()});
+  };
+
+  const root=document.getElementById('app')||document.body;
+  if(root)new MutationObserver(schedule).observe(root,{childList:true,subtree:true,characterData:true});
+  document.addEventListener('click',schedule,true);
+  window.addEventListener('load',schedule,{once:true});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});
+  else schedule();
 })();
