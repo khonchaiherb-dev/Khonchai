@@ -4,8 +4,8 @@
 /* Critical customer safeguards run synchronously with the storefront shell.
    They must not depend on asynchronously fetched hardening layers. */
 (()=>{
-  if(typeof document==='undefined'||window.__KCH_CRITICAL_STOREFRONT__==='1.21.4')return;
-  window.__KCH_CRITICAL_STOREFRONT__='1.21.4';
+  if(typeof document==='undefined'||window.__KCH_CRITICAL_STOREFRONT__==='1.21.5')return;
+  window.__KCH_CRITICAL_STOREFRONT__='1.21.5';
   const head=document.head||document.documentElement;
   const style=document.createElement('style');
   style.id='kch-critical-storefront-style';
@@ -147,6 +147,8 @@ if(kchPublicRoot)new MutationObserver(()=>document.querySelectorAll('[data-go="s
   addCss('/tshop-v120.css?v=1.20.0','kch-v120');
   const boot=()=>{
     addScript('/kch-production-guard.js?v=1.21.3','kch-production-guard');
+    addScript('/kch-footer-premium.js?v=2.0.0','kch-footer-v2');
+    addScript('/kch-future-standard.js?v=1.28.1','kch-future-standard');
     addScript('/tshop-v119.js?v=1.19.0','kch-v119',()=>addScript('/tshop-v120.js?v=1.20.0','kch-v120'));
   };
   if(document.readyState==='complete')boot();else window.addEventListener('load',boot,{once:true});
