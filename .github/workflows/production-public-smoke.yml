@@ -20,7 +20,7 @@ jobs:
     name: Verify deployed storefront and public Koonchaishop feed
     if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 7
     env:
       SITE_ORIGIN: https://khonchaiherb-commerce.pages.dev
     steps:
@@ -29,7 +29,7 @@ jobs:
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --location \
-            --retry 6 --retry-all-errors --retry-delay 3 \
+            --retry 12 --retry-all-errors --retry-delay 3 \
             --max-time 20 \
             "$SITE_ORIGIN/" > storefront.html
           python3 - <<'PY'
@@ -46,13 +46,40 @@ jobs:
           print('Deployed storefront v1.30 assets: OK')
           PY
 
+      - name: Verify deployed Seller Manager readiness guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for attempt in $(seq 1 15); do
+            if curl --fail --silent --show-error --location --max-time 20 \
+              "$SITE_ORIGIN/seller-koonchaishop.html" > seller-koonchaishop.html; then
+              if grep -q '/kch-koonchaishop-admin-readiness.js?v=1.0.0' seller-koonchaishop.html; then
+                ok=1
+                break
+              fi
+            fi
+            echo "Seller readiness guard not visible yet (attempt $attempt/15); waiting for Pages deploy..."
+            sleep 3
+          done
+          if [ "$ok" != "1" ]; then
+            echo 'Latest Seller Manager readiness guard was not observed on Production.' >&2
+            exit 1
+          fi
+          curl --fail --silent --show-error --location --max-time 20 \
+            "$SITE_ORIGIN/kch-koonchaishop-admin-readiness.js?v=1.0.0" > admin-readiness.js
+          grep -q '__KCH_KOONCHAISHOP_ADMIN_READINESS__' admin-readiness.js
+          grep -q 'migration_0021_required' admin-readiness.js
+          grep -q 'setForms(false)' admin-readiness.js
+          echo 'Production Seller Manager readiness guard: OK'
+
       - name: Check public Koonchaishop feed contract
         id: source
         shell: bash
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --location \
-            --retry 6 --retry-all-errors --retry-delay 3 \
+            --retry 12 --retry-all-errors --retry-delay 3 \
             --max-time 20 \
             "$SITE_ORIGIN/api/koonchaishop-feed?limit=2" > koonchaishop-feed.json
           python3 - <<'PY'
