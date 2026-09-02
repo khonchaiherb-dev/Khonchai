@@ -1,0 +1,104 @@
+name: Koonchaishop Admin Readiness Check
+
+on:
+  push:
+    branches: [storefront-social-commerce]
+  pull_request:
+    paths:
+      - 'functions/api/admin/koonchaishop-source.js'
+      - 'functions/_middleware.js'
+      - 'public/kch-koonchaishop-admin-readiness.js'
+      - '.github/workflows/koonchaishop-admin-readiness-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  readiness-contract:
+    name: Verify read-only readiness and fail-closed admin UI
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify API readiness contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('functions/api/admin/koonchaishop-source.js')
+          s=p.read_text()
+          get_start=s.index('export async function onRequestGet')
+          post_start=s.index('export async function onRequestPost')
+          get_body=s[get_start:post_start]
+          post_body=s[post_start:]
+          required=[
+            "REQUIRED_TABLES=['commerce_sources','source_assets','source_reviews','source_product_links']",
+            'databaseReady',
+            'writeEnabled',
+            "blocker:'migration_0021_required'",
+            'missingTables',
+            'sourceRegistered'
+          ]
+          missing=[x for x in required if x not in s]
+          if missing:
+              raise SystemExit('missing readiness contract tokens: '+', '.join(missing))
+          forbidden_get=['ensureSource(env)','INSERT OR IGNORE INTO commerce_sources','source_assets(source_id','source_reviews(source_id','source_product_links(source_id']
+          bad=[x for x in forbidden_get if x in get_body]
+          if bad:
+              raise SystemExit('GET must remain read-only; found: '+', '.join(bad))
+          if 'const readiness=await libraryReadiness(env);' not in get_body:
+              raise SystemExit('GET does not check library readiness')
+          if 'const readiness=await libraryReadiness(env);' not in post_body:
+              raise SystemExit('POST does not check library readiness')
+          if "if(!readiness.databaseReady)return json({error:'source_library_not_ready',...readiness},503);" not in post_body:
+              raise SystemExit('POST must fail closed before source initialization')
+          if 'ensureSource(env)' not in post_body:
+              raise SystemExit('POST must initialize source only after readiness succeeds')
+          print('Koonchaishop admin API readiness contract: OK')
+          PY
+
+      - name: Verify seller-page readiness wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          m=Path('functions/_middleware.js').read_text()
+          g=Path('public/kch-koonchaishop-admin-readiness.js').read_text()
+          required_middleware=[
+            "pathname==='/seller-koonchaishop.html'",
+            '/kch-koonchaishop-admin-readiness.js?v=1.0.0',
+            'withCanonicalMetadata(response,env,u.pathname)'
+          ]
+          missing=[x for x in required_middleware if x not in m]
+          if missing:
+              raise SystemExit('seller readiness wiring missing: '+', '.join(missing))
+          required_guard=[
+            "location.pathname!=='/seller-koonchaishop.html'",
+            'databaseReady===true',
+            'writeEnabled===true',
+            'migration_0021_required',
+            "setForms(false)",
+            "el.disabled=!enabled",
+            '/api/admin/koonchaishop-source',
+            '__KCH_KOONCHAISHOP_ADMIN_READINESS__'
+          ]
+          missing=[x for x in required_guard if x not in g]
+          if missing:
+              raise SystemExit('admin readiness guard missing: '+', '.join(missing))
+          if "button[type=\"submit\"]" not in g:
+              raise SystemExit('guard must visibly cover submit controls')
+          print('Koonchaishop seller readiness wiring: OK')
+          PY
+
+      - name: Verify no external reviews become on-site verified
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'verified_on_site,status' functions/api/admin/koonchaishop-source.js
+          grep -q 'verified_on_site=0' functions/api/admin/koonchaishop-source.js
+          ! grep -Eq 'verified_on_site[^\n]*(=|VALUES[^\n]*)1' functions/api/admin/koonchaishop-source.js
+          echo 'External review verification boundary: OK'
