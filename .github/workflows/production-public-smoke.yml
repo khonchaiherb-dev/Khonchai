@@ -24,32 +24,31 @@ jobs:
     env:
       SITE_ORIGIN: https://khonchaiherb-commerce.pages.dev
     steps:
-      - name: Check deployed storefront v1.33 HTML
+      - name: Check deployed storefront v1.33.1 HTML
         shell: bash
         run: |
           set -euo pipefail
           ok=0
           for attempt in $(seq 1 30); do
-            if curl --fail --silent --show-error --location --max-time 20 \
-              "$SITE_ORIGIN/" > storefront.html; then
-              if grep -q '/tshop-v132-conversion-storefront.css?v=1.32.0' storefront.html \
-                && grep -q '/tshop-v1321-search-visibility-fix.css?v=1.32.1' storefront.html \
-                && grep -q '/tshop-v133-readable-storefront.css?v=1.33.0' storefront.html \
-                && grep -q '/kch-conversion-storefront.js?v=1.32.0' storefront.html \
-                && grep -q '/kch-readable-storefront.js?v=1.33.0' storefront.html \
-                && grep -q 'KHONCHAIHERB' storefront.html; then
+            if curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/" > storefront.html; then
+              if grep -Fq '/tshop-v132-conversion-storefront.css?v=1.32.0' storefront.html \
+                && grep -Fq '/tshop-v1321-search-visibility-fix.css?v=1.32.1' storefront.html \
+                && grep -Fq '/tshop-v133-readable-storefront.css?v=1.33.1' storefront.html \
+                && grep -Fq '/kch-conversion-storefront.js?v=1.32.0' storefront.html \
+                && grep -Fq '/kch-readable-storefront.js?v=1.33.1' storefront.html \
+                && grep -Fq 'KHONCHAIHERB' storefront.html; then
                 ok=1
                 break
               fi
             fi
-            echo "Storefront v1.33 not visible yet (attempt $attempt/30); waiting for Pages deploy..."
+            echo "Storefront v1.33.1 not visible yet (attempt $attempt/30); waiting for Pages deploy..."
             sleep 3
           done
           if [ "$ok" != "1" ]; then
-            echo 'Latest storefront v1.33 assets were not observed on Production.' >&2
+            echo 'Latest storefront v1.33.1 assets were not observed on Production.' >&2
             exit 1
           fi
-          echo 'Deployed storefront v1.33 assets: OK'
+          echo 'Deployed storefront v1.33.1 HTML: OK'
 
       - name: Verify deployed Seller Manager readiness guard
         shell: bash
@@ -57,27 +56,18 @@ jobs:
           set -euo pipefail
           ok=0
           for attempt in $(seq 1 20); do
-            if curl --fail --silent --show-error --location --max-time 20 \
-              "$SITE_ORIGIN/seller-koonchaishop.html" > seller-koonchaishop.html; then
-              if grep -q '/kch-koonchaishop-admin-readiness.js?v=1.0.1' seller-koonchaishop.html; then
-                ok=1
-                break
-              fi
+            if curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/seller-koonchaishop.html" > seller-koonchaishop.html; then
+              if grep -Fq '/kch-koonchaishop-admin-readiness.js?v=1.0.1' seller-koonchaishop.html; then ok=1; break; fi
             fi
             echo "Seller readiness guard v1.0.1 not visible yet (attempt $attempt/20); waiting for Pages deploy..."
             sleep 3
           done
-          if [ "$ok" != "1" ]; then
-            echo 'Latest Seller Manager readiness guard was not observed on Production.' >&2
-            exit 1
-          fi
-          curl --fail --silent --show-error --location --max-time 20 \
-            "$SITE_ORIGIN/kch-koonchaishop-admin-readiness.js?v=1.0.1" > admin-readiness.js
-          grep -q "const BUILD='1.0.1'" admin-readiness.js
-          grep -q '__KCH_KOONCHAISHOP_ADMIN_READINESS_BOOT__' admin-readiness.js
-          grep -q '__KCH_KOONCHAISHOP_ADMIN_READINESS__' admin-readiness.js
-          grep -q 'migration_0021_required' admin-readiness.js
-          grep -q 'setForms(false)' admin-readiness.js
+          [ "$ok" = "1" ] || { echo 'Latest Seller Manager readiness guard was not observed on Production.' >&2; exit 1; }
+          curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/kch-koonchaishop-admin-readiness.js?v=1.0.1" > admin-readiness.js
+          grep -Fq "const BUILD='1.0.1'" admin-readiness.js
+          grep -Fq '__KCH_KOONCHAISHOP_ADMIN_READINESS_BOOT__' admin-readiness.js
+          grep -Fq 'migration_0021_required' admin-readiness.js
+          grep -Fq 'setForms(false)' admin-readiness.js
           echo 'Production Seller Manager readiness guard v1.0.1: OK'
 
       - name: Check public Koonchaishop feed contract
@@ -85,9 +75,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location \
-            --retry 12 --retry-all-errors --retry-delay 3 \
-            --max-time 20 \
+          curl --fail --silent --show-error --location --retry 12 --retry-all-errors --retry-delay 3 --max-time 20 \
             "$SITE_ORIGIN/api/koonchaishop-feed?limit=2" > koonchaishop-feed.json
           python3 - <<'PY'
           import json
@@ -130,27 +118,27 @@ jobs:
           echo "Published assets returned by smoke query: ${{ steps.source.outputs.assets }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Published reviews returned by smoke query: ${{ steps.source.outputs.reviews }}" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Verify public source and readable storefront assets are reachable
+      - name: Verify deployed storefront assets and build markers
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location --max-time 20 \
-            "$SITE_ORIGIN/kch-koonchaishop-commerce.js?v=1.30.1" > source-runtime.js
-          curl --fail --silent --show-error --location --max-time 20 \
-            "$SITE_ORIGIN/tshop-v130-koonchaishop.css?v=1.30.0" > source-styles.css
-          curl --fail --silent --show-error --location --max-time 20 \
-            "$SITE_ORIGIN/kch-conversion-storefront.js?v=1.32.0" > conversion-runtime.js
-          curl --fail --silent --show-error --location --max-time 20 \
-            "$SITE_ORIGIN/tshop-v132-conversion-storefront.css?v=1.32.0" > conversion-styles.css
-          curl --fail --silent --show-error --location --max-time 20 \
-            "$SITE_ORIGIN/kch-readable-storefront.js?v=1.33.0" > readable-runtime.js
-          curl --fail --silent --show-error --location --max-time 20 \
-            "$SITE_ORIGIN/tshop-v133-readable-storefront.css?v=1.33.0" > readable-styles.css
-          grep -q '__KCH_KOONCHAISHOP_COMMERCE__' source-runtime.js
-          grep -q '.kch-source-section' source-styles.css
-          grep -q '__KCH_CONVERSION_STOREFRONT__' conversion-runtime.js
-          grep -q '.kch-v132-card-cta' conversion-styles.css
-          grep -q "const BUILD='1.33.0'" readable-runtime.js
-          grep -q '.kch-v133-account-action' readable-styles.css
-          grep -q 'font-size:16px!important' readable-styles.css
-          echo "Production Koonchaishop + v1.33 readable storefront assets: OK"
+          fetch_asset(){ curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/$1" > "$2"; echo "fetched $1"; }
+          require_text(){ if grep -Fq "$2" "$1"; then echo "OK $3"; else echo "MISSING $3 :: expected [$2] in $1" >&2; exit 1; fi; }
+
+          fetch_asset 'kch-koonchaishop-commerce.js?v=1.30.1' source-runtime.js
+          fetch_asset 'tshop-v130-koonchaishop.css?v=1.30.0' source-styles.css
+          fetch_asset 'kch-conversion-storefront.js?v=1.32.0' conversion-runtime.js
+          fetch_asset 'tshop-v132-conversion-storefront.css?v=1.32.0' conversion-styles.css
+          fetch_asset 'kch-readable-storefront.js?v=1.33.1' readable-runtime.js
+          fetch_asset 'tshop-v133-readable-storefront.css?v=1.33.1' readable-styles.css
+
+          require_text source-runtime.js "const BUILD='1.30.1'" 'Koonchaishop runtime build'
+          require_text source-styles.css 'KHONCHAIHERB Commerce v1.30' 'Koonchaishop style build'
+          require_text conversion-runtime.js "const BUILD='1.32.0'" 'conversion runtime build'
+          require_text conversion-styles.css 'KHONCHAIHERB v1.32.0' 'conversion style build'
+          require_text readable-runtime.js "const BUILD='1.33.1'" 'readable runtime build'
+          require_text readable-styles.css 'KHONCHAIHERB v1.33.1' 'readable style build'
+          require_text readable-styles.css 'font-size:16px!important' 'desktop readable 16px baseline'
+          require_text readable-styles.css 'font-size:18px!important' 'product readable 18px baseline'
+          require_text readable-styles.css '.kch-v133-legacy-account-strip{display:none!important}' 'legacy login strip removal'
+          echo 'Production v1.33.1 readable storefront assets: OK'

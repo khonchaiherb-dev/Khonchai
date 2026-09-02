@@ -1,479 +1,434 @@
-/* KHONCHAIHERB v1.33 — Readable Header & Storefront Baseline
-   Final UI layer: desktop readability, explicit utility actions, stable content width,
-   and accessible tap targets. Loaded after v1.32.x on Production. */
+/* KHONCHAIHERB v1.33.1 — Readable Storefront Baseline
+   Final customer-facing typography/navigation authority over v1.31–v1.32.
+   Goal: readable at 100% browser zoom on desktop, tablet and mobile. */
 :root{
   --kch-v133-shell:1760px;
   --kch-v133-content:1540px;
   --kch-v133-readable:16px;
   --kch-v133-small:14px;
   --kch-v133-control:48px;
-  --kch-v133-green:#073f31;
-  --kch-v133-green-2:#0b4b39;
   --kch-v133-gold:#d8b45f;
   --kch-v133-ink:#173f31;
-  --kch-v133-muted:#68786f;
 }
 
-/* 1) Stop the 1920px desktop from looking like a narrow mobile canvas. */
-.shell.kch-master-shell,
-.kch-master-shell{
-  width:min(var(--kch-v133-shell),calc(100vw - 48px))!important;
+/* ---------- Desktop canvas ---------- */
+.shell.kch-master-shell.kch-v131.kch-v132,
+.shell.kch-master-shell.kch-v133-readable-storefront{
+  width:min(var(--kch-v133-shell),calc(100vw - 32px))!important;
   max-width:var(--kch-v133-shell)!important;
   margin-inline:auto!important;
 }
-.kch-master-home,
-.kch-master-home .kch-master-products,
-.kch-master-home .kch-master-finder,
-.kch-master-home .kch-master-trust{
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-section,
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-trust-inner,
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-finder{
   width:min(var(--kch-v133-content),calc(100% - 56px))!important;
   max-width:var(--kch-v133-content)!important;
   margin-inline:auto!important;
 }
 
-/* 2) Header architecture: brand | search | account/order/cart. */
-.kch-master-shell .tshop-topbar,
-.kch-master-shell header.topbar{
-  min-height:82px!important;
-  padding:14px clamp(22px,2vw,34px)!important;
-  gap:20px!important;
+/* ---------- Header: brand | search | account / orders / cart ---------- */
+.shell.kch-master-shell.kch-v131.kch-v132.kch-v133-readable-storefront .tshop-topbar.kch-master-topbar{
+  grid-template-columns:minmax(245px,.72fr) minmax(480px,1.65fr) minmax(410px,.9fr)!important;
+  min-height:84px!important;
+  gap:clamp(18px,2vw,32px)!important;
+  padding:12px clamp(24px,3.2vw,54px)!important;
   align-items:center!important;
 }
-.kch-master-shell .tshop-topbar{
-  grid-template-columns:minmax(245px,.72fr) minmax(430px,1.65fr) auto!important;
-}
-.kch-master-shell .brand,
-.kch-master-shell .tshop-brand,
-.kch-master-shell .kch-brand-lockup{
-  min-width:220px!important;
-}
-.kch-master-shell .brand b,
-.kch-master-shell .tshop-brand b,
-.kch-master-shell .kch-brand-lockup b,
-.kch-master-shell .kch-brand-name{
-  font-size:clamp(25px,1.55vw,31px)!important;
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-brand-lockup b{
+  font-size:clamp(26px,1.65vw,32px)!important;
   line-height:1.08!important;
-  letter-spacing:.025em!important;
+  letter-spacing:.04em!important;
 }
-.kch-master-shell .brand small,
-.kch-master-shell .tshop-brand small,
-.kch-master-shell .kch-brand-lockup small,
-.kch-master-shell .kch-brand-sub{
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-brand-lockup small{
+  display:block!important;
   margin-top:5px!important;
   font-size:14px!important;
   line-height:1.35!important;
   font-weight:700!important;
+  letter-spacing:.01em!important;
 }
-
-/* Search must read like the primary shopping task, not a decorative field. */
-.kch-master-shell .search,
-.kch-master-shell .tshop-search,
-.kch-master-shell .kch-header-search,
-.kch-master-shell .kch-ref-search{
-  min-height:50px!important;
+.shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .tshop-searchbox{
+  min-height:52px!important;
   border-radius:14px!important;
 }
-.kch-master-shell .search input,
-.kch-master-shell .tshop-search input,
-.kch-master-shell .kch-header-search input,
-.kch-master-shell .kch-ref-search input{
-  min-height:48px!important;
+.shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .tshop-searchbox input{
+  min-height:50px!important;
   font-size:16px!important;
   line-height:1.4!important;
 }
-.kch-master-shell .search input::placeholder,
-.kch-master-shell .tshop-search input::placeholder,
-.kch-master-shell .kch-header-search input::placeholder,
-.kch-master-shell .kch-ref-search input::placeholder{
+.shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .tshop-searchbox input::placeholder{
   font-size:15px!important;
-  opacity:.9!important;
+  opacity:.92!important;
 }
-.kch-master-shell .search button,
-.kch-master-shell .tshop-search button,
-.kch-master-shell .kch-header-search button,
-.kch-master-shell .kch-ref-search button{
-  min-width:74px!important;
-  min-height:46px!important;
+.shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .tshop-searchbox button{
+  min-width:76px!important;
+  min-height:48px!important;
   padding-inline:16px!important;
   font-size:15px!important;
   font-weight:850!important;
 }
-
-/* Utility actions are explicit words + icons. */
-.kch-master-shell header .actions,
-.kch-master-shell .tshop-top-actions,
-.kch-master-shell .kch-top-actions{
+.shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .tshop-top-actions,
+.shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .actions{
   display:flex!important;
+  grid-column:3!important;
+  grid-row:1!important;
+  justify-self:end!important;
   align-items:center!important;
   justify-content:flex-end!important;
   gap:8px!important;
+  min-width:0!important;
 }
-.kch-master-shell header .actions button,
-.kch-master-shell .tshop-top-actions button,
-.kch-master-shell .kch-top-actions button,
-.kch-v133-account-action{
-  min-height:48px!important;
-  min-width:92px!important;
+.shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .tshop-icon,
+.shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .kch-v133-account-action{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:8px!important;
+  min-width:118px!important;
+  min-height:50px!important;
   padding:7px 11px!important;
   border-radius:12px!important;
   font-size:15px!important;
   line-height:1.2!important;
-  gap:8px!important;
 }
 .kch-v133-account-action{
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  border:1px solid rgba(216,180,95,.48)!important;
-  background:rgba(255,255,255,.055)!important;
-  color:#fff7dd!important;
+  border:1px solid rgba(216,180,95,.55)!important;
+  background:rgba(255,255,255,.07)!important;
+  color:#fff5d4!important;
   cursor:pointer!important;
 }
-.kch-v133-account-action:hover,
-.kch-v133-account-action:focus-visible{
-  background:rgba(216,180,95,.14)!important;
-  border-color:rgba(216,180,95,.8)!important;
+.kch-v133-account-action:hover,.kch-v133-account-action:focus-visible{
+  border-color:rgba(216,180,95,.9)!important;
+  background:rgba(216,180,95,.15)!important;
+}
+.shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .tshop-icon>.material-symbols-rounded,
+.shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .kch-v133-account-action>.material-symbols-rounded{
+  flex:0 0 auto!important;
+  font-size:23px!important;
 }
 .kch-v133-action-copy{
   display:flex!important;
   flex-direction:column!important;
   align-items:flex-start!important;
   gap:2px!important;
+  min-width:0!important;
   white-space:nowrap!important;
   text-align:left!important;
 }
-.kch-v133-action-copy b{
+.shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .kch-v133-action-copy b{
   font-size:15px!important;
   line-height:1.15!important;
-  font-weight:850!important;
+  font-weight:900!important;
 }
-.kch-v133-action-copy small{
+.shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .kch-v133-action-copy small{
   font-size:14px!important;
-  line-height:1.1!important;
+  line-height:1.15!important;
   font-weight:650!important;
-  opacity:.82!important;
+  opacity:.86!important;
 }
-.kch-v133-account-action .material-symbols-rounded,
-.kch-master-shell header .actions button>.material-symbols-rounded,
-.kch-master-shell .tshop-top-actions button>.material-symbols-rounded{
-  font-size:23px!important;
-  flex:0 0 auto!important;
-}
-.kch-v133-old-copy{display:none!important}
-.kch-v133-legacy-account-strip{display:none!important}
+.kch-v133-old-copy,.kch-v133-legacy-account-strip{display:none!important}
 
-/* 3) Primary navigation: no more 11–12px desktop menu. */
-.kch-master-shell .kch-ref-menu,
-.kch-master-shell .tshop-menu,
-.kch-master-shell .tshop-nav{
+/* ---------- Primary navigation ---------- */
+.shell.kch-master-shell.kch-v131.kch-v132.kch-v133-readable-storefront .kch-ref-menu{
+  top:84px!important;
   min-height:58px!important;
-  padding-inline:clamp(18px,2.3vw,38px)!important;
-  gap:4px!important;
+  gap:clamp(12px,1.45vw,24px)!important;
+  padding-inline:clamp(24px,3.2vw,54px)!important;
   align-items:stretch!important;
 }
-.kch-master-shell .kch-ref-menu button,
-.kch-master-shell .kch-ref-menu a,
-.kch-master-shell .tshop-menu button,
-.kch-master-shell .tshop-menu a,
-.kch-master-shell .tshop-nav button,
-.kch-master-shell .tshop-nav a{
-  min-height:54px!important;
-  padding:0 clamp(13px,1.2vw,20px)!important;
+.shell.kch-master-shell.kch-v131.kch-v132.kch-v133-readable-storefront .kch-ref-menu button,
+.shell.kch-master-shell.kch-v131.kch-v132.kch-v133-readable-storefront .kch-ref-menu a{
   display:inline-flex!important;
   align-items:center!important;
   justify-content:center!important;
+  min-height:56px!important;
+  padding:0 clamp(11px,1vw,17px)!important;
   font-size:16px!important;
   line-height:1.25!important;
-  font-weight:800!important;
+  font-weight:850!important;
   white-space:nowrap!important;
 }
 
-/* 4) Hero remains compact, but every explanation is readable. */
-.kch-master-shell .kch-master-hero,
-.kch-master-shell .tshop-hero{
+/* ---------- Hero ---------- */
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-hero{
   min-height:380px!important;
+  padding:34px clamp(44px,4.8vw,78px) 30px!important;
 }
-.kch-master-shell .kch-master-hero-eyebrow,
-.kch-master-shell .v118-eyebrow,
-.kch-master-shell .kch-hero-eyebrow{
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-kicker{
   font-size:14px!important;
   line-height:1.4!important;
 }
-.kch-master-shell .kch-master-hero h1,
-.kch-master-shell .tshop-hero h1{
-  font-size:clamp(40px,3.15vw,58px)!important;
-  line-height:1.04!important;
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-hero h1{
+  font-size:clamp(42px,3.5vw,58px)!important;
+  line-height:1.08!important;
 }
-.kch-master-shell .kch-master-hero-sub,
-.kch-master-shell .v118-hero-brand,
-.kch-master-shell .kch-hero-subtitle{
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-tagline{
+  margin-top:15px!important;
   font-size:18px!important;
-  line-height:1.35!important;
+  line-height:1.4!important;
 }
-.kch-master-shell .kch-master-hero p,
-.kch-master-shell .tshop-hero p,
-.kch-master-shell .v118-hero-copy p{
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-desc{
+  max-width:700px!important;
+  margin-top:9px!important;
   font-size:16px!important;
   line-height:1.65!important;
-  max-width:700px!important;
 }
-.kch-master-shell .kch-master-hero button,
-.kch-master-shell .tshop-hero button,
-.kch-master-shell .v118-hero-actions button{
-  min-height:48px!important;
-  padding-inline:20px!important;
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-hero-actions button{
+  min-height:50px!important;
+  padding-inline:22px!important;
   font-size:16px!important;
-  font-weight:850!important;
+  font-weight:900!important;
 }
-.kch-master-shell .kch-master-hero-card b,
-.kch-master-shell .v118-featured-product>span b{
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-v132-hero-meta b,
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-v131-showcase-meta b{
   font-size:15px!important;
-  line-height:1.3!important;
+  line-height:1.35!important;
 }
-.kch-master-shell .kch-master-hero-card small,
-.kch-master-shell .v118-featured-product>span small{
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-v132-hero-meta strong,
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-v131-showcase-meta strong{
+  font-size:18px!important;
+  line-height:1.25!important;
+}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-v132-hero-meta small,
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-v131-showcase-meta small{
   font-size:14px!important;
   line-height:1.35!important;
 }
-.kch-master-shell .kch-master-hero-trust b,
-.kch-master-shell .v118-hero-trust,
-.kch-master-shell .v118-hero-trust span{
-  font-size:14px!important;
-  line-height:1.4!important;
-}
 
-/* 5) Trust row: utility copy should not be microcopy. */
-.kch-master-shell .kch-master-trust-item b,
-.kch-master-shell .kch-master-trust b,
-.kch-master-shell .trust b{
+/* ---------- Trust: readable, not decorative microcopy ---------- */
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-hero-benefits{
+  padding-top:16px!important;
+  gap:18px!important;
+}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-hero-benefits>div{
+  min-height:66px!important;
+  gap:11px!important;
+}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-hero-benefits b{
   font-size:16px!important;
-  line-height:1.25!important;
-}
-.kch-master-shell .kch-master-trust-item small,
-.kch-master-shell .kch-master-trust small,
-.kch-master-shell .trust small{
-  font-size:14px!important;
-  line-height:1.4!important;
-}
-.kch-master-shell .kch-master-trust-item,
-.kch-master-shell .kch-master-trust>div,
-.kch-master-shell .trust>div{
-  min-height:72px!important;
-  padding-block:12px!important;
-}
-
-/* 6) Finder / category chips: readable at a glance. */
-.kch-master-shell .kch-master-finder-title,
-.kch-master-shell .kch-master-finder strong,
-.kch-master-shell .kch-master-filter-title{
-  font-size:19px!important;
   line-height:1.3!important;
 }
-.kch-master-shell .kch-master-filter,
-.kch-master-shell .kch-master-reset,
-.kch-master-shell .kch-master-finder button,
-.kch-master-shell .cats button{
-  min-height:44px!important;
-  padding:0 16px!important;
-  font-size:15px!important;
-  line-height:1.25!important;
-  font-weight:750!important;
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-hero-benefits small{
+  font-size:14px!important;
+  line-height:1.4!important;
 }
 
-/* 7) Product cards: image supports the sale; text and CTA drive it. */
-.kch-master-shell .kch-master-products h2,
-.kch-master-shell #recommend h2{
-  font-size:clamp(28px,2vw,34px)!important;
-  line-height:1.18!important;
+/* ---------- Finder / categories ---------- */
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-finder{
+  min-height:72px!important;
+  padding:13px 18px!important;
+  gap:9px!important;
 }
-.kch-master-shell .kch-master-products .sub,
-.kch-master-shell #recommend .sub,
-.kch-master-shell .kch-master-products-note{
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-finder h2{
+  margin-right:12px!important;
+  font-size:19px!important;
+  line-height:1.35!important;
+}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-filter,
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-reset{
+  min-height:46px!important;
+  padding-inline:16px!important;
+  font-size:15px!important;
+  line-height:1.25!important;
+  font-weight:800!important;
+}
+
+/* ---------- Product section / cards ---------- */
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-section h2{
+  font-size:clamp(29px,2vw,35px)!important;
+  line-height:1.2!important;
+}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-section .sub{
   font-size:15px!important;
   line-height:1.5!important;
 }
-.kch-master-shell .kch-master-product-media{
-  height:220px!important;
-  min-height:220px!important;
+@media(min-width:1200px){
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-products{
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    gap:20px!important;
+  }
 }
-.kch-master-shell .kch-master-product-body,
-.kch-master-shell .kch-master-product-copy{
-  padding:16px!important;
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-product-media{
+  height:230px!important;
+  min-height:230px!important;
 }
-.kch-master-shell .kch-master-product h3,
-.kch-master-shell .kch-master-product-name{
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-product-copy{
+  padding:16px 16px 17px!important;
+}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-product-copy h3,
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home .kch-master-product-name{
+  min-height:50px!important;
   font-size:18px!important;
-  line-height:1.38!important;
-  font-weight:850!important;
-  min-height:49px!important;
+  line-height:1.4!important;
+  font-weight:900!important;
 }
-.kch-master-shell .kch-master-product-meta,
-.kch-master-shell .kch-master-product small,
-.kch-master-shell .kch-v132-card-note,
-.kch-master-shell .kch-v132-unready-note{
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-product-copy .meta,
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home .kch-master-product-meta,
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home .kch-v132-card-note,
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home .kch-v132-unready-note{
   font-size:14px!important;
   line-height:1.5!important;
 }
-.kch-master-shell .kch-master-product-price,
-.kch-master-shell .kch-v132-card-price{
-  font-size:23px!important;
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-price,
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home .kch-v132-card-price{
+  font-size:24px!important;
   line-height:1.2!important;
   font-weight:900!important;
 }
-.kch-master-shell .kch-v132-card-cta,
-.kch-master-shell .kch-v132-buy,
-.kch-master-shell .kch-master-product button{
-  min-height:46px!important;
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home .kch-v132-card-cta button,
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home .kch-v132-buy,
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home .kch-master-product button{
+  min-height:48px!important;
+  padding-inline:14px!important;
   font-size:15px!important;
   line-height:1.25!important;
-  font-weight:850!important;
+  font-weight:900!important;
 }
-.kch-master-shell .kch-master-product-status,
-.kch-master-shell .kch-master-product-badge{
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home .kch-master-product-status,
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home .kch-master-product-badge{
   min-height:30px!important;
   padding-inline:10px!important;
   font-size:13px!important;
   line-height:1.2!important;
 }
 
-/* General focus is visible without relying on zoom. */
-.kch-master-shell button:focus-visible,
-.kch-master-shell a:focus-visible,
-.kch-master-shell input:focus-visible{
-  outline:3px solid rgba(216,180,95,.72)!important;
+/* Search result visibility must always beat flex-card display rules. */
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-master-product[hidden]{display:none!important}
+
+/* ---------- Koonchaishop source section: remove legacy 8–10px microcopy ---------- */
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-section{
+  max-width:var(--kch-v133-content)!important;
+  padding:22px!important;
+}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-kicker{font-size:13px!important}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-head h2{font-size:30px!important}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-head p{font-size:15px!important;line-height:1.55!important}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-summary b{font-size:19px!important}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-summary small{font-size:13px!important}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-disclosure{font-size:14px!important;line-height:1.55!important}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-subhead b{font-size:16px!important}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-subhead small{font-size:13px!important}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-card-copy h3{font-size:16px!important}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-card-copy p{font-size:14px!important;line-height:1.5!important}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-actions button,
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-actions a{
+  min-height:44px!important;
+  padding:8px 12px!important;
+  font-size:14px!important;
+}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-review-author b{font-size:15px!important}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-review-author small{font-size:13px!important}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-stars{font-size:15px!important}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-review p{font-size:14px!important;line-height:1.55!important}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-review-foot span,
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-review-foot a{font-size:13px!important}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-empty{font-size:14px!important}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-pdp-chip{min-height:48px!important}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-pdp-chip b{font-size:14px!important}
+.shell.kch-master-shell.kch-v133-readable-storefront .kch-source-pdp-chip small{font-size:13px!important}
+
+/* ---------- Focus ---------- */
+.shell.kch-master-shell.kch-v133-readable-storefront button:focus-visible,
+.shell.kch-master-shell.kch-v133-readable-storefront a:focus-visible,
+.shell.kch-master-shell.kch-v133-readable-storefront input:focus-visible{
+  outline:3px solid rgba(216,180,95,.78)!important;
   outline-offset:2px!important;
 }
 
-/* Preserve the v1.32.1 search regression fix regardless of later display rules. */
-.kch-master-product[hidden]{display:none!important}
-
-@media (min-width:1400px){
-  .kch-master-shell .kch-master-product-grid,
-  .kch-master-shell #product-grid{
-    gap:20px!important;
-  }
-}
-
-@media (max-width:1099px){
-  .shell.kch-master-shell,.kch-master-shell{
-    width:min(100%,calc(100vw - 24px))!important;
-  }
-  .kch-master-shell .tshop-topbar{
-    grid-template-columns:minmax(190px,.75fr) minmax(300px,1.35fr) auto!important;
+/* ---------- Tablet ---------- */
+@media(max-width:1099px){
+  .shell.kch-master-shell.kch-v131.kch-v132,
+  .shell.kch-master-shell.kch-v133-readable-storefront{width:min(100%,calc(100vw - 20px))!important}
+  .shell.kch-master-shell.kch-v131.kch-v132.kch-v133-readable-storefront .tshop-topbar.kch-master-topbar{
+    grid-template-columns:minmax(190px,.65fr) minmax(300px,1.3fr) minmax(230px,.72fr)!important;
     gap:12px!important;
+    padding-inline:18px!important;
   }
-  .kch-master-shell .kch-ref-menu button,
-  .kch-master-shell .kch-ref-menu a,
-  .kch-master-shell .tshop-menu button,
-  .kch-master-shell .tshop-menu a{
-    font-size:15px!important;
-    padding-inline:12px!important;
+  .shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .tshop-icon,
+  .shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .kch-v133-account-action{
+    min-width:54px!important;
+    padding-inline:8px!important;
   }
-  .kch-v133-action-copy small{display:none!important}
-  .kch-master-shell header .actions button,
-  .kch-master-shell .tshop-top-actions button,
-  .kch-v133-account-action{min-width:54px!important;padding-inline:9px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .kch-v133-action-copy small{display:none!important}
+  .shell.kch-master-shell.kch-v131.kch-v132.kch-v133-readable-storefront .kch-ref-menu button,
+  .shell.kch-master-shell.kch-v131.kch-v132.kch-v133-readable-storefront .kch-ref-menu a{font-size:15px!important}
 }
 
-@media (max-width:699px){
-  .shell.kch-master-shell,.kch-master-shell{
-    width:100%!important;
-    max-width:none!important;
+@media(max-width:899px){
+  .shell.kch-master-shell.kch-v131.kch-v132.kch-v133-readable-storefront .tshop-topbar.kch-master-topbar{
+    display:grid!important;
+    grid-template-columns:1fr auto!important;
+    grid-template-rows:auto auto!important;
+    min-height:auto!important;
+    gap:10px 12px!important;
+    padding:11px 16px!important;
   }
-  .kch-master-home,
-  .kch-master-home .kch-master-products,
-  .kch-master-home .kch-master-finder,
-  .kch-master-home .kch-master-trust{
-    width:100%!important;
-    max-width:none!important;
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-brand-lockup{grid-column:1!important;grid-row:1!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .tshop-top-actions,
+  .shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .actions{grid-column:2!important;grid-row:1!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .tshop-searchbox{grid-column:1/-1!important;grid-row:2!important}
+  .shell.kch-master-shell.kch-v131.kch-v132.kch-v133-readable-storefront .kch-ref-menu{
+    top:118px!important;
+    justify-content:flex-start!important;
+    overflow-x:auto!important;
+    white-space:nowrap!important;
+    scrollbar-width:none!important;
   }
-  .kch-master-shell .tshop-topbar,
-  .kch-master-shell header.topbar{
-    min-height:64px!important;
-    padding:10px 14px!important;
-    gap:10px!important;
+  .shell.kch-master-shell.kch-v131.kch-v132.kch-v133-readable-storefront .kch-ref-menu::-webkit-scrollbar{display:none!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-hero{
+    grid-template-columns:1fr!important;
+    min-height:0!important;
+    padding:32px 24px 28px!important;
   }
-  .kch-master-shell .brand b,
-  .kch-master-shell .tshop-brand b,
-  .kch-master-shell .kch-brand-name{
-    font-size:21px!important;
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-products{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
   }
-  .kch-master-shell .brand small,
-  .kch-master-shell .tshop-brand small,
-  .kch-master-shell .kch-brand-sub{
-    font-size:12px!important;
-  }
-  /* Mobile already has a persistent account destination in bottom navigation. */
+}
+
+/* ---------- Mobile ---------- */
+@media(max-width:699px){
+  .shell.kch-master-shell.kch-v131.kch-v132,
+  .shell.kch-master-shell.kch-v133-readable-storefront{width:100%!important;max-width:none!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-brand-lockup b{font-size:22px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-brand-lockup small{display:none!important}
+  /* Bottom navigation already provides account access on mobile. */
   .kch-v133-account-action{display:none!important}
-  .kch-master-shell header .actions button,
-  .kch-master-shell .tshop-top-actions button{
+  .shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .tshop-icon{
     min-width:44px!important;
     min-height:44px!important;
     padding:7px!important;
   }
-  .kch-master-shell header .actions .kch-v133-action-copy,
-  .kch-master-shell .tshop-top-actions .kch-v133-action-copy{display:none!important}
-  .kch-master-shell .search input,
-  .kch-master-shell .tshop-search input,
-  .kch-master-shell .kch-header-search input,
-  .kch-master-shell .kch-ref-search input{
-    font-size:16px!important;
-  }
-  .kch-master-shell .kch-ref-menu button,
-  .kch-master-shell .kch-ref-menu a,
-  .kch-master-shell .tshop-menu button,
-  .kch-master-shell .tshop-menu a{
-    min-height:46px!important;
-    font-size:15px!important;
-  }
-  .kch-master-shell .kch-master-hero,
-  .kch-master-shell .tshop-hero{min-height:0!important}
-  .kch-master-shell .kch-master-hero h1,
-  .kch-master-shell .tshop-hero h1{
-    font-size:clamp(34px,10vw,44px)!important;
-  }
-  .kch-master-shell .kch-master-hero p,
-  .kch-master-shell .tshop-hero p,
-  .kch-master-shell .v118-hero-copy p{
-    font-size:15px!important;
-  }
-  .kch-master-shell .kch-master-hero button,
-  .kch-master-shell .tshop-hero button,
-  .kch-master-shell .v118-hero-actions button{
-    min-height:48px!important;
-    font-size:15px!important;
-  }
-  .kch-master-shell .kch-master-trust-item b,
-  .kch-master-shell .kch-master-trust b,
-  .kch-master-shell .trust b{font-size:15px!important}
-  .kch-master-shell .kch-master-trust-item small,
-  .kch-master-shell .kch-master-trust small,
-  .kch-master-shell .trust small{font-size:14px!important}
-  .kch-master-shell .kch-master-filter,
-  .kch-master-shell .kch-master-reset,
-  .kch-master-shell .kch-master-finder button,
-  .kch-master-shell .cats button{
-    min-height:44px!important;
-    font-size:14px!important;
-  }
-  .kch-master-shell .kch-master-product-media{
-    height:190px!important;
-    min-height:190px!important;
-  }
-  .kch-master-shell .kch-master-product h3,
-  .kch-master-shell .kch-master-product-name{font-size:17px!important}
-  .kch-master-shell .kch-master-product-meta,
-  .kch-master-shell .kch-master-product small,
-  .kch-master-shell .kch-v132-card-note,
-  .kch-master-shell .kch-v132-unready-note{font-size:14px!important}
-  .kch-master-shell .kch-v132-card-cta,
-  .kch-master-shell .kch-v132-buy,
-  .kch-master-shell .kch-master-product button{
-    min-height:46px!important;
-    font-size:15px!important;
-  }
-  nav.tshop-bottom button,
-  nav.bottom button{
-    min-height:58px!important;
-    font-size:13px!important;
-  }
+  .shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .tshop-icon .kch-v133-action-copy{display:none!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .tshop-topbar .tshop-searchbox input{font-size:16px!important}
+  .shell.kch-master-shell.kch-v131.kch-v132.kch-v133-readable-storefront .kch-ref-menu{top:112px!important;min-height:50px!important;padding-inline:14px!important}
+  .shell.kch-master-shell.kch-v131.kch-v132.kch-v133-readable-storefront .kch-ref-menu button,
+  .shell.kch-master-shell.kch-v131.kch-v132.kch-v133-readable-storefront .kch-ref-menu a{min-height:48px!important;font-size:15px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-hero{padding:27px 16px 23px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-kicker{font-size:13px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-hero h1{font-size:36px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-tagline{font-size:17px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-desc{font-size:15px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-hero-actions button{min-height:48px!important;font-size:15px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-hero-benefits b{font-size:15px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-hero-benefits small{font-size:14px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-finder{width:calc(100% - 24px)!important;min-height:64px!important;overflow-x:auto!important;flex-wrap:nowrap!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-finder h2{font-size:17px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-filter,
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-reset{min-height:44px!important;font-size:14px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-products{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-product-media{height:190px!important;min-height:190px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-product-copy{padding:13px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-product-copy h3{min-height:48px!important;font-size:17px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home.kch-v131-home.kch-v132-home .kch-master-product-copy .meta,
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home .kch-v132-card-note,
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home .kch-v132-unready-note{font-size:14px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home .kch-v132-card-cta button,
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-master-home .kch-v132-buy{min-height:46px!important;font-size:15px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-source-section{margin-inline:12px!important;padding:16px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-source-head h2{font-size:22px!important}
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-source-head p,
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-source-disclosure,
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-source-card-copy p,
+  .shell.kch-master-shell.kch-v133-readable-storefront .kch-source-review p{font-size:14px!important}
+  nav.tshop-bottom button,nav.bottom button{min-height:58px!important;font-size:13px!important}
 }
