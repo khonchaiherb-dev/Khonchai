@@ -7,6 +7,8 @@ const guard=fs.readFileSync('public/kch-production-guard.js','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 const staffAuth=fs.readFileSync('functions/_lib/staff-auth.js','utf8');
 const login=fs.readFileSync('functions/api/staff/login.js','utf8');
+const adminMiddleware=fs.readFileSync('functions/api/admin/_middleware.js','utf8');
+const adminLib=fs.readFileSync('functions/_lib/admin.js','utf8');
 
 assert.match(portal,/\/api\/staff\/login/);
 assert.match(portal,/\/api\/staff\/me/);
@@ -19,7 +21,7 @@ assert.doesNotMatch(portal,/sessionStorage/);
 assert.doesNotMatch(portal,/Authorization\s*:/);
 
 assert.match(bridge,/seller-center\.html/);
-assert.match(bridge,/\[data-go=\\"seller\\"\]/);
+assert.match(bridge,/\[data-go=["']seller["']\]/);
 assert.match(bridge,/kch-production-guard\.js/);
 assert.doesNotMatch(bridge,/kch-admin-token/);
 assert.doesNotMatch(bridge,/sessionStorage/);
@@ -36,5 +38,12 @@ assert.match(wrangler,/"STAFF_CSRF_ENFORCE"\s*:\s*"true"/);
 assert.match(staffAuth,/verifyStaffCsrf/);
 assert.match(login,/HttpOnly; Secure; SameSite=Strict/);
 assert.match(login,/account_temporarily_locked/);
+
+assert.match(adminMiddleware,/getStaffSession/);
+assert.match(adminMiddleware,/headers\.delete\('Authorization'\)/);
+assert.match(adminMiddleware,/X-KCH-Internal-Admin/);
+assert.doesNotMatch(adminMiddleware,/Bearer \$\{env\.ADMIN_TOKEN\}/);
+assert.match(adminLib,/LEGACY_ADMIN_ENABLED/);
+assert.match(adminLib,/X-KCH-Internal-Admin/);
 
 console.log('admin portal security smoke: OK');
