@@ -1,6 +1,9 @@
-/* KHONCHAIHERB Koonchaishop Admin Readiness v1.0 */
+/* KHONCHAIHERB Koonchaishop Admin Readiness v1.0.1 */
 (()=>{
   'use strict';
+  const BUILD='1.0.1';
+  if(window.__KCH_KOONCHAISHOP_ADMIN_READINESS_BOOT__===BUILD)return;
+  window.__KCH_KOONCHAISHOP_ADMIN_READINESS_BOOT__=BUILD;
   if(location.pathname!=='/seller-koonchaishop.html')return;
   const state={checking:false,last:null,timer:0};
   const css=`
@@ -15,5 +18,5 @@
   async function check(force=false){if(state.checking)return;if(!root()||root().classList.contains('hidden'))return;state.checking=true;const b=banner();if(b){b.dataset.state='checking';b.querySelector('.kch-admin-ready-icon').textContent='…';b.querySelector('b').textContent='กำลังตรวจสอบ Koonchaishop Source Library';b.querySelector('small').textContent='ตรวจ migration และสิทธิ์เขียนก่อนเปิดฟอร์มนำเข้า'}try{const r=await fetch('/api/admin/koonchaishop-source',{credentials:'same-origin',headers:{Accept:'application/json'},cache:force?'no-store':'default'});const d=await r.json().catch(()=>({}));if(r.status===401){state.last=null;return}if(!r.ok&&d?.databaseReady!==true){render(d);return}if(!r.ok){renderError(d?.error||`HTTP ${r.status}`);return}render(d)}catch(e){renderError(e?.message)}finally{state.checking=false}}
   function schedule(){clearTimeout(state.timer);state.timer=setTimeout(()=>check(false),80)}
   installCss();const mo=new MutationObserver(schedule);mo.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});window.addEventListener('focus',()=>check(true));window.addEventListener('pageshow',schedule);if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});else schedule();setTimeout(schedule,500);
-  window.__KCH_KOONCHAISHOP_ADMIN_READINESS__={check:()=>check(true),state};
+  window.__KCH_KOONCHAISHOP_ADMIN_READINESS__={check:()=>check(true),state,build:BUILD};
 })();
