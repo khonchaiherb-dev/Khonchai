@@ -14,7 +14,7 @@ const canonicalRedirect=(request,env,u)=>{
   const target=new URL(`${u.pathname}${u.search}`,canonicalOrigin(env));
   return new Response(null,{status:301,headers:{Location:target.toString(),'Cache-Control':'public, max-age=3600'}});
 };
-const withCanonicalMetadata=(response,env)=>{
+const withCanonicalMetadata=(response,env,pathname='')=>{
   const type=String(response.headers.get('content-type')||'').toLowerCase();
   if(!type.includes('text/html')||typeof HTMLRewriter==='undefined')return response;
   const origin=canonicalOrigin(env);
@@ -29,6 +29,7 @@ const withCanonicalMetadata=(response,env)=>{
     head.append('<script defer src="/kch-footer-premium.js?v=1.27.0"></script>',{html:true});
     head.append('<script defer src="/kch-future-standard.js?v=1.28.1"></script>',{html:true});
     head.append('<script defer src="/kch-koonchaishop-commerce.js?v=1.30.1"></script>',{html:true});
+    if(pathname==='/seller-koonchaishop.html')head.append('<script defer src="/kch-koonchaishop-admin-readiness.js?v=1.0.0"></script>',{html:true});
   }}).transform(response);
 };
 export async function onRequest({request,env,next}){
@@ -46,5 +47,5 @@ export async function onRequest({request,env,next}){
     }
   }
   const response=await next();
-  return request.method==='GET'?withCanonicalMetadata(response,env):response;
+  return request.method==='GET'?withCanonicalMetadata(response,env,u.pathname):response;
 }
