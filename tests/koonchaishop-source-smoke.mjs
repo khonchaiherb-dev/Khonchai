@@ -9,6 +9,7 @@ const css=read('public/tshop-v130-koonchaishop.css');
 const legacy=read('public/tshop-v114.js');
 const middleware=read('functions/_middleware.js');
 const d1Workflow=read('.github/workflows/d1-production-migration.yml');
+const d1Readiness=read('.github/workflows/d1-production-readiness.yml');
 
 assert.match(migration,/THLCRLWLHR/,'migration must register the authorized Koonchaishop shop code');
 assert.match(migration,/owner_authorized_media_content_reviews/,'source authorization scope must be explicit');
@@ -39,4 +40,14 @@ assert.match(d1Workflow,/APPLY-PRODUCTION-D1/,'production D1 migration must reta
 assert.match(d1Workflow,/verified_on_site guard must reject imported reviews/,'disposable validation must test the imported-review verification constraint');
 assert.match(d1Workflow,/Verify production Koonchaishop source schema/,'production workflow must verify the Koonchaishop schema after migration');
 assert.match(d1Workflow,/d1 execute \"\$DATABASE_NAME\" --remote/,'production migration must target remote D1 explicitly');
-console.log('Koonchaishop source provenance + v1.30 storefront + guarded production migration contracts: OK');
+assert.match(d1Readiness,/name: KHONCHAIHERB Production D1 Readiness/,'a dedicated production D1 readiness workflow must exist');
+assert.match(d1Readiness,/name: Read-only remote D1 readiness/,'production readiness job must identify itself as read-only');
+const readinessQueries=[...d1Readiness.matchAll(/QUERY="([^"]+)"/g)].map(m=>m[1]);
+assert.ok(readinessQueries.length>=2,'readiness workflow must inspect both schema and source registration');
+for(const query of readinessQueries)assert.match(query,/^SELECT\s/i,'all remote readiness queries must be SELECT-only');
+const readinessCommands=d1Readiness.split('\n').filter(line=>line.includes('wrangler@latest d1 execute'));
+assert.ok(readinessCommands.length>=2,'readiness workflow must run remote D1 inspections');
+for(const command of readinessCommands){assert.match(command,/--remote/,'readiness checks must target remote D1');assert.match(command,/--command="\$QUERY"/,'readiness checks must execute the validated SELECT query variable');assert.doesNotMatch(command,/--file=/,'readiness workflow must never apply a migration file')}
+assert.match(d1Readiness,/THLCRLWLHR/,'readiness workflow must verify the authorized Koonchaishop shop code');
+assert.match(d1Readiness,/owner_authorized_media_content_reviews/,'readiness workflow must verify the expected authorization scope');
+console.log('Koonchaishop source provenance + v1.30 storefront + guarded production migration/readiness contracts: OK');
