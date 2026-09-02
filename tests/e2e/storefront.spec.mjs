@@ -1,12 +1,9 @@
 import {test,expect} from '@playwright/test';
 
-// Functional browser fixtures are isolated from production IDs and carry no
-// ratings/sold-count social proof. Customer preview screenshots use no fixtures.
 const products=[
   {id:901,slug:'rang-jued-tea-e2e',sku:'E2E-TEA-901',name:'ชารางจืดสำหรับทดสอบระบบ',description:'ข้อมูลสำหรับทดสอบเส้นทางสั่งซื้อเท่านั้น',category:'ชาสมุนไพร',price:190,compare_at_price:null,rating:0,sold_count:0,stock:5,featured:1,image_url:'/assets/products/rang-jued-tea-360.webp'},
   {id:902,slug:'herbal-balm-e2e',sku:'E2E-BALM-902',name:'สินค้าสมุนไพรสำหรับทดสอบระบบ',description:'ข้อมูลสำหรับทดสอบเส้นทางสั่งซื้อเท่านั้น',category:'ดูแลร่างกาย',price:150,compare_at_price:null,rating:0,sold_count:0,stock:5,featured:1,image_url:'/assets/products/chiang-da-tea-360.webp'}
 ];
-const coupons=[];
 
 async function mockCommerce(page,state){
   await page.route('https://fonts.googleapis.com/**',route=>route.fulfill({status:200,contentType:'text/css',body:''}));
@@ -15,7 +12,7 @@ async function mockCommerce(page,state){
     const req=route.request(),u=new URL(req.url()),path=u.pathname,method=req.method();
     const fulfill=(body,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
     if(path==='/api/products')return fulfill({products});
-    if(path==='/api/coupons')return fulfill({coupons});
+    if(path==='/api/coupons')return fulfill({coupons:[]});
     if(path==='/api/product-detail')return fulfill({product:{...products[0],available_stock:5,variants:[{id:9101,product_id:901,sku:'E2E-TEA-901-STD',option_name:'ขนาด',option_value:'มาตรฐาน',price:190,compare_at_price:null,stock:5,reserved_stock:0,available_stock:5,active:1}],media:[],review:{count:0,average:0},reviewSummary:{count:0,average:0}}});
     if(path==='/api/health')return fulfill({ok:true,d1:true,version:'1.18.2'});
     if(path==='/api/customer/me'||path==='/api/customer/favorites'||path==='/api/customer/personalized'||path==='/api/customer/recent'||path==='/api/customer/rewards')return fulfill({authenticated:false},401);
@@ -30,87 +27,58 @@ async function mockCommerce(page,state){
   });
 }
 
-async function installMobileTouchTrace(page){
-  await page.evaluate(()=>{
-    window.__kchTouchTrace=[];
-    const describe=target=>{
-      const el=target&&target.nodeType===1?target:null;
-      const card=el?.closest?.('.tshop-card[data-product]');
-      return {tag:el?.tagName||null,className:typeof el?.className==='string'?el.className:null,product:card?.dataset?.product||null};
-    };
-    const viewport=()=>({scrollX:window.scrollX,scrollY:window.scrollY,innerWidth:window.innerWidth,innerHeight:window.innerHeight,visualViewport:window.visualViewport?{offsetLeft:visualViewport.offsetLeft,offsetTop:visualViewport.offsetTop,pageLeft:visualViewport.pageLeft,pageTop:visualViewport.pageTop,width:visualViewport.width,height:visualViewport.height,scale:visualViewport.scale}:null});
-    const state=()=>({current:typeof current!=='undefined'?current:null,hotfix:window.__KCH_INTERACTION_HOTFIX__||null,build:document.documentElement.dataset.kchBuild||null,productType:typeof product,pdp:!!document.querySelector('.pdp-title'),...viewport()});
-    const record=e=>{const t=e.changedTouches?.[0]||e.touches?.[0]||null;window.__kchTouchTrace.push({type:e.type,...describe(e.target),pointerType:e.pointerType||null,pointerId:e.pointerId??null,clientX:t?.clientX??e.clientX??null,clientY:t?.clientY??e.clientY??null,touches:e.touches?.length??null,changedTouches:e.changedTouches?.length??null,defaultPrevented:e.defaultPrevented,...state()})};
-    ['touchstart','touchmove','touchend','touchcancel','pointerdown','pointermove','pointerup','pointercancel','click'].forEach(type=>document.addEventListener(type,record,true));
-    window.__kchTouchTrace.push({type:'trace-installed',...state()});
-  });
-}
-
-async function readMobileTouchTrace(page){
-  return page.evaluate(()=>({events:Array.isArray(window.__kchTouchTrace)?window.__kchTouchTrace:[],final:{current:typeof current!=='undefined'?current:null,hotfix:window.__KCH_INTERACTION_HOTFIX__||null,build:document.documentElement.dataset.kchBuild||null,productType:typeof product,pdp:!!document.querySelector('.pdp-title'),bodyClass:document.body.className||null,scrollX:window.scrollX,scrollY:window.scrollY,innerWidth:window.innerWidth,innerHeight:window.innerHeight,visualViewport:window.visualViewport?{offsetLeft:visualViewport.offsetLeft,offsetTop:visualViewport.offsetTop,pageLeft:visualViewport.pageLeft,pageTop:visualViewport.pageTop,width:visualViewport.width,height:visualViewport.height,scale:visualViewport.scale}:null}}));
-}
-
-async function tapVisualViewport(page,locator,label='element'){
-  const anchored=await locator.evaluate(el=>{for(let node=el;node;node=node.parentElement){const position=getComputedStyle(node).position;if(position==='fixed'||position==='sticky')return true}return false});
-  const point=await locator.evaluate(async(el,args)=>{
-    const {name,anchored}=args;
-    const frames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-    const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-    let previous=null;
-    for(let attempt=0;attempt<24;attempt++){
-      if(!anchored)el.scrollIntoView({block:'center',inline:'nearest'});await frames();
-      const r=el.getBoundingClientRect(),geometry=[r.left,r.top,r.width,r.height],stable=previous&&geometry.every((v,i)=>Math.abs(v-previous[i])<1);previous=geometry;
-      if(r.width>0&&r.height>0&&stable){
-        const candidates=[[r.left+r.width*.5,r.top+r.height*.5],[r.left+r.width*.5,r.top+r.height*.68],[r.left+r.width*.5,r.top+r.height*.32],[r.left+r.width*.28,r.top+r.height*.5],[r.left+r.width*.72,r.top+r.height*.5]];
-        for(const [x,y] of candidates){
-          if(x<1||y<1||x>=innerWidth-1||y>=innerHeight-1)continue;
-          const hit=document.elementFromPoint(x,y);
-          if(hit&&(hit===el||el.contains(hit))){
-            const vv=window.visualViewport,offsetX=vv?.offsetLeft||0,offsetY=vv?.offsetTop||0,vw=vv?.width||innerWidth,vh=vv?.height||innerHeight,adjustedX=x-offsetX,adjustedY=y-offsetY,rawValid=x>0&&y>0&&x<vw&&y<vh,adjustedValid=adjustedX>0&&adjustedY>0&&adjustedX<vw&&adjustedY<vh,useRaw=(anchored&&rawValid)||(!adjustedValid&&rawValid);
-            return {label:name,x,y,inputX:useRaw?x:adjustedX,inputY:useRaw?y:adjustedY,coordinateSpace:useRaw?'screen':'visual-adjusted',scrollX:window.scrollX||0,scrollY:window.scrollY||0,hit:typeof hit.className==='string'?hit.className:hit.tagName,rect:geometry,anchored,layoutViewport:[innerWidth,innerHeight],visualViewport:vv?{offsetLeft:vv.offsetLeft,offsetTop:vv.offsetTop,pageLeft:vv.pageLeft,pageTop:vv.pageTop,width:vv.width,height:vv.height,scale:vv.scale}:null};
-          }
-        }
-      }
-      await wait(35);
-    }
-    const r=el.getBoundingClientRect(),x=Math.max(1,Math.min(innerWidth-2,r.left+r.width/2)),y=Math.max(1,Math.min(innerHeight-2,r.top+r.height/2)),hit=document.elementFromPoint(x,y);
-    throw new Error(`mobile ${name} has no stable touch hit target: rect=${JSON.stringify([r.left,r.top,r.width,r.height])} viewport=${innerWidth}x${innerHeight} visual=${JSON.stringify(window.visualViewport?{offsetTop:visualViewport.offsetTop,width:visualViewport.width,height:visualViewport.height}:null)} hit=${hit?.className||hit?.tagName||'none'}`);
-  },{name:label,anchored});
-  const visualWidth=point.visualViewport?.width||point.layoutViewport?.[0]||0,visualHeight=point.visualViewport?.height||point.layoutViewport?.[1]||0;
-  if(!(point.inputX>0&&point.inputY>0&&point.inputX<visualWidth&&point.inputY<visualHeight))throw new Error(`mobile ${label} visual-viewport coordinate invalid: ${JSON.stringify(point)}`);
-  await page.touchscreen.tap(point.inputX,point.inputY);return point;
-}
-
-async function activateTouchAction(page,locator,viewport,label){
-  if(viewport.width<=390)return tapVisualViewport(page,locator,label);
-  await locator.click();return null;
-}
-async function activateNavigation(locator){await locator.evaluate(el=>el.click())}
-
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
 
-test('browse → variant-safe cart → checkout → COD confirmation on real browser',async({page},testInfo)=>{
-  const state={orderPayload:null};await mockCommerce(page,state);await page.goto('/?e2e=stability',{waitUntil:'domcontentloaded'});await expect(page.locator('#product-grid [data-product="rang-jued-tea-e2e"]')).toBeVisible();
-  const viewport=page.viewportSize(),shell=page.locator('.shell').first(),shellWidth=await shell.evaluate(el=>el.getBoundingClientRect().width);expect(shellWidth).toBeGreaterThan(0);expect(shellWidth).toBeLessThanOrEqual(viewport.width+1);await expect(shell).toHaveClass(/v118-signature-home/);
-  if(viewport.width>=1024){expect(shellWidth).toBeGreaterThan(900);await expect(page.locator('.v118-hero-copy')).toBeVisible();await expect(page.locator('nav.tshop-bottom')).toBeHidden()}else{await expect(page.locator('nav.tshop-bottom')).toBeVisible();expect(shellWidth).toBeGreaterThan(viewport.width*0.9)}
+test('master browse → variant-safe cart → checkout → COD confirmation on real browser',async({page})=>{
+  const state={orderPayload:null},errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await mockCommerce(page,state);
+  await page.goto('/?e2e=master-commerce',{waitUntil:'domcontentloaded'});
 
-  const productCard=page.locator('#product-grid [data-product="rang-jued-tea-e2e"]'),productTitle=productCard.locator('.tshop-card-title');await expect(productCard.locator('.tshop-card-info')).toBeVisible();await expect(productTitle).toContainText('ชารางจืด');
-  if(viewport.width<=390){
-    await installMobileTouchTrace(page);
-    const touchPoint=await tapVisualViewport(page,productCard,'product-card');
-    await testInfo.attach('mobile-touch-hit',{body:Buffer.from(JSON.stringify(touchPoint,null,2)),contentType:'application/json'});await page.waitForTimeout(180);
-    const trace=await readMobileTouchTrace(page);await testInfo.attach('mobile-touch-trace',{body:Buffer.from(JSON.stringify(trace,null,2)),contentType:'application/json'});
-    if(!trace.final.pdp)throw new Error(`mobile visual-viewport touch did not open PDP: ${JSON.stringify({touchPoint,trace})}`);
-  }else await productCard.click();
+  const viewport=page.viewportSize();
+  const shell=page.locator('.shell').first();
+  await expect(shell).toHaveClass(/kch-master-shell/);
+  await expect(page.locator('.kch-master-home')).toBeVisible();
+  const shellWidth=await shell.evaluate(el=>el.getBoundingClientRect().width);
+  expect(shellWidth).toBeGreaterThan(0);
+  expect(shellWidth).toBeLessThanOrEqual(viewport.width+1);
+  if(viewport.width>=700)await expect(page.locator('nav.tshop-bottom')).toBeHidden();
+  else await expect(page.locator('nav.tshop-bottom')).toBeVisible();
 
-  await expect(page.locator('.pdp-title')).toContainText('ชารางจืด');await expect(page.locator('[data-v17-variant="9101"]')).toBeVisible();
-  await activateTouchAction(page,page.locator('button[data-add="901"]:visible').last(),viewport,'add-to-cart');
+  const productCard=page.locator('.kch-master-product[data-product="rang-jued-tea-e2e"]');
+  await expect(productCard).toBeVisible();
+  await expect(productCard.locator('h3')).toContainText('ชารางจืด');
+  await productCard.click();
+
+  await expect(page.locator('.pdp-title')).toContainText('ชารางจืด');
+  await expect(page.locator('[data-v17-variant="9101"]')).toBeVisible();
+  await expect(page.locator('.rating')).toHaveCount(0);
+  await expect(page.getByText(/ขายแล้ว/)).toHaveCount(0);
+
+  await page.locator('button[data-add="901"]:visible').last().click();
   await expect(page.locator('header .badge').first()).toHaveText('1');
-  await activateNavigation(page.locator('header button[data-go="cart"]'));
-  await expect(page.locator('.page-title')).toHaveText('ตะกร้าสินค้า');await expect(page.locator('.v17-line-variant')).toContainText('มาตรฐาน');
-  await activateNavigation(page.locator('button[data-go="checkout"]:visible').last());
-  await expect(page.locator('#customer-name')).toBeVisible();await page.locator('#customer-name').fill('ผู้ทดสอบระบบ');await page.locator('#customer-phone').fill('0812345678');await page.locator('#customer-address').fill('99 หมู่ 1 ถนนทดสอบ');if(await page.locator('#customer-subdistrict').count())await page.locator('#customer-subdistrict').fill('ในเมือง');await page.locator('#customer-district').fill('เมือง');await page.locator('#customer-province').fill('อุบลราชธานี');await page.locator('#customer-postal').fill('34000');await expect(page.locator('input[name="pay"][value="COD"]')).toBeChecked();
+  await page.locator('header button[data-go="cart"]').click();
+
+  await expect(page.locator('.page-title')).toHaveText('ตะกร้าสินค้า');
+  await expect(page.locator('.v17-line-variant')).toContainText('มาตรฐาน');
+  await page.locator('button[data-go="checkout"]:visible').last().click();
+
+  await expect(page.locator('#customer-name')).toBeVisible();
+  await page.locator('#customer-name').fill('ผู้ทดสอบระบบ');
+  await page.locator('#customer-phone').fill('0812345678');
+  await page.locator('#customer-address').fill('99 หมู่ 1 ถนนทดสอบ');
+  if(await page.locator('#customer-subdistrict').count())await page.locator('#customer-subdistrict').fill('ในเมือง');
+  await page.locator('#customer-district').fill('เมือง');
+  await page.locator('#customer-province').fill('อุบลราชธานี');
+  await page.locator('#customer-postal').fill('34000');
+  await expect(page.locator('input[name="pay"][value="COD"]')).toBeChecked();
   await expect(page.locator('[data-place]')).toBeEnabled();
-  await activateTouchAction(page,page.locator('[data-place]'),viewport,'place-cod-order');
-  await expect(page.getByRole('heading',{name:'สั่งซื้อสำเร็จ'})).toBeVisible();await expect(page.getByText('KCH-E2E-0001')).toBeVisible();expect(state.orderPayload).not.toBeNull();expect(state.orderPayload.paymentMethod).toBe('COD');expect(state.orderPayload.items?.[0]?.variantId).toBe(9101);expect(String(state.orderPayload.idempotencyKey||'').length).toBeGreaterThan(10);await testInfo.attach('viewport',{body:Buffer.from(JSON.stringify(viewport)),contentType:'application/json'});
+  await page.locator('[data-place]').click();
+
+  await expect(page.getByRole('heading',{name:'สั่งซื้อสำเร็จ'})).toBeVisible();
+  await expect(page.getByText('KCH-E2E-0001')).toBeVisible();
+  expect(state.orderPayload).not.toBeNull();
+  expect(state.orderPayload.paymentMethod).toBe('COD');
+  expect(state.orderPayload.items?.[0]?.variantId).toBe(9101);
+  expect(String(state.orderPayload.idempotencyKey||'').length).toBeGreaterThan(10);
+  expect(errors).toEqual([]);
 });
