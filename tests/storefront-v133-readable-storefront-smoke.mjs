@@ -37,7 +37,9 @@ assert.match(structuralJs,/looksLikeAccountStrip/);
 assert.match(structuralJs,/input\[type="search"\]/);
 assert.match(structuralJs,/normalize\('NFKC'\)/);
 assert.match(structuralJs,/<svg viewBox=/);
-assert.doesNotMatch(structuralJs,/material-symbols-rounded/);
+assert.match(structuralJs,/function repairMaterialIcons\(root\)/);
+assert.match(structuralJs,/\.material-symbols-rounded/);
+assert.match(structuralJs,/el\.innerHTML=svg\(path\)/);
 assert.doesNotMatch(structuralJs,/Math\.random|ขายแล้ว|★★★★★|⭐/);
 
 assert.ok(pkg.scripts['qa:v133']);
