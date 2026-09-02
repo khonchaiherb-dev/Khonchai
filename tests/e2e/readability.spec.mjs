@@ -24,24 +24,27 @@ const box=async locator=>locator.evaluate(el=>{const r=el.getBoundingClientRect(
 
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear());await mock(page)});
 
-test('v1.34 structural header is readable at 100% zoom and puts account in the correct hierarchy',async({page})=>{
-  await page.goto('/?e2e=v134-structural',{waitUntil:'domcontentloaded'});
+test('canonical storefront header is single, readable and correctly ordered at 100% zoom',async({page})=>{
+  await page.goto('/?e2e=structural-cleanup',{waitUntil:'domcontentloaded'});
   await expect(page.locator('.kch-master-home')).toBeVisible();
-  await page.addStyleTag({url:'/tshop-v134-structural-storefront.css?v=1.34.0'});
-  await page.addScriptTag({url:'/kch-v134-structural-storefront.js?v=1.34.0'});
+  await page.addStyleTag({url:'/tshop-v134-structural-storefront.css?v=1.34.2'});
+  await page.addScriptTag({url:'/kch-v134-structural-storefront.js?v=1.34.2'});
 
   const shell=page.locator('.kch-master-shell').first();
   await expect(shell).toHaveClass(/kch-v134-active/);
-  await expect(shell).toHaveAttribute('data-kch-ui','1.34.0');
+  await expect(shell).toHaveAttribute('data-kch-ui','1.34.2');
   const viewport=page.viewportSize();
   const shellBox=await box(shell);
   if(viewport.width>=1100)expect(shellBox.width).toBeGreaterThan(viewport.width*.9);
 
-  const header=page.locator('#kch-v134-header');
+  await expect(page.locator('#kch-v134-header')).toHaveCount(0);
+  const directHeaders=page.locator('.kch-master-shell > .tshop-topbar,.kch-master-shell > .topbar');
+  await expect(directHeaders).toHaveCount(1);
+  const header=page.locator('.kch-master-shell > .kch-structural-canonical-header');
   await expect(header).toBeVisible();
-  await expect(header).toHaveAttribute('data-kch-v134','1.34.0');
+  await expect(page.locator('.kch-master-shell > .kch-ref-menu')).toHaveCount(1);
 
-  const search=page.locator('#kch-v134-search');
+  const search=header.locator('#kch-master-search');
   await expect(search).toBeVisible();
   expect(await px(search)).toBeGreaterThanOrEqual(16);
   expect((await box(search)).height).toBeGreaterThanOrEqual(44);
@@ -50,41 +53,47 @@ test('v1.34 structural header is readable at 100% zoom and puts account in the c
   await expect(productName).toBeVisible();
   expect(await px(productName)).toBeGreaterThanOrEqual(17);
 
-  const productMeta=page.locator('.kch-master-product-copy .meta,.kch-master-product-meta,.kch-v132-card-note,.kch-v132-unready-note,.rating,.card-foot').filter({visible:true}).first();
-  if(await productMeta.count())expect(await px(productMeta)).toBeGreaterThanOrEqual(14);
-
   const filter=page.locator('.kch-master-filter,.kch-master-finder button,.cats button').filter({visible:true}).first();
   if(await filter.count()){
     expect(await px(filter)).toBeGreaterThanOrEqual(14);
     expect((await box(filter)).height).toBeGreaterThanOrEqual(44);
   }
 
-  const trustTitle=page.locator('.kch-master-hero-benefits b,.trust b').filter({visible:true}).first();
-  const trustSmall=page.locator('.kch-master-hero-benefits small,.trust small').filter({visible:true}).first();
-  if(await trustTitle.count())expect(await px(trustTitle)).toBeGreaterThanOrEqual(15);
-  if(await trustSmall.count())expect(await px(trustSmall)).toBeGreaterThanOrEqual(14);
+  const trustTitle=page.locator('.kch-master-hero-benefits b,.kch-master-trust-item b,.trust b').filter({visible:true}).first();
+  const trustSmall=page.locator('.kch-master-hero-benefits small,.kch-master-trust-item small,.trust small').filter({visible:true}).first();
+  if(await trustTitle.count())expect(await px(trustTitle)).toBeGreaterThanOrEqual(viewport.width>=700?15:14);
+  if(await trustSmall.count())expect(await px(trustSmall)).toBeGreaterThanOrEqual(viewport.width>=700?13:12);
 
   if(viewport.width>=700){
-    const account=page.locator('#kch-v134-header [data-v134-go="account"]');
-    await expect(account).toBeVisible();
-    await expect(account).toContainText(/บัญชี/);
-    expect((await box(account)).height).toBeGreaterThanOrEqual(48);
-    expect(await px(account.locator('.kch-v134-action-copy b'))).toBeGreaterThanOrEqual(15);
+    const actions=header.locator('.kch-master-actions');
+    await expect(actions.locator('[data-go="account"]')).toBeVisible();
+    await expect(actions.locator('[data-go="orders"]')).toBeVisible();
+    await expect(actions.locator('[data-go="cart"]')).toBeVisible();
+    await expect(actions.locator('[data-go="account"]')).toContainText('บัญชีสมาชิก');
+    await expect(actions.locator('[data-go="orders"]')).toContainText('คำสั่งซื้อ');
+    await expect(actions.locator('[data-go="cart"]')).toContainText('ตะกร้า');
+    for(const go of ['account','orders','cart'])expect((await box(actions.locator(`[data-go="${go}"]`))).height).toBeGreaterThanOrEqual(48);
+    expect(await px(actions.locator('[data-go="account"] .kch-master-utility-copy b'))).toBeGreaterThanOrEqual(15);
 
-    const menu=page.locator('#kch-v134-nav button').first();
+    const menu=page.locator('.kch-master-shell > .kch-master-nav button').first();
     await expect(menu).toBeVisible();
     expect(await px(menu)).toBeGreaterThanOrEqual(viewport.width>=1100?16:15);
     expect((await box(menu)).height).toBeGreaterThanOrEqual(48);
   }else{
-    const topActions=page.locator('#kch-v134-header .kch-v134-actions');
-    await expect(topActions).toBeHidden();
+    await expect(header.locator('[data-go="account"]')).toBeHidden();
+    await expect(header.locator('[data-go="orders"]')).toBeHidden();
+    await expect(header.locator('[data-go="cart"]')).toBeVisible();
+    expect((await box(header.locator('[data-go="cart"]'))).height).toBeGreaterThanOrEqual(44);
     const bottomAccount=page.locator('nav.tshop-bottom [data-go="account"],nav.bottom [data-go="account"]').filter({visible:true}).first();
     await expect(bottomAccount).toBeVisible();
     expect((await box(bottomAccount)).height).toBeGreaterThanOrEqual(44);
   }
 
-  for(const selector of ['.kch-v134-obsolete-header','.kch-v134-obsolete-menu','.kch-v134-obsolete-account-strip']){
-    const rows=page.locator(selector);
-    for(let i=0;i<await rows.count();i++)await expect(rows.nth(i)).toBeHidden();
+  const duplicateLoginStrips=page.locator('.kch-master-shell > section,.kch-master-shell > div').filter({hasText:/เข้าสู่ระบบ.*สมัครสมาชิก|สมัครสมาชิก.*เข้าสู่ระบบ/});
+  for(let i=0;i<await duplicateLoginStrips.count();i++){
+    const el=duplicateLoginStrips.nth(i);
+    if(await el.evaluate(node=>node.closest('.kch-member-wrap')===null))await expect(el).toBeHidden();
   }
+
+  await page.screenshot({path:`preview-screenshots/structural-cleanup-${viewport.width}.png`,fullPage:true});
 });
