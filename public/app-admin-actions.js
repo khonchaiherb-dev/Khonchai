@@ -4,14 +4,15 @@
 /* Critical customer safeguards run synchronously with the storefront shell.
    They must not depend on asynchronously fetched hardening layers. */
 (()=>{
-  if(typeof document==='undefined'||window.__KCH_CRITICAL_STOREFRONT__==='1.20.2')return;
-  window.__KCH_CRITICAL_STOREFRONT__='1.20.2';
+  if(typeof document==='undefined'||window.__KCH_CRITICAL_STOREFRONT__==='1.21.2')return;
+  window.__KCH_CRITICAL_STOREFRONT__='1.21.2';
   const head=document.head||document.documentElement;
   const style=document.createElement('style');
   style.id='kch-critical-storefront-style';
   style.textContent=`
     .kch-master-newsletter{display:none!important}
-    .kch-critical-search-hidden{display:none!important}
+    .kch-critical-search-hidden,
+    .kch-master-product[data-kch-search-match="0"]{display:none!important}
     @media(max-width:1023px){
       .pdp-bottom,.kch-pdp-20 .pdp-bottom{box-sizing:border-box!important;width:auto!important;height:auto!important;grid-template-columns:48px 48px minmax(112px,1fr) minmax(122px,1.12fr)!important;align-items:stretch!important;overflow:visible!important;transform:none!important}
       .pdp-bottom .pdp-mini{min-width:0!important;padding:4px 2px!important}.pdp-bottom .pdp-add,.pdp-bottom .pdp-buy{min-width:0!important;padding-inline:8px!important;white-space:nowrap!important}
@@ -48,7 +49,9 @@
     document.querySelectorAll('.kch-master-product').forEach(card=>{
       const name=String(card.dataset.kchName||card.querySelector('h3')?.textContent||'').toLowerCase();
       const cat=String(card.dataset.kchCat||'').toLowerCase();
-      const match=!q||name.includes(q)||cat.includes(q);
+      const slug=String(card.dataset.product||'').toLowerCase();
+      const match=!q||name.includes(q)||cat.includes(q)||slug.includes(q);
+      card.dataset.kchSearchMatch=match?'1':'0';
       card.hidden=!match;
       card.classList.toggle('kch-critical-search-hidden',!match);
       card.setAttribute('aria-hidden',String(!match));
@@ -57,8 +60,8 @@
   function run(){frame=0;ensureStoreStructuredData();neutralize();search();document.querySelectorAll('[data-go="seller"]').forEach(el=>el.remove())}
 
   // On the approved Master Storefront this is the single authoritative text-search
-  // handler. Stop the legacy bubbling handler from restoring all cards after our
-  // filter has already produced the correct result set.
+  // handler. A persistent data attribute keeps the result authoritative even when
+  // a legacy mobile renderer later rewrites hidden/class/aria-hidden attributes.
   document.addEventListener('input',event=>{
     if(!event.target?.matches?.('.tshop-searchbox input'))return;
     searchQuery=String(event.target.value||'');
@@ -69,7 +72,14 @@
     setTimeout(search,0);
     setTimeout(search,50);
   },true);
-  const root=document.getElementById('app');if(root)new MutationObserver(schedule).observe(root,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['hidden','class','style']});
+  document.addEventListener('search',event=>{
+    if(!event.target?.matches?.('.tshop-searchbox input'))return;
+    searchQuery=String(event.target.value||'');
+    if(document.querySelector('.kch-master-shell'))event.stopImmediatePropagation();
+    search();
+    queueMicrotask(search);
+  },true);
+  const root=document.getElementById('app');if(root)new MutationObserver(schedule).observe(root,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['hidden','class','style','aria-hidden']});
   schedule();
 })();
 
@@ -105,7 +115,7 @@ if(kchPublicRoot)new MutationObserver(()=>document.querySelectorAll('[data-go="s
   addCss('/tshop-v119.css?v=1.19.0','kch-v119');
   addCss('/tshop-v120.css?v=1.20.0','kch-v120');
   const boot=()=>{
-    addScript('/kch-production-guard.js?v=1.20.2','kch-production-guard');
+    addScript('/kch-production-guard.js?v=1.21.1','kch-production-guard');
     addScript('/tshop-v119.js?v=1.19.0','kch-v119',()=>addScript('/tshop-v120.js?v=1.20.0','kch-v120'));
   };
   if(document.readyState==='complete')boot();else window.addEventListener('load',boot,{once:true});
