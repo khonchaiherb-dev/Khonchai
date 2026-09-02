@@ -144,7 +144,7 @@ jobs:
           require_text structural-styles.css 'font-size:18px!important' 'product readable 18px baseline'
           require_text structural-styles.css '.kch-v134-obsolete-header' 'legacy header removal rule'
           require_text structural-runtime.js 'kch-master-shell' 'structural shell activation'
-          require_text structural-runtime.js 'data-v134-go=\"account\"' 'account action in structural header'
+          require_text structural-runtime.js 'data-v134-go="account"' 'account action in structural header'
           require_text service-worker.js "const CACHE='khonchaiherb-v1.34.0'" 'service worker cache build'
           require_text service-worker.js '/tshop-v134-structural-storefront.css?v=1.34.0' 'service worker v1.34 CSS cache'
           require_text service-worker.js '/kch-v134-structural-storefront.js?v=1.34.0' 'service worker v1.34 JS cache'
