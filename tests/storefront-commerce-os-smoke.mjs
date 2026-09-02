@@ -1,7 +1,9 @@
 import fs from 'node:fs';
 
 const read=p=>fs.readFileSync(p,'utf8');
-const seller=read('public/seller-center.html');
+const sellerEntry=read('public/seller-center.html');
+const sellerTarget=sellerEntry.includes('seller-center-v2.html')?'public/seller-center-v2.html':'public/seller-center.html';
+const seller=read(sellerTarget);
 const center=read('functions/api/admin/commerce-command-center.js');
 const customer=read('functions/api/admin/customer-360.js');
 const sale=read('functions/api/admin/sale-readiness.js');
@@ -9,6 +11,7 @@ const profit=read('functions/api/admin/product-profit.js');
 const middleware=read('functions/api/admin/_middleware.js');
 
 const checks=[
+  ['seller center entrypoint resolves',sellerTarget==='public/seller-center.html'||sellerEntry.includes('/seller-center-v2.html')],
   ['seller center title',seller.includes('KHONCHAIHERB | ศูนย์บริหารร้านค้า')],
   ['seller center uses command center',seller.includes('/api/admin/commerce-command-center')],
   ['seller center uses staff session',seller.includes('/api/staff/login')&&seller.includes('/api/staff/me')],
