@@ -24,7 +24,7 @@ jobs:
     env:
       SITE_ORIGIN: https://khonchaiherb-commerce.pages.dev
     steps:
-      - name: Check deployed storefront v1.32 HTML
+      - name: Check deployed storefront v1.33 HTML
         shell: bash
         run: |
           set -euo pipefail
@@ -33,21 +33,23 @@ jobs:
             if curl --fail --silent --show-error --location --max-time 20 \
               "$SITE_ORIGIN/" > storefront.html; then
               if grep -q '/tshop-v132-conversion-storefront.css?v=1.32.0' storefront.html \
+                && grep -q '/tshop-v1321-search-visibility-fix.css?v=1.32.1' storefront.html \
+                && grep -q '/tshop-v133-readable-storefront.css?v=1.33.0' storefront.html \
                 && grep -q '/kch-conversion-storefront.js?v=1.32.0' storefront.html \
-                && grep -q '/kch-top-conversion.js?v=1.31.2' storefront.html \
+                && grep -q '/kch-readable-storefront.js?v=1.33.0' storefront.html \
                 && grep -q 'KHONCHAIHERB' storefront.html; then
                 ok=1
                 break
               fi
             fi
-            echo "Storefront v1.32 not visible yet (attempt $attempt/30); waiting for Pages deploy..."
+            echo "Storefront v1.33 not visible yet (attempt $attempt/30); waiting for Pages deploy..."
             sleep 3
           done
           if [ "$ok" != "1" ]; then
-            echo 'Latest storefront v1.32 assets were not observed on Production.' >&2
+            echo 'Latest storefront v1.33 assets were not observed on Production.' >&2
             exit 1
           fi
-          echo 'Deployed storefront v1.32 assets: OK'
+          echo 'Deployed storefront v1.33 assets: OK'
 
       - name: Verify deployed Seller Manager readiness guard
         shell: bash
@@ -128,7 +130,7 @@ jobs:
           echo "Published assets returned by smoke query: ${{ steps.source.outputs.assets }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Published reviews returned by smoke query: ${{ steps.source.outputs.reviews }}" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Verify public source assets are reachable
+      - name: Verify public source and readable storefront assets are reachable
         shell: bash
         run: |
           set -euo pipefail
@@ -140,8 +142,15 @@ jobs:
             "$SITE_ORIGIN/kch-conversion-storefront.js?v=1.32.0" > conversion-runtime.js
           curl --fail --silent --show-error --location --max-time 20 \
             "$SITE_ORIGIN/tshop-v132-conversion-storefront.css?v=1.32.0" > conversion-styles.css
+          curl --fail --silent --show-error --location --max-time 20 \
+            "$SITE_ORIGIN/kch-readable-storefront.js?v=1.33.0" > readable-runtime.js
+          curl --fail --silent --show-error --location --max-time 20 \
+            "$SITE_ORIGIN/tshop-v133-readable-storefront.css?v=1.33.0" > readable-styles.css
           grep -q '__KCH_KOONCHAISHOP_COMMERCE__' source-runtime.js
           grep -q '.kch-source-section' source-styles.css
           grep -q '__KCH_CONVERSION_STOREFRONT__' conversion-runtime.js
           grep -q '.kch-v132-card-cta' conversion-styles.css
-          echo "Production Koonchaishop + v1.32 conversion assets: OK"
+          grep -q "const BUILD='1.33.0'" readable-runtime.js
+          grep -q '.kch-v133-account-action' readable-styles.css
+          grep -q 'font-size:16px!important' readable-styles.css
+          echo "Production Koonchaishop + v1.33 readable storefront assets: OK"

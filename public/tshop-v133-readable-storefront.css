@@ -1,0 +1,479 @@
+/* KHONCHAIHERB v1.33 — Readable Header & Storefront Baseline
+   Final UI layer: desktop readability, explicit utility actions, stable content width,
+   and accessible tap targets. Loaded after v1.32.x on Production. */
+:root{
+  --kch-v133-shell:1760px;
+  --kch-v133-content:1540px;
+  --kch-v133-readable:16px;
+  --kch-v133-small:14px;
+  --kch-v133-control:48px;
+  --kch-v133-green:#073f31;
+  --kch-v133-green-2:#0b4b39;
+  --kch-v133-gold:#d8b45f;
+  --kch-v133-ink:#173f31;
+  --kch-v133-muted:#68786f;
+}
+
+/* 1) Stop the 1920px desktop from looking like a narrow mobile canvas. */
+.shell.kch-master-shell,
+.kch-master-shell{
+  width:min(var(--kch-v133-shell),calc(100vw - 48px))!important;
+  max-width:var(--kch-v133-shell)!important;
+  margin-inline:auto!important;
+}
+.kch-master-home,
+.kch-master-home .kch-master-products,
+.kch-master-home .kch-master-finder,
+.kch-master-home .kch-master-trust{
+  width:min(var(--kch-v133-content),calc(100% - 56px))!important;
+  max-width:var(--kch-v133-content)!important;
+  margin-inline:auto!important;
+}
+
+/* 2) Header architecture: brand | search | account/order/cart. */
+.kch-master-shell .tshop-topbar,
+.kch-master-shell header.topbar{
+  min-height:82px!important;
+  padding:14px clamp(22px,2vw,34px)!important;
+  gap:20px!important;
+  align-items:center!important;
+}
+.kch-master-shell .tshop-topbar{
+  grid-template-columns:minmax(245px,.72fr) minmax(430px,1.65fr) auto!important;
+}
+.kch-master-shell .brand,
+.kch-master-shell .tshop-brand,
+.kch-master-shell .kch-brand-lockup{
+  min-width:220px!important;
+}
+.kch-master-shell .brand b,
+.kch-master-shell .tshop-brand b,
+.kch-master-shell .kch-brand-lockup b,
+.kch-master-shell .kch-brand-name{
+  font-size:clamp(25px,1.55vw,31px)!important;
+  line-height:1.08!important;
+  letter-spacing:.025em!important;
+}
+.kch-master-shell .brand small,
+.kch-master-shell .tshop-brand small,
+.kch-master-shell .kch-brand-lockup small,
+.kch-master-shell .kch-brand-sub{
+  margin-top:5px!important;
+  font-size:14px!important;
+  line-height:1.35!important;
+  font-weight:700!important;
+}
+
+/* Search must read like the primary shopping task, not a decorative field. */
+.kch-master-shell .search,
+.kch-master-shell .tshop-search,
+.kch-master-shell .kch-header-search,
+.kch-master-shell .kch-ref-search{
+  min-height:50px!important;
+  border-radius:14px!important;
+}
+.kch-master-shell .search input,
+.kch-master-shell .tshop-search input,
+.kch-master-shell .kch-header-search input,
+.kch-master-shell .kch-ref-search input{
+  min-height:48px!important;
+  font-size:16px!important;
+  line-height:1.4!important;
+}
+.kch-master-shell .search input::placeholder,
+.kch-master-shell .tshop-search input::placeholder,
+.kch-master-shell .kch-header-search input::placeholder,
+.kch-master-shell .kch-ref-search input::placeholder{
+  font-size:15px!important;
+  opacity:.9!important;
+}
+.kch-master-shell .search button,
+.kch-master-shell .tshop-search button,
+.kch-master-shell .kch-header-search button,
+.kch-master-shell .kch-ref-search button{
+  min-width:74px!important;
+  min-height:46px!important;
+  padding-inline:16px!important;
+  font-size:15px!important;
+  font-weight:850!important;
+}
+
+/* Utility actions are explicit words + icons. */
+.kch-master-shell header .actions,
+.kch-master-shell .tshop-top-actions,
+.kch-master-shell .kch-top-actions{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:8px!important;
+}
+.kch-master-shell header .actions button,
+.kch-master-shell .tshop-top-actions button,
+.kch-master-shell .kch-top-actions button,
+.kch-v133-account-action{
+  min-height:48px!important;
+  min-width:92px!important;
+  padding:7px 11px!important;
+  border-radius:12px!important;
+  font-size:15px!important;
+  line-height:1.2!important;
+  gap:8px!important;
+}
+.kch-v133-account-action{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border:1px solid rgba(216,180,95,.48)!important;
+  background:rgba(255,255,255,.055)!important;
+  color:#fff7dd!important;
+  cursor:pointer!important;
+}
+.kch-v133-account-action:hover,
+.kch-v133-account-action:focus-visible{
+  background:rgba(216,180,95,.14)!important;
+  border-color:rgba(216,180,95,.8)!important;
+}
+.kch-v133-action-copy{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  gap:2px!important;
+  white-space:nowrap!important;
+  text-align:left!important;
+}
+.kch-v133-action-copy b{
+  font-size:15px!important;
+  line-height:1.15!important;
+  font-weight:850!important;
+}
+.kch-v133-action-copy small{
+  font-size:14px!important;
+  line-height:1.1!important;
+  font-weight:650!important;
+  opacity:.82!important;
+}
+.kch-v133-account-action .material-symbols-rounded,
+.kch-master-shell header .actions button>.material-symbols-rounded,
+.kch-master-shell .tshop-top-actions button>.material-symbols-rounded{
+  font-size:23px!important;
+  flex:0 0 auto!important;
+}
+.kch-v133-old-copy{display:none!important}
+.kch-v133-legacy-account-strip{display:none!important}
+
+/* 3) Primary navigation: no more 11–12px desktop menu. */
+.kch-master-shell .kch-ref-menu,
+.kch-master-shell .tshop-menu,
+.kch-master-shell .tshop-nav{
+  min-height:58px!important;
+  padding-inline:clamp(18px,2.3vw,38px)!important;
+  gap:4px!important;
+  align-items:stretch!important;
+}
+.kch-master-shell .kch-ref-menu button,
+.kch-master-shell .kch-ref-menu a,
+.kch-master-shell .tshop-menu button,
+.kch-master-shell .tshop-menu a,
+.kch-master-shell .tshop-nav button,
+.kch-master-shell .tshop-nav a{
+  min-height:54px!important;
+  padding:0 clamp(13px,1.2vw,20px)!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  font-size:16px!important;
+  line-height:1.25!important;
+  font-weight:800!important;
+  white-space:nowrap!important;
+}
+
+/* 4) Hero remains compact, but every explanation is readable. */
+.kch-master-shell .kch-master-hero,
+.kch-master-shell .tshop-hero{
+  min-height:380px!important;
+}
+.kch-master-shell .kch-master-hero-eyebrow,
+.kch-master-shell .v118-eyebrow,
+.kch-master-shell .kch-hero-eyebrow{
+  font-size:14px!important;
+  line-height:1.4!important;
+}
+.kch-master-shell .kch-master-hero h1,
+.kch-master-shell .tshop-hero h1{
+  font-size:clamp(40px,3.15vw,58px)!important;
+  line-height:1.04!important;
+}
+.kch-master-shell .kch-master-hero-sub,
+.kch-master-shell .v118-hero-brand,
+.kch-master-shell .kch-hero-subtitle{
+  font-size:18px!important;
+  line-height:1.35!important;
+}
+.kch-master-shell .kch-master-hero p,
+.kch-master-shell .tshop-hero p,
+.kch-master-shell .v118-hero-copy p{
+  font-size:16px!important;
+  line-height:1.65!important;
+  max-width:700px!important;
+}
+.kch-master-shell .kch-master-hero button,
+.kch-master-shell .tshop-hero button,
+.kch-master-shell .v118-hero-actions button{
+  min-height:48px!important;
+  padding-inline:20px!important;
+  font-size:16px!important;
+  font-weight:850!important;
+}
+.kch-master-shell .kch-master-hero-card b,
+.kch-master-shell .v118-featured-product>span b{
+  font-size:15px!important;
+  line-height:1.3!important;
+}
+.kch-master-shell .kch-master-hero-card small,
+.kch-master-shell .v118-featured-product>span small{
+  font-size:14px!important;
+  line-height:1.35!important;
+}
+.kch-master-shell .kch-master-hero-trust b,
+.kch-master-shell .v118-hero-trust,
+.kch-master-shell .v118-hero-trust span{
+  font-size:14px!important;
+  line-height:1.4!important;
+}
+
+/* 5) Trust row: utility copy should not be microcopy. */
+.kch-master-shell .kch-master-trust-item b,
+.kch-master-shell .kch-master-trust b,
+.kch-master-shell .trust b{
+  font-size:16px!important;
+  line-height:1.25!important;
+}
+.kch-master-shell .kch-master-trust-item small,
+.kch-master-shell .kch-master-trust small,
+.kch-master-shell .trust small{
+  font-size:14px!important;
+  line-height:1.4!important;
+}
+.kch-master-shell .kch-master-trust-item,
+.kch-master-shell .kch-master-trust>div,
+.kch-master-shell .trust>div{
+  min-height:72px!important;
+  padding-block:12px!important;
+}
+
+/* 6) Finder / category chips: readable at a glance. */
+.kch-master-shell .kch-master-finder-title,
+.kch-master-shell .kch-master-finder strong,
+.kch-master-shell .kch-master-filter-title{
+  font-size:19px!important;
+  line-height:1.3!important;
+}
+.kch-master-shell .kch-master-filter,
+.kch-master-shell .kch-master-reset,
+.kch-master-shell .kch-master-finder button,
+.kch-master-shell .cats button{
+  min-height:44px!important;
+  padding:0 16px!important;
+  font-size:15px!important;
+  line-height:1.25!important;
+  font-weight:750!important;
+}
+
+/* 7) Product cards: image supports the sale; text and CTA drive it. */
+.kch-master-shell .kch-master-products h2,
+.kch-master-shell #recommend h2{
+  font-size:clamp(28px,2vw,34px)!important;
+  line-height:1.18!important;
+}
+.kch-master-shell .kch-master-products .sub,
+.kch-master-shell #recommend .sub,
+.kch-master-shell .kch-master-products-note{
+  font-size:15px!important;
+  line-height:1.5!important;
+}
+.kch-master-shell .kch-master-product-media{
+  height:220px!important;
+  min-height:220px!important;
+}
+.kch-master-shell .kch-master-product-body,
+.kch-master-shell .kch-master-product-copy{
+  padding:16px!important;
+}
+.kch-master-shell .kch-master-product h3,
+.kch-master-shell .kch-master-product-name{
+  font-size:18px!important;
+  line-height:1.38!important;
+  font-weight:850!important;
+  min-height:49px!important;
+}
+.kch-master-shell .kch-master-product-meta,
+.kch-master-shell .kch-master-product small,
+.kch-master-shell .kch-v132-card-note,
+.kch-master-shell .kch-v132-unready-note{
+  font-size:14px!important;
+  line-height:1.5!important;
+}
+.kch-master-shell .kch-master-product-price,
+.kch-master-shell .kch-v132-card-price{
+  font-size:23px!important;
+  line-height:1.2!important;
+  font-weight:900!important;
+}
+.kch-master-shell .kch-v132-card-cta,
+.kch-master-shell .kch-v132-buy,
+.kch-master-shell .kch-master-product button{
+  min-height:46px!important;
+  font-size:15px!important;
+  line-height:1.25!important;
+  font-weight:850!important;
+}
+.kch-master-shell .kch-master-product-status,
+.kch-master-shell .kch-master-product-badge{
+  min-height:30px!important;
+  padding-inline:10px!important;
+  font-size:13px!important;
+  line-height:1.2!important;
+}
+
+/* General focus is visible without relying on zoom. */
+.kch-master-shell button:focus-visible,
+.kch-master-shell a:focus-visible,
+.kch-master-shell input:focus-visible{
+  outline:3px solid rgba(216,180,95,.72)!important;
+  outline-offset:2px!important;
+}
+
+/* Preserve the v1.32.1 search regression fix regardless of later display rules. */
+.kch-master-product[hidden]{display:none!important}
+
+@media (min-width:1400px){
+  .kch-master-shell .kch-master-product-grid,
+  .kch-master-shell #product-grid{
+    gap:20px!important;
+  }
+}
+
+@media (max-width:1099px){
+  .shell.kch-master-shell,.kch-master-shell{
+    width:min(100%,calc(100vw - 24px))!important;
+  }
+  .kch-master-shell .tshop-topbar{
+    grid-template-columns:minmax(190px,.75fr) minmax(300px,1.35fr) auto!important;
+    gap:12px!important;
+  }
+  .kch-master-shell .kch-ref-menu button,
+  .kch-master-shell .kch-ref-menu a,
+  .kch-master-shell .tshop-menu button,
+  .kch-master-shell .tshop-menu a{
+    font-size:15px!important;
+    padding-inline:12px!important;
+  }
+  .kch-v133-action-copy small{display:none!important}
+  .kch-master-shell header .actions button,
+  .kch-master-shell .tshop-top-actions button,
+  .kch-v133-account-action{min-width:54px!important;padding-inline:9px!important}
+}
+
+@media (max-width:699px){
+  .shell.kch-master-shell,.kch-master-shell{
+    width:100%!important;
+    max-width:none!important;
+  }
+  .kch-master-home,
+  .kch-master-home .kch-master-products,
+  .kch-master-home .kch-master-finder,
+  .kch-master-home .kch-master-trust{
+    width:100%!important;
+    max-width:none!important;
+  }
+  .kch-master-shell .tshop-topbar,
+  .kch-master-shell header.topbar{
+    min-height:64px!important;
+    padding:10px 14px!important;
+    gap:10px!important;
+  }
+  .kch-master-shell .brand b,
+  .kch-master-shell .tshop-brand b,
+  .kch-master-shell .kch-brand-name{
+    font-size:21px!important;
+  }
+  .kch-master-shell .brand small,
+  .kch-master-shell .tshop-brand small,
+  .kch-master-shell .kch-brand-sub{
+    font-size:12px!important;
+  }
+  /* Mobile already has a persistent account destination in bottom navigation. */
+  .kch-v133-account-action{display:none!important}
+  .kch-master-shell header .actions button,
+  .kch-master-shell .tshop-top-actions button{
+    min-width:44px!important;
+    min-height:44px!important;
+    padding:7px!important;
+  }
+  .kch-master-shell header .actions .kch-v133-action-copy,
+  .kch-master-shell .tshop-top-actions .kch-v133-action-copy{display:none!important}
+  .kch-master-shell .search input,
+  .kch-master-shell .tshop-search input,
+  .kch-master-shell .kch-header-search input,
+  .kch-master-shell .kch-ref-search input{
+    font-size:16px!important;
+  }
+  .kch-master-shell .kch-ref-menu button,
+  .kch-master-shell .kch-ref-menu a,
+  .kch-master-shell .tshop-menu button,
+  .kch-master-shell .tshop-menu a{
+    min-height:46px!important;
+    font-size:15px!important;
+  }
+  .kch-master-shell .kch-master-hero,
+  .kch-master-shell .tshop-hero{min-height:0!important}
+  .kch-master-shell .kch-master-hero h1,
+  .kch-master-shell .tshop-hero h1{
+    font-size:clamp(34px,10vw,44px)!important;
+  }
+  .kch-master-shell .kch-master-hero p,
+  .kch-master-shell .tshop-hero p,
+  .kch-master-shell .v118-hero-copy p{
+    font-size:15px!important;
+  }
+  .kch-master-shell .kch-master-hero button,
+  .kch-master-shell .tshop-hero button,
+  .kch-master-shell .v118-hero-actions button{
+    min-height:48px!important;
+    font-size:15px!important;
+  }
+  .kch-master-shell .kch-master-trust-item b,
+  .kch-master-shell .kch-master-trust b,
+  .kch-master-shell .trust b{font-size:15px!important}
+  .kch-master-shell .kch-master-trust-item small,
+  .kch-master-shell .kch-master-trust small,
+  .kch-master-shell .trust small{font-size:14px!important}
+  .kch-master-shell .kch-master-filter,
+  .kch-master-shell .kch-master-reset,
+  .kch-master-shell .kch-master-finder button,
+  .kch-master-shell .cats button{
+    min-height:44px!important;
+    font-size:14px!important;
+  }
+  .kch-master-shell .kch-master-product-media{
+    height:190px!important;
+    min-height:190px!important;
+  }
+  .kch-master-shell .kch-master-product h3,
+  .kch-master-shell .kch-master-product-name{font-size:17px!important}
+  .kch-master-shell .kch-master-product-meta,
+  .kch-master-shell .kch-master-product small,
+  .kch-master-shell .kch-v132-card-note,
+  .kch-master-shell .kch-v132-unready-note{font-size:14px!important}
+  .kch-master-shell .kch-v132-card-cta,
+  .kch-master-shell .kch-v132-buy,
+  .kch-master-shell .kch-master-product button{
+    min-height:46px!important;
+    font-size:15px!important;
+  }
+  nav.tshop-bottom button,
+  nav.bottom button{
+    min-height:58px!important;
+    font-size:13px!important;
+  }
+}
