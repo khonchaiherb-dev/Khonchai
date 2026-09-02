@@ -1,0 +1,51 @@
+/* KHONCHAIHERB v1.34.1 — production header de-duplication hotfix */
+.kch-v1341-hidden-legacy,
+.kch-v134-obsolete-header,
+.kch-v134-obsolete-menu,
+.kch-v134-obsolete-account-strip{
+  display:none!important;
+  visibility:hidden!important;
+  height:0!important;
+  min-height:0!important;
+  max-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  overflow:hidden!important;
+  pointer-events:none!important;
+}
+
+body:has(#kch-v134-header) .tshop-topbar:not(#kch-v134-header *),
+body:has(#kch-v134-header) .topbar:not(#kch-v134-header *),
+body:has(#kch-v134-header) .kch-ref-menu:not(#kch-v134-header *),
+body:has(#kch-v134-header) .kch-ref-header:not(#kch-v134-header *),
+body:has(#kch-v134-header) .kch-master-header:not(#kch-v134-header *),
+body:has(#kch-v134-header) .kch-ref-mobile-panel:not(#kch-v134-header *),
+body:has(#kch-v134-header) .kch-member-entry:not(#kch-v134-header *),
+body:has(#kch-v134-header) .kch-member-quick:not(#kch-v134-header *){
+  display:none!important;
+}
+
+#kch-v134-header.kch-v1341-header-fixed{
+  margin:0!important;
+  isolation:isolate!important;
+}
+
+/* Keep only one compact desktop commerce header. */
+@media (min-width:861px){
+  #kch-v134-header .kch-v134-top{
+    min-height:82px!important;
+    padding-top:11px!important;
+    padding-bottom:11px!important;
+  }
+  #kch-v134-nav{
+    min-height:54px!important;
+  }
+  #kch-v134-nav button{
+    min-height:48px!important;
+  }
+}
+
+@media (max-width:860px){
+  #kch-v134-header{position:relative!important;top:auto!important}
+}
