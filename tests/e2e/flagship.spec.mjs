@@ -2,8 +2,8 @@ import {test,expect} from '@playwright/test';
 
 // Browser-only fixtures use non-production IDs and zero social proof.
 const products=[
-  {id:901,slug:'rang-jued-tea-e2e',sku:'E2E-TEA-901',name:'ชารางจืดสำหรับทดสอบระบบ',description:'ข้อมูลสำหรับทดสอบเส้นทางเลือกซื้อเท่านั้น',category:'ชาสมุนไพร',price:190,compare_at_price:null,rating:0,sold_count:0,stock:5,featured:1,image_url:'/assets/products/rang-jued-tea-360.webp'},
-  {id:902,slug:'chiang-da-tea-e2e',sku:'E2E-TEA-902',name:'ชาเชียงดาสำหรับทดสอบระบบ',description:'ข้อมูลสำหรับทดสอบเส้นทางเลือกซื้อเท่านั้น',category:'ชาสมุนไพร',price:220,compare_at_price:null,rating:0,sold_count:0,stock:5,featured:1,image_url:'/assets/products/chiang-da-tea-360.webp'}
+  {id:901,slug:'rang-jued-tea-e2e',sku:'E2E-TEA-901',name:'ชารางจืดสำหรับทดสอบระบบ',description:'ข้อมูลสำหรับทดสอบเส้นทางเลือกซื้อเท่านั้น',category:'ชาสมุนไพร',price:190,compare_at_price:null,rating:0,sold_count:0,stock:5,featured:1,sale_verified:1,image_url:'/assets/products/rang-jued-tea-360.webp'},
+  {id:902,slug:'chiang-da-tea-e2e',sku:'E2E-TEA-902',name:'ชาเชียงดาสำหรับทดสอบระบบ',description:'ข้อมูลสำหรับทดสอบเส้นทางเลือกซื้อเท่านั้น',category:'ชาสมุนไพร',price:220,compare_at_price:null,rating:0,sold_count:0,stock:5,featured:1,sale_verified:1,image_url:'/assets/products/chiang-da-tea-360.webp'}
 ];
 
 async function mockStore(page){
@@ -28,6 +28,12 @@ async function loadV131(page){
   await expect.poll(()=>page.evaluate(()=>window.__KCH_TOP_CONVERSION__)).toBe('1.31.2');
 }
 
+async function loadV132(page){
+  await page.addStyleTag({path:'public/tshop-v132-conversion-storefront.css'});
+  await page.addScriptTag({path:'public/kch-conversion-storefront.js'});
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_CONVERSION_STOREFRONT__)).toBe('1.32.0');
+}
+
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
 
 test('master storefront discovery is readable, Thai-first and stable across viewports',async({page})=>{
@@ -35,11 +41,14 @@ test('master storefront discovery is readable, Thai-first and stable across view
   await mockStore(page);
   await page.goto('/?flagship=master',{waitUntil:'domcontentloaded'});
   await loadV131(page);
+  await loadV132(page);
 
   await expect(page.locator('.shell')).toHaveClass(/kch-master-shell/);
   await expect(page.locator('.shell')).toHaveClass(/kch-v131/);
+  await expect(page.locator('.shell')).toHaveClass(/kch-v132/);
   await expect(page.locator('.kch-master-home')).toBeVisible();
   await expect(page.locator('.kch-master-home')).toHaveClass(/kch-v131-home/);
+  await expect(page.locator('.kch-master-home')).toHaveClass(/kch-v132-home/);
   await expect(page.getByRole('heading',{level:1})).toContainText('KHONCHAIHERB');
   await expect(page.getByRole('heading',{level:1})).toContainText('สมุนไพรไทยที่คัดสรร');
 
@@ -63,15 +72,26 @@ test('master storefront discovery is readable, Thai-first and stable across view
 
   const grid=page.locator('.kch-master-products');
   await expect(grid).toBeVisible();
-  await expect(grid.locator('[data-product="rang-jued-tea-e2e"]')).toContainText('ชารางจืด');
+  const rangJued=grid.locator('[data-product="rang-jued-tea-e2e"]');
+  const chiangDa=grid.locator('[data-product="chiang-da-tea-e2e"]');
+  await expect(rangJued).toContainText('ชารางจืด');
+  await expect(rangJued).toHaveAttribute('data-kch-v132-ready','1');
+  await expect(rangJued.getByRole('button',{name:/สั่งซื้อ ชารางจืด/})).toBeVisible();
+  await expect(rangJued).toContainText('฿190');
+
+  const mediaHeight=await rangJued.locator('.kch-master-product-media').evaluate(el=>Math.round(el.getBoundingClientRect().height));
+  const viewportWidth=page.viewportSize()?.width||0;
+  if(viewportWidth<=520)expect(mediaHeight).toBeLessThanOrEqual(170);
+  else if(viewportWidth<=899)expect(mediaHeight).toBeLessThanOrEqual(180);
+  else expect(mediaHeight).toBeLessThanOrEqual(215);
 
   const search=page.locator('.tshop-searchbox input');
   await search.fill('ชารางจืด');
-  await expect(grid.locator('[data-product="rang-jued-tea-e2e"]')).toBeVisible();
-  await expect(grid.locator('[data-product="chiang-da-tea-e2e"]')).toBeHidden();
-  await expect(grid.locator('[data-product="chiang-da-tea-e2e"]')).toHaveAttribute('data-kch-v131-search-match','0');
+  await expect(rangJued).toBeVisible();
+  await expect(chiangDa).toBeHidden();
+  await expect(chiangDa).toHaveAttribute('data-kch-v131-search-match','0');
   await search.fill('');
-  await expect(grid.locator('[data-product="chiang-da-tea-e2e"]')).not.toHaveAttribute('data-kch-v131-search-match','0');
+  await expect(chiangDa).not.toHaveAttribute('data-kch-v131-search-match','0');
 
   const bodyText=await page.locator('body').innerText();
   expect(bodyText).not.toContain('ขายแล้ว 0');
