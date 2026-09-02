@@ -1,14 +1,15 @@
-/* KHONCHAIHERB v1.31.0 — conversion-first top storefront behavior */
+/* KHONCHAIHERB v1.31.1 — conversion-first top storefront behavior */
 (()=>{
   'use strict';
   if(typeof document==='undefined')return;
-  const BUILD='1.31.0';
+  const BUILD='1.31.1';
   if(window.__KCH_TOP_CONVERSION__===BUILD)return;
   window.__KCH_TOP_CONVERSION__=BUILD;
 
   const $=(s,r=document)=>r?.querySelector?.(s)||null;
   const $$=(s,r=document)=>Array.from(r?.querySelectorAll?.(s)||[]);
   const text=el=>String(el?.textContent||'').replace(/\s+/g,' ').trim();
+  const normalize=v=>String(v??'').normalize('NFKC').toLocaleLowerCase('th-TH').replace(/\s+/g,' ').trim();
   const money=n=>{try{return new Intl.NumberFormat('th-TH',{style:'currency',currency:'THB',maximumFractionDigits:0}).format(Number(n)||0)}catch{return `฿${Number(n)||0}`}};
   const catalog=()=>{try{return Array.isArray(PRODUCTS)?PRODUCTS:[]}catch{return []}};
   const isDemo=p=>[[1,189,86,1248],[2,149,120,938],[3,459,42,524],[4,99,210,2201],[5,129,64,781],[6,699,25,194]].some(x=>Number(p?.id)===x[0]&&Number(p?.price)===x[1]&&Number(p?.stock)===x[2]&&Number(p?.sold??p?.sold_count)===x[3]);
@@ -131,10 +132,42 @@
     const p=$('.kch-master-section-head p',section);if(p)p.textContent='เลือกจากสินค้าที่มีข้อมูลราคาและสถานะพร้อมให้ตรวจสอบก่อนสั่งซื้อ';
   }
 
+  function applyMasterSearch(){
+    if(!isHome())return;
+    const input=$('.tshop-topbar .tshop-searchbox input');
+    const grid=$('.kch-master-products');
+    if(!input||!grid)return;
+    const q=normalize(input.value);
+    if(!q)return;
+    const tokens=q.split(' ').filter(Boolean);
+    $$('.kch-master-product',grid).forEach(card=>{
+      const hay=normalize([card.dataset?.kchName,card.dataset?.product,card.dataset?.kchCat,text(card)].filter(Boolean).join(' '));
+      const match=tokens.every(token=>hay.includes(token));
+      card.dataset.kchSearchMatch=match?'1':'0';
+      card.hidden=!match;
+      card.setAttribute('aria-hidden',match?'false':'true');
+    });
+  }
+
+  function bindMasterSearch(){
+    if(!isHome())return;
+    const input=$('.tshop-topbar .tshop-searchbox input');
+    if(!input||input.dataset.kchV131Search==='1')return;
+    input.dataset.kchV131Search='1';
+    const repair=()=>{
+      queueMicrotask(applyMasterSearch);
+      requestAnimationFrame(applyMasterSearch);
+      setTimeout(applyMasterSearch,180);
+    };
+    input.addEventListener('input',repair);
+    input.addEventListener('search',repair);
+  }
+
   function run(){
     enhanceHeader();
     if(!isHome())return;
-    enhanceHero();enhanceShowcase();enhanceTrust();hideMemberInterrupt();enhanceFinder();enhanceProductHeading();
+    enhanceHero();enhanceShowcase();enhanceTrust();hideMemberInterrupt();enhanceFinder();enhanceProductHeading();bindMasterSearch();
+    applyMasterSearch();
   }
 
   let frame=0;
