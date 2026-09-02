@@ -1,140 +1,103 @@
-/* KHONCHAIHERB v1.34.2 — canonical readable storefront baseline */
-:root{--kch-v134-deep:#06382c;--kch-v134-deeper:#042b22;--kch-v134-gold:#d8b45f;--kch-v134-gold-soft:#f1d48b;--kch-v134-cream:#f7f3ea;--kch-v134-paper:#fffdf8;--kch-v134-ink:#17372b;--kch-v134-muted:#65756d;--kch-v134-line:#e1e7e2}
-html body{background:#062b22!important;font-size:16px!important}
-html body #kch-v134-header,html body .kch-v134-header{display:none!important}
-html body .shell.kch-master-shell.kch-v134-active{width:min(1920px,calc(100vw - 32px))!important;max-width:1920px!important;margin:0 auto!important;background:var(--kch-v134-cream)!important;overflow:hidden!important;box-shadow:0 0 90px rgba(0,0,0,.22)!important;transform:none!important;zoom:1!important}
+/* KHONCHAIHERB v1.34.3 — single canonical structural baseline */
+:root{--kch-deep:#06382c;--kch-deeper:#042b22;--kch-gold:#d8b45f;--kch-gold-soft:#f2d789;--kch-cream:#f7f3ea;--kch-paper:#fffdf8;--kch-ink:#17372b;--kch-muted:#66766e;--kch-line:#e2e7e3}
+html,body{margin:0!important;max-width:none!important;background:#062b22!important;font-size:16px!important;overflow-x:hidden!important}
+html body #kch-v134-header,html body .kch-v134-header,html body .kch-v131-member-interrupt,html body .kch-v134-obsolete-account-strip{display:none!important}
+html body .shell.kch-master-shell.kch-v134-active{box-sizing:border-box!important;width:min(1920px,calc(100vw - 24px))!important;max-width:1920px!important;min-width:0!important;margin:0 auto!important;padding:0!important;background:var(--kch-cream)!important;overflow:hidden!important;box-shadow:0 0 80px rgba(0,0,0,.2)!important;transform:none!important;zoom:1!important}
+html body .shell.kch-master-shell.kch-v134-active *{box-sizing:border-box}
 
-/* One canonical desktop header: brand | search | account/orders/cart */
-html body .kch-master-shell .tshop-topbar.kch-master-topbar.kch-structural-canonical-header{position:relative!important;top:auto!important;z-index:100!important;display:grid!important;grid-template-columns:minmax(230px,300px) minmax(420px,1fr) minmax(430px,590px)!important;grid-template-rows:1fr!important;align-items:center!important;gap:28px!important;min-height:92px!important;padding:16px clamp(24px,3vw,54px)!important;background:linear-gradient(180deg,#063c2f,#053428)!important;border:0!important;border-bottom:1px solid rgba(223,190,109,.28)!important;box-shadow:none!important;color:#fff!important;backdrop-filter:none!important}
-html body .kch-master-shell .kch-structural-canonical-header .kch-ref-hamburger{display:none!important}
-html body .kch-master-shell .kch-structural-canonical-header .kch-brand-lockup{grid-column:1!important;grid-row:1!important;justify-self:start!important;display:grid!important;place-items:start!important;min-width:0!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;color:var(--kch-v134-gold-soft)!important;text-align:left!important;cursor:pointer!important}
-html body .kch-master-shell .kch-structural-canonical-header .kch-brand-lockup b{display:block!important;font-family:Georgia,'Times New Roman',serif!important;font-size:clamp(25px,1.7vw,31px)!important;font-weight:600!important;line-height:1!important;letter-spacing:.035em!important;color:var(--kch-v134-gold-soft)!important;white-space:nowrap!important}
-html body .kch-master-shell .kch-structural-canonical-header .kch-brand-lockup b:after{content:' ❧'!important;font-size:.72em!important;color:#aeb45a!important}
-html body .kch-master-shell .kch-structural-canonical-header .kch-brand-lockup small{display:block!important;margin-top:7px!important;font-size:13px!important;font-weight:800!important;line-height:1.15!important;color:#f0dda9!important;letter-spacing:.02em!important}
-html body .kch-master-shell .kch-structural-canonical-header .kch-master-searchbox{grid-column:2!important;grid-row:1!important;display:grid!important;grid-template-columns:minmax(0,1fr) 92px!important;align-items:center!important;width:100%!important;height:54px!important;min-height:54px!important;margin:0!important;padding:0!important;overflow:hidden!important;border:1px solid rgba(231,210,157,.42)!important;border-radius:13px!important;background:#fff!important;box-shadow:0 5px 18px rgba(0,0,0,.08)!important}
-html body .kch-master-shell .kch-structural-canonical-header .kch-master-searchbox .material-symbols-rounded{display:none!important}
-html body .kch-master-shell .kch-structural-canonical-header .kch-master-searchbox input{width:100%!important;height:52px!important;min-height:52px!important;margin:0!important;padding:0 17px!important;border:0!important;outline:0!important;background:#fff!important;color:#263e34!important;font-family:inherit!important;font-size:16px!important;font-weight:500!important;line-height:1.4!important}
-html body .kch-master-shell .kch-structural-canonical-header .kch-master-searchbox input::placeholder{color:#77877f!important;opacity:1!important}
-html body .kch-master-shell .kch-structural-canonical-header .kch-master-searchbox button{height:54px!important;min-height:54px!important;margin:0!important;padding:0 16px!important;border:0!important;border-left:1px solid #e1c77f!important;border-radius:0!important;background:linear-gradient(135deg,#efd17c,#d8ad4d)!important;color:#17382c!important;font-size:15px!important;font-weight:900!important;cursor:pointer!important}
-html body .kch-master-shell .kch-structural-canonical-header .kch-master-actions{grid-column:3!important;grid-row:1!important;justify-self:stretch!important;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;align-items:stretch!important;gap:9px!important;width:100%!important;margin:0!important;padding:0!important}
-html body .kch-master-shell .kch-structural-canonical-header .kch-master-utility{position:relative!important;display:grid!important;grid-template-columns:28px minmax(0,1fr)!important;align-items:center!important;column-gap:9px!important;width:100%!important;min-width:0!important;height:58px!important;min-height:58px!important;margin:0!important;padding:7px 10px!important;border:1px solid rgba(232,211,158,.25)!important;border-radius:12px!important;background:rgba(255,255,255,.055)!important;color:#fff!important;text-align:left!important;cursor:pointer!important}
-html body .kch-master-shell .kch-structural-canonical-header .kch-master-utility:hover{border-color:rgba(240,210,134,.52)!important;background:rgba(255,255,255,.09)!important}
-html body .kch-master-shell .kch-structural-canonical-header .kch-master-utility>.material-symbols-rounded{font-size:25px!important;line-height:1!important;color:var(--kch-v134-gold-soft)!important}
-html body .kch-master-shell .kch-structural-canonical-header .kch-master-utility-copy{display:block!important;min-width:0!important}
-html body .kch-master-shell .kch-structural-canonical-header .kch-master-utility-copy b{display:block!important;color:#fff5dc!important;font-size:15.5px!important;font-weight:850!important;line-height:1.12!important;white-space:nowrap!important}
-html body .kch-master-shell .kch-structural-canonical-header .kch-master-utility-copy small{display:block!important;margin-top:4px!important;color:#bccdc5!important;font-size:12.5px!important;font-weight:600!important;line-height:1.1!important;white-space:nowrap!important}
-html body .kch-master-shell .kch-structural-canonical-header .kch-master-utility .badge{position:absolute!important;right:7px!important;top:5px!important;display:grid!important;place-items:center!important;min-width:18px!important;height:18px!important;padding:0 5px!important;border:1px solid rgba(255,255,255,.5)!important;border-radius:999px!important;background:var(--kch-v134-gold)!important;color:#17382c!important;font-size:10px!important;font-weight:900!important}
+/* Canonical header: one source only */
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header{position:relative!important;inset:auto!important;z-index:100!important;display:grid!important;grid-template-columns:minmax(240px,300px) minmax(420px,1fr) minmax(450px,570px)!important;grid-template-areas:'brand search actions'!important;align-items:center!important;gap:26px!important;width:100%!important;max-width:none!important;min-height:92px!important;margin:0!important;padding:16px clamp(24px,3vw,52px)!important;border:0!important;border-bottom:1px solid rgba(232,205,139,.28)!important;border-radius:0!important;background:linear-gradient(180deg,#073d30,#053429)!important;box-shadow:none!important;color:#fff!important;transform:none!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-ref-hamburger{display:none!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-brand-lockup{grid-area:brand!important;display:grid!important;justify-items:start!important;align-content:center!important;width:auto!important;min-width:0!important;min-height:54px!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;color:var(--kch-gold-soft)!important;text-align:left!important;cursor:pointer!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-brand-lockup b{display:block!important;font-family:Georgia,'Times New Roman',serif!important;font-size:clamp(27px,1.65vw,32px)!important;font-weight:600!important;line-height:1!important;letter-spacing:.025em!important;color:var(--kch-gold-soft)!important;white-space:nowrap!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-brand-lockup b:after{content:' ❧';font-size:.7em;color:#a9b45e}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-brand-lockup small{display:block!important;margin-top:7px!important;font-size:13px!important;font-weight:800!important;line-height:1.2!important;color:#f0dda9!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-master-searchbox{grid-area:search!important;display:grid!important;grid-template-columns:42px minmax(0,1fr) 92px!important;align-items:center!important;width:100%!important;max-width:none!important;height:54px!important;min-height:54px!important;margin:0!important;padding:0!important;border:1px solid #dbc983!important;border-radius:13px!important;background:#fff!important;overflow:hidden!important;box-shadow:0 4px 16px rgba(0,0,0,.08)!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-master-searchbox .kch-search-icon{display:grid!important;place-items:center!important;width:42px!important;height:52px!important;color:#52685f!important;font-size:24px!important;line-height:1!important;background:#fff!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-master-searchbox>input#kch-master-search{display:block!important;width:100%!important;max-width:none!important;height:52px!important;min-height:52px!important;margin:0!important;padding:0 8px!important;border:0!important;outline:0!important;border-radius:0!important;background:#fff!important;color:#203b30!important;font-family:inherit!important;font-size:16px!important;font-weight:500!important;line-height:1.4!important;letter-spacing:0!important;transform:none!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-master-searchbox>input#kch-master-search::placeholder{color:#75857e!important;opacity:1!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-master-searchbox>[data-kch-search-submit]{display:block!important;width:92px!important;height:54px!important;min-height:54px!important;margin:0!important;padding:0 14px!important;border:0!important;border-left:1px solid #e2c777!important;border-radius:0!important;background:linear-gradient(135deg,#f0d27e,#d6ab4c)!important;color:#17382c!important;font-size:15px!important;font-weight:900!important;line-height:1!important;cursor:pointer!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-master-actions{grid-area:actions!important;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;align-items:stretch!important;gap:9px!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important}
+html body .shell.kch-master-shell.kch-v134-active .kch-master-utility{position:relative!important;display:grid!important;grid-template-columns:27px minmax(0,1fr)!important;align-items:center!important;gap:8px!important;width:100%!important;min-width:0!important;height:56px!important;min-height:56px!important;margin:0!important;padding:7px 10px!important;border:1px solid rgba(232,211,158,.26)!important;border-radius:11px!important;background:rgba(255,255,255,.055)!important;color:#fff!important;text-align:left!important;cursor:pointer!important}
+html body .shell.kch-master-shell.kch-v134-active .kch-master-utility svg,html body .shell.kch-master-shell.kch-v134-active .kch-ref-hamburger svg{display:block!important;width:25px!important;height:25px!important;fill:none!important;stroke:var(--kch-gold-soft)!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+html body .shell.kch-master-shell.kch-v134-active .kch-master-utility-copy{display:block!important;min-width:0!important}
+html body .shell.kch-master-shell.kch-v134-active .kch-master-utility-copy b{display:block!important;color:#fff5dc!important;font-size:15.5px!important;font-weight:850!important;line-height:1.15!important;white-space:nowrap!important}
+html body .shell.kch-master-shell.kch-v134-active .kch-master-utility-copy small{display:block!important;margin-top:4px!important;color:#c3d0ca!important;font-size:12.5px!important;font-weight:650!important;line-height:1.1!important;white-space:nowrap!important}
+html body .shell.kch-master-shell.kch-v134-active .kch-master-utility .badge{position:absolute!important;right:6px!important;top:5px!important;display:grid!important;place-items:center!important;min-width:18px!important;height:18px!important;padding:0 5px!important;border:0!important;border-radius:999px!important;background:var(--kch-gold)!important;color:#17382c!important;font-size:10px!important;font-weight:900!important}
 
-/* One canonical navigation row */
-html body .kch-master-shell>.kch-ref-menu.kch-master-nav{position:relative!important;z-index:95!important;display:flex!important;align-items:stretch!important;justify-content:center!important;gap:clamp(24px,2.8vw,52px)!important;min-height:58px!important;margin:0!important;padding:0 clamp(20px,3vw,52px)!important;background:#06362a!important;border:0!important;border-bottom:1px solid rgba(217,185,109,.27)!important}
-html body .kch-master-shell>.kch-ref-menu.kch-master-nav button{position:relative!important;display:flex!important;align-items:center!important;justify-content:center!important;min-height:58px!important;margin:0!important;padding:0 3px!important;border:0!important;background:transparent!important;color:#f1eee5!important;font-family:inherit!important;font-size:16px!important;font-weight:800!important;line-height:1.2!important;letter-spacing:0!important;white-space:nowrap!important;cursor:pointer!important}
-html body .kch-master-shell>.kch-ref-menu.kch-master-nav button:hover,html body .kch-master-shell>.kch-ref-menu.kch-master-nav button.active{color:var(--kch-v134-gold-soft)!important}
-html body .kch-master-shell>.kch-ref-menu.kch-master-nav button.active:after{content:''!important;position:absolute!important;left:0!important;right:0!important;bottom:0!important;height:3px!important;border-radius:999px!important;background:var(--kch-v134-gold)!important}
-html body .kch-v131-member-interrupt,html body .kch-v134-obsolete-account-strip{display:none!important}
+/* Canonical navigation */
+html body .shell.kch-master-shell.kch-v134-active>.kch-ref-menu.kch-master-nav{position:relative!important;z-index:95!important;display:flex!important;align-items:stretch!important;justify-content:center!important;gap:clamp(22px,2.5vw,48px)!important;width:100%!important;max-width:none!important;min-height:58px!important;margin:0!important;padding:0 clamp(22px,3vw,54px)!important;border:0!important;border-bottom:1px solid rgba(217,185,109,.25)!important;border-radius:0!important;background:#06362a!important;overflow:visible!important;transform:none!important}
+html body .shell.kch-master-shell.kch-v134-active>.kch-ref-menu.kch-master-nav>button{position:relative!important;display:flex!important;align-items:center!important;justify-content:center!important;width:auto!important;min-width:0!important;min-height:58px!important;margin:0!important;padding:0 2px!important;border:0!important;border-radius:0!important;background:transparent!important;color:#f2efe7!important;font-family:inherit!important;font-size:16px!important;font-weight:800!important;line-height:1.2!important;letter-spacing:0!important;white-space:nowrap!important;cursor:pointer!important}
+html body .shell.kch-master-shell.kch-v134-active>.kch-ref-menu.kch-master-nav>button:hover,html body .shell.kch-master-shell.kch-v134-active>.kch-ref-menu.kch-master-nav>button.active{color:var(--kch-gold-soft)!important}
+html body .shell.kch-master-shell.kch-v134-active>.kch-ref-menu.kch-master-nav>button.active:after{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;border-radius:999px;background:var(--kch-gold)}
 
-/* Desktop home readability and conversion hierarchy */
+/* Search owns one visibility state */
+html body .kch-master-products .kch-master-product[hidden],html body .kch-master-products .kch-master-product[data-kch-structural-search="0"]{display:none!important}
+
+/* Home readability */
 html body .kch-master-home{font-size:16px!important}
-html body .kch-master-home .kch-master-hero{grid-template-columns:minmax(0,.9fr) minmax(500px,1.1fr)!important;min-height:450px!important;padding:42px clamp(34px,4vw,68px) 46px!important}
-html body .kch-master-home .kch-master-hero-copy{max-width:690px!important}
-html body .kch-master-home .kch-master-kicker{font-size:14px!important;line-height:1.35!important;letter-spacing:.09em!important}
-html body .kch-master-home .kch-master-hero h1{margin-top:15px!important;font-size:clamp(44px,4vw,66px)!important;line-height:.99!important}
-html body .kch-master-home .kch-master-hero h1 small{margin-top:12px!important;font-size:clamp(25px,2vw,32px)!important;line-height:1.15!important}
-html body .kch-master-home .kch-master-tagline{margin-top:18px!important;font-size:20px!important;line-height:1.35!important}
-html body .kch-master-home .kch-master-desc{max-width:680px!important;margin-top:10px!important;font-size:15px!important;line-height:1.65!important;color:#cfddd6!important}
-html body .kch-master-home .kch-master-hero-actions{gap:12px!important;margin-top:22px!important}
-html body .kch-master-home .kch-master-hero-actions button{min-height:48px!important;padding:0 22px!important;border-radius:10px!important;font-size:15px!important;font-weight:900!important}
-html body .kch-master-home .kch-master-stage{min-height:330px!important}
-html body .kch-master-home .kch-master-showcase{border-radius:18px!important}
-html body .kch-master-home .kch-master-hero-benefits{margin-top:22px!important;gap:14px!important}
-html body .kch-master-home .kch-master-hero-benefits>div{min-height:58px!important;gap:10px!important}
+html body .kch-master-home .kch-master-hero{grid-template-columns:minmax(0,.9fr) minmax(520px,1.1fr)!important;min-height:440px!important;padding:40px clamp(34px,4vw,70px) 42px!important}
+html body .kch-master-home .kch-master-hero h1{font-size:clamp(42px,3.6vw,64px)!important;line-height:1!important}
+html body .kch-master-home .kch-master-hero h1 small{font-size:clamp(24px,1.9vw,31px)!important;line-height:1.15!important}
+html body .kch-master-home .kch-master-tagline{font-size:20px!important;line-height:1.35!important}
+html body .kch-master-home .kch-master-desc{font-size:15px!important;line-height:1.65!important}
+html body .kch-master-home .kch-master-hero-actions button{min-height:48px!important;font-size:15px!important;font-weight:900!important}
 html body .kch-master-home .kch-master-hero-benefits b{font-size:15px!important;line-height:1.25!important}
-html body .kch-master-home .kch-master-hero-benefits small{margin-top:3px!important;font-size:13px!important;line-height:1.35!important}
-
-html body .kch-master-home .kch-master-finder{width:min(1680px,calc(100% - 48px))!important;min-height:72px!important;margin:0 auto!important;padding:11px 16px!important;gap:10px!important;border-radius:16px!important}
-html body .kch-master-home .kch-master-finder h2{font-size:18px!important;line-height:1.2!important}
-html body .kch-master-home .kch-master-filter,html body .kch-master-home .kch-master-reset{min-height:46px!important;padding:0 15px!important;border-radius:999px!important;font-size:14.5px!important;font-weight:800!important}
-html body .kch-master-home .kch-master-section{width:min(1680px,calc(100% - 48px))!important;margin-top:24px!important}
+html body .kch-master-home .kch-master-hero-benefits small{font-size:13px!important;line-height:1.4!important}
+html body .kch-master-home .kch-master-finder,html body .kch-master-home .kch-master-section{width:min(1760px,calc(100% - 48px))!important;max-width:none!important;margin-left:auto!important;margin-right:auto!important}
+html body .kch-master-home .kch-master-finder{min-height:70px!important;padding:10px 16px!important;border-radius:15px!important}
+html body .kch-master-home .kch-master-finder h2{font-size:18px!important}
+html body .kch-master-home .kch-master-filter,html body .kch-master-home .kch-master-reset{min-height:46px!important;font-size:14.5px!important;font-weight:800!important}
 html body .kch-master-home .kch-master-section-head h2{font-size:28px!important;line-height:1.2!important}
-html body .kch-master-home .kch-master-section-head p{margin-top:5px!important;font-size:14.5px!important;line-height:1.5!important}
-html body .kch-master-home .kch-master-section-head button,html body .kch-master-home .kch-master-section-head a{font-size:14px!important;font-weight:800!important}
+html body .kch-master-home .kch-master-section-head p{font-size:14.5px!important;line-height:1.5!important}
 html body .kch-master-home .kch-master-products{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:18px!important}
-html body .kch-master-home .kch-master-product{min-width:0!important;border-radius:18px!important;overflow:hidden!important}
-html body .kch-master-home .kch-master-product-media{height:clamp(250px,23vw,360px)!important}
+html body .kch-master-home .kch-master-product{min-width:0!important;overflow:hidden!important;border-radius:18px!important}
+html body .kch-master-home .kch-master-product-media{height:clamp(240px,21vw,350px)!important}
 html body .kch-master-home .kch-master-product-copy{padding:15px 16px 17px!important}
 html body .kch-master-home .kch-master-product-copy h3,html body .kch-master-home .kch-master-product-name{font-size:18px!important;font-weight:850!important;line-height:1.35!important}
 html body .kch-master-home .kch-master-product-copy p,html body .kch-master-home .kch-master-product-meta{font-size:14px!important;line-height:1.5!important}
 html body .kch-master-home .kch-master-price{font-size:23px!important;line-height:1.15!important}
-html body .kch-master-home .kch-master-product-bottom,html body .kch-master-home .kch-master-product-bottom small{font-size:13.5px!important;line-height:1.4!important}
-html body .kch-master-home .kch-v132-unready-note{display:block!important;margin:9px 0!important;font-size:13.5px!important;line-height:1.45!important}
-html body .kch-master-home .kch-v132-card-cta button{width:100%!important;min-height:46px!important;border-radius:11px!important;font-size:15px!important;font-weight:900!important}
-html body .kch-master-home .kch-master-product[data-kch-structural-search="0"]{display:none!important}
-
-html body .kch-master-home .kch-master-trust-item{min-height:74px!important;padding:13px 18px!important}
-html body .kch-master-home .kch-master-trust-item b{font-size:15px!important;line-height:1.25!important}
+html body .kch-master-home .kch-v132-card-cta button{width:100%!important;min-height:46px!important;font-size:15px!important;font-weight:900!important}
+html body .kch-master-home .kch-master-trust-item{min-height:72px!important;padding:12px 16px!important}
+html body .kch-master-home .kch-master-trust-item b{font-size:15px!important}
 html body .kch-master-home .kch-master-trust-item small{font-size:13px!important;line-height:1.4!important}
-html body .kch-master-home .kch-master-category{min-height:92px!important;padding:12px!important}
-html body .kch-master-home .kch-master-category b{font-size:14px!important;line-height:1.3!important}
-html body .kch-master-home .kch-master-category small{font-size:12.5px!important;line-height:1.4!important}
-html body .kch-master-home .kch-master-promo b,html body .kch-master-home .kch-master-review-head b{font-size:14px!important}
-html body .kch-master-home .kch-master-promo small,html body .kch-master-home .kch-master-review p{font-size:13px!important;line-height:1.5!important}
-html body .kch-master-home .kch-master-story-copy .eyebrow{font-size:12px!important}
-html body .kch-master-home .kch-master-story-copy h2{font-size:25px!important}
-html body .kch-master-home .kch-master-story-copy p{font-size:14px!important;line-height:1.6!important}
-html body .kch-master-home .kch-master-story-copy button{min-height:44px!important;font-size:14px!important}
 
-/* Keep Koonchaishop/social proof readable when it is actually present */
-html body .v130-section-head h2{font-size:22px!important}
-html body .v130-section-head p,html body .v130-section-head a,html body .v130-social-copy b,html body .v130-social-copy p,html body .v130-review-card-head b,html body .v130-review-card p,html body .v130-review-empty b,html body .v130-review-empty small{font-size:14px!important;line-height:1.45!important}
-
-@media(max-width:1240px) and (min-width:700px){
-  html body .kch-master-shell .tshop-topbar.kch-master-topbar.kch-structural-canonical-header{grid-template-columns:210px minmax(320px,1fr) minmax(300px,380px)!important;gap:16px!important;padding-inline:22px!important}
-  html body .kch-master-shell .kch-structural-canonical-header .kch-brand-lockup b{font-size:24px!important}
-  html body .kch-master-shell .kch-structural-canonical-header .kch-master-actions{gap:6px!important}
-  html body .kch-master-shell .kch-structural-canonical-header .kch-master-utility{grid-template-columns:24px minmax(0,1fr)!important;padding-inline:8px!important}
-  html body .kch-master-shell .kch-structural-canonical-header .kch-master-utility-copy b{font-size:14px!important}
-  html body .kch-master-shell .kch-structural-canonical-header .kch-master-utility-copy small{display:none!important}
-  html body .kch-master-shell>.kch-ref-menu.kch-master-nav{gap:22px!important}
-  html body .kch-master-shell>.kch-ref-menu.kch-master-nav button{font-size:15px!important}
-  html body .kch-master-home .kch-master-hero{grid-template-columns:1fr 1fr!important;padding-inline:30px!important}
+@media(max-width:1279px) and (min-width:700px){
+html body .shell.kch-master-shell.kch-v134-active{width:calc(100vw - 16px)!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header{grid-template-columns:minmax(190px,230px) minmax(0,1fr) minmax(300px,360px)!important;gap:14px!important;padding:13px 16px!important;min-height:82px!important}
+html body .shell.kch-master-shell.kch-v134-active .kch-master-utility-copy small{display:none!important}
+html body .shell.kch-master-shell.kch-v134-active .kch-master-utility-copy b{font-size:15px!important}
+html body .shell.kch-master-shell.kch-v134-active>.kch-ref-menu.kch-master-nav{gap:18px!important;padding:0 16px!important;overflow-x:auto!important;justify-content:flex-start!important;scrollbar-width:none!important}
+html body .shell.kch-master-shell.kch-v134-active>.kch-ref-menu.kch-master-nav>button{font-size:15px!important;min-height:54px!important}
+html body .kch-master-home .kch-master-hero{grid-template-columns:1fr 1fr!important;min-height:400px!important;padding:34px 28px 38px!important}
+html body .kch-master-home .kch-master-product-media{height:180px!important}
 }
 
 @media(max-width:699px){
-  html body .shell.kch-master-shell.kch-v134-active{width:100%!important;max-width:none!important;box-shadow:none!important}
-  html body .kch-master-shell .tshop-topbar.kch-master-topbar.kch-structural-canonical-header{position:sticky!important;top:0!important;display:grid!important;grid-template-columns:44px minmax(0,1fr) 50px!important;grid-template-rows:52px 50px!important;gap:7px 8px!important;min-height:116px!important;padding:7px 10px 8px!important;z-index:120!important}
-  html body .kch-master-shell .kch-structural-canonical-header .kch-ref-hamburger{grid-column:1!important;grid-row:1!important;display:grid!important;place-items:center!important;width:44px!important;height:44px!important;margin:0!important;border:0!important;border-radius:10px!important;background:rgba(255,255,255,.06)!important;color:var(--kch-v134-gold-soft)!important}
-  html body .kch-master-shell .kch-structural-canonical-header .kch-brand-lockup{grid-column:2!important;grid-row:1!important;justify-self:center!important;place-items:center!important;text-align:center!important}
-  html body .kch-master-shell .kch-structural-canonical-header .kch-brand-lockup b{font-size:20px!important}
-  html body .kch-master-shell .kch-structural-canonical-header .kch-brand-lockup small{margin-top:4px!important;font-size:11px!important}
-  html body .kch-master-shell .kch-structural-canonical-header .kch-master-searchbox{grid-column:1/-1!important;grid-row:2!important;height:48px!important;min-height:48px!important;grid-template-columns:minmax(0,1fr) 72px!important}
-  html body .kch-master-shell .kch-structural-canonical-header .kch-master-searchbox input{height:46px!important;min-height:46px!important;padding-inline:13px!important;font-size:16px!important}
-  html body .kch-master-shell .kch-structural-canonical-header .kch-master-searchbox button{height:48px!important;min-height:48px!important;padding:0 10px!important;font-size:14px!important}
-  html body .kch-master-shell .kch-structural-canonical-header .kch-master-actions{grid-column:3!important;grid-row:1!important;display:block!important;width:50px!important}
-  html body .kch-master-shell .kch-structural-canonical-header .kch-master-utility-account,html body .kch-master-shell .kch-structural-canonical-header .kch-master-utility-orders{display:none!important}
-  html body .kch-master-shell .kch-structural-canonical-header .kch-master-utility-cart{display:grid!important;grid-template-columns:1fr!important;place-items:center!important;width:48px!important;height:44px!important;min-height:44px!important;padding:0!important}
-  html body .kch-master-shell .kch-structural-canonical-header .kch-master-utility-cart .kch-master-utility-copy{display:none!important}
-  html body .kch-master-shell .kch-structural-canonical-header .kch-master-utility-cart>.material-symbols-rounded{font-size:27px!important}
-  html body .kch-master-shell>.kch-ref-menu.kch-master-nav{display:none!important}
-  html body .kch-master-shell.kch-mobile-menu-open>.kch-ref-menu.kch-master-nav{position:fixed!important;left:10px!important;right:10px!important;top:64px!important;z-index:140!important;display:grid!important;min-height:0!important;padding:8px!important;border:1px solid rgba(225,193,115,.3)!important;border-radius:15px!important;background:#06372a!important;box-shadow:0 20px 70px rgba(0,0,0,.35)!important}
-  html body .kch-master-shell.kch-mobile-menu-open>.kch-ref-menu.kch-master-nav button{justify-content:flex-start!important;min-height:46px!important;padding:0 13px!important;font-size:15px!important}
-  html body .kch-master-home .kch-master-hero{display:block!important;min-height:0!important;padding:27px 15px 20px!important;text-align:center!important}
-  html body .kch-master-home .kch-master-kicker{justify-content:center!important;font-size:12px!important}
-  html body .kch-master-home .kch-master-hero h1{font-size:40px!important;line-height:1.02!important}
-  html body .kch-master-home .kch-master-hero h1 small{font-size:22px!important}
-  html body .kch-master-home .kch-master-tagline{font-size:17px!important}
-  html body .kch-master-home .kch-master-desc{font-size:14px!important;line-height:1.55!important}
-  html body .kch-master-home .kch-master-hero-actions{display:grid!important;grid-template-columns:1fr 1fr!important}
-  html body .kch-master-home .kch-master-hero-actions button{min-height:46px!important;font-size:14px!important}
-  html body .kch-master-home .kch-master-hero-benefits{grid-template-columns:1fr 1fr!important}
-  html body .kch-master-home .kch-master-hero-benefits b{font-size:14px!important}
-  html body .kch-master-home .kch-master-hero-benefits small{font-size:12px!important}
-  html body .kch-master-home .kch-master-finder,html body .kch-master-home .kch-master-section{width:calc(100% - 20px)!important}
-  html body .kch-master-home .kch-master-filter,html body .kch-master-home .kch-master-reset{min-height:44px!important;font-size:14px!important}
-  html body .kch-master-home .kch-master-products{display:grid!important;grid-auto-flow:column!important;grid-auto-columns:minmax(260px,82%)!important;grid-template-columns:none!important;gap:10px!important;overflow-x:auto!important;scroll-snap-type:x mandatory!important}
-  html body .kch-master-home .kch-master-product{scroll-snap-align:start!important}
-  html body .kch-master-home .kch-master-product-media{height:260px!important}
-  html body .kch-master-home .kch-master-product-copy h3,html body .kch-master-home .kch-master-product-name{font-size:17px!important}
-  html body .kch-master-home .kch-master-product-copy p,html body .kch-master-home .kch-master-product-meta{font-size:13px!important}
-  html body .kch-master-home .kch-master-price{font-size:22px!important}
-  html body .kch-master-home .kch-master-category b{font-size:13px!important}
-  html body .kch-master-home .kch-master-category small{font-size:12px!important}
+html,body{font-size:16px!important}
+html body .shell.kch-master-shell.kch-v134-active{width:100%!important;max-width:none!important;box-shadow:none!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header{grid-template-columns:minmax(0,1fr) 48px 48px!important;grid-template-areas:'brand cart menu' 'search search search'!important;gap:10px!important;min-height:128px!important;padding:12px 14px!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-brand-lockup{grid-area:brand!important;min-height:44px!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-brand-lockup b{font-size:23px!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-brand-lockup small{font-size:12px!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-master-searchbox{grid-area:search!important;height:50px!important;min-height:50px!important;grid-template-columns:38px minmax(0,1fr) 76px!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-master-searchbox>input#kch-master-search{height:48px!important;min-height:48px!important;font-size:16px!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-master-searchbox>[data-kch-search-submit]{width:76px!important;height:50px!important;min-height:50px!important;font-size:14px!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-master-actions{display:contents!important}
+html body .shell.kch-master-shell.kch-v134-active .kch-master-utility-account,html body .shell.kch-master-shell.kch-v134-active .kch-master-utility-orders{display:none!important}
+html body .shell.kch-master-shell.kch-v134-active .kch-master-utility-cart{grid-area:cart!important;display:grid!important;grid-template-columns:1fr!important;place-items:center!important;width:48px!important;height:48px!important;min-height:48px!important;padding:0!important}
+html body .shell.kch-master-shell.kch-v134-active .kch-master-utility-cart .kch-master-utility-copy{display:none!important}
+html body .shell.kch-master-shell.kch-v134-active>.tshop-topbar.kch-structural-canonical-header>.kch-ref-hamburger{grid-area:menu!important;display:grid!important;place-items:center!important;width:48px!important;height:48px!important;min-height:48px!important;margin:0!important;padding:0!important;border:1px solid rgba(232,211,158,.25)!important;border-radius:10px!important;background:rgba(255,255,255,.055)!important}
+html body .shell.kch-master-shell.kch-v134-active>.kch-ref-menu.kch-master-nav{display:none!important;flex-direction:column!important;align-items:stretch!important;gap:0!important;padding:8px 14px!important}
+html body .shell.kch-master-shell.kch-v134-active.kch-mobile-menu-open>.kch-ref-menu.kch-master-nav{display:flex!important}
+html body .shell.kch-master-shell.kch-v134-active>.kch-ref-menu.kch-master-nav>button{justify-content:flex-start!important;min-height:48px!important;font-size:16px!important;padding:0 8px!important}
+html body .kch-master-home .kch-master-hero{display:block!important;min-height:0!important;padding:28px 18px 30px!important}
+html body .kch-master-home .kch-master-hero h1{font-size:38px!important}
+html body .kch-master-home .kch-master-tagline{font-size:18px!important}
+html body .kch-master-home .kch-master-desc{font-size:14px!important}
+html body .kch-master-home .kch-master-stage{margin-top:24px!important;min-height:0!important}
+html body .kch-master-home .kch-master-finder,html body .kch-master-home .kch-master-section{width:calc(100% - 24px)!important}
+html body .kch-master-home .kch-master-products{grid-template-columns:1fr!important;gap:14px!important}
+html body .kch-master-home .kch-master-product-media{height:170px!important}
+html body .kch-master-home .kch-master-product-copy h3,html body .kch-master-home .kch-master-product-name{font-size:17px!important}
 }
