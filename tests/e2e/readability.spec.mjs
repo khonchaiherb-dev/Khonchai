@@ -9,7 +9,7 @@ test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear(
 test('canonical storefront has exactly one stable readable header, search, navigation and account entry at 100% zoom',async({page})=>{
 await page.goto('/?e2e=structural-cleanup',{waitUntil:'domcontentloaded'});
 await expect(page.locator('.kch-master-home')).toBeVisible();
-await page.addStyleTag({url:'/tshop-v134-structural-storefront.css?v=1.34.4'});
+await page.addStyleTag({url:'/tshop-v134-structural-storefront.css?v=1.34.5'});
 await page.addStyleTag({url:'/tshop-v1345-header-isolation.css?v=1.34.5'});
 await page.addScriptTag({url:'/kch-v134-structural-storefront.js?v=1.34.5'});
 await expect.poll(()=>page.evaluate(()=>window.__KCH_STRUCTURAL_STOREFRONT__)).toBe('1.34.5');
