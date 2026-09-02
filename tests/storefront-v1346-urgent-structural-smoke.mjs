@@ -13,14 +13,23 @@ assert.match(js,/el\.hidden=true/);
 assert.match(js,/el\.inert=true/);
 assert.match(js,/looksLikeAccountStrip/);
 assert.match(js,/normalize\('NFKC'\)/);
+assert.match(js,/function repairMaterialIcons\(root\)/);
+assert.match(js,/\.material-symbols-rounded/);
+assert.match(js,/shopping_cart:/);
+assert.match(js,/receipt_long:/);
+assert.match(js,/assignment_turned_in:/);
+assert.match(js,/el\.innerHTML=svg\(path\)/);
 assert.match(js,/<svg viewBox=/);
-assert.doesNotMatch(js,/material-symbols-rounded/);
 assert.doesNotMatch(js,/Math\.random|ขายแล้ว|★★★★★|⭐/);
 
 assert.match(css,/v1\.34\.6/);
 assert.match(css,/\.kch-v134-retired-chrome\[hidden\]\{display:none!important/);
+assert.match(css,/\.material-symbols-rounded\[data-kch-svg-fallback\]/);
+assert.match(css,/\.material-symbols-rounded\[data-kch-svg-fallback\] svg/);
 assert.match(css,/#kch-v134-search[\s\S]*font-size:16px!important/);
 assert.match(css,/#kch-v134-nav button[\s\S]*min-height:52px!important[\s\S]*font-size:16px!important/);
+assert.match(css,/grid-template-columns:repeat\(3,48px\)!important/);
+assert.match(css,/min-width:48px!important;min-height:48px!important/);
 assert.match(css,/\.kch-v134-action-icon svg/);
 
 assert.match(middleware,/tshop-v134-structural-storefront\.css\?v=1\.34\.6/);
