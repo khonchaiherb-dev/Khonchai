@@ -1,0 +1,40 @@
+/* KHONCHAIHERB navigation de-duplication layer.
+   Keep one real Thai label per menu item; never generate duplicate menu copy. */
+
+html body .kch-ref-menu button[data-kch-jump],
+html body .kch-ref-mobile-panel button[data-kch-jump]{
+  font-size:16px!important;
+  line-height:1.5!important;
+  letter-spacing:0!important;
+  font-weight:800!important;
+}
+
+/* v1.24 generated Thai text with pseudo-elements. The real DOM labels are already Thai,
+   so remove generated copy to prevent doubled labels such as สินค้าทั้งหมดสินค้าทั้งหมด. */
+html body .kch-ref-menu button[data-kch-jump]::after,
+html body .kch-ref-mobile-panel button[data-kch-jump]::after{
+  content:none!important;
+  display:none!important;
+}
+
+/* Preserve the selected-menu indicator without reusing ::after. */
+html body .kch-ref-menu button[data-kch-jump]{
+  border-bottom:3px solid transparent!important;
+}
+html body .kch-ref-menu button[data-kch-jump].active{
+  color:#f1d48b!important;
+  border-bottom-color:#d8b45f!important;
+}
+
+/* Safety: if an older storefront layer accidentally inserts a second desktop menu,
+   only the first customer navigation bar is shown. */
+html body .kch-master-shell > .kch-ref-menu ~ .kch-ref-menu{
+  display:none!important;
+}
+
+@media(max-width:699px){
+  html body .kch-ref-mobile-panel button[data-kch-jump]{
+    font-size:17px!important;
+    min-height:52px!important;
+  }
+}
