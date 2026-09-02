@@ -31,6 +31,6 @@ assert.ok(html.indexOf(`tshop-v18.js?v=${build}`)>html.indexOf(`tshop-v17.js?v=$
 assert.ok(html.indexOf(`tshop-v18.js?v=${build}`)<html.indexOf(`tshop-v161-hotfix.js?v=${build}`),'v1.8 capture guard must load before legacy hotfix');
 assert.ok(atLeast(swBuild,build),`service worker release ${swBuild} must not be older than legacy core build ${build}`);
 assert.ok(sw.includes(`tshop-v18.js?v=${build}`),'service worker must preserve v1.8 JS in the core cache');
-assert.ok(sw.includes('/tshop-v134-structural-storefront.css?v=1.34.0'),'service worker must cache v1.34 structural CSS');
-assert.ok(sw.includes('/kch-v134-structural-storefront.js?v=1.34.0'),'service worker must cache v1.34 structural runtime');
+assert.ok(sw.includes('/tshop-v134-structural-storefront.css?v=1.34.2'),'service worker must cache current structural CSS');
+assert.ok(sw.includes('/kch-v134-structural-storefront.js?v=1.34.2'),'service worker must cache current structural runtime');
 console.log('storefront v1.8 commerce smoke: OK');
