@@ -38,3 +38,24 @@ if(kchPublicRoot){
   new MutationObserver(()=>document.querySelectorAll('[data-go="seller"]').forEach(el=>el.remove()))
     .observe(kchPublicRoot,{childList:true,subtree:true});
 }
+
+// Progressive storefront upgrades are loaded here so the customer shell stays
+// independent from the staff portal and older cached HTML can receive fixes.
+(()=>{
+  if(typeof document==='undefined')return;
+  const head=document.head||document.documentElement;
+  if(!document.querySelector('link[data-kch-v119]')){
+    const link=document.createElement('link');
+    link.rel='stylesheet';
+    link.href='/tshop-v119.css?v=1.19.0';
+    link.dataset.kchV119='1';
+    head.appendChild(link);
+  }
+  if(!document.querySelector('script[data-kch-v119]')){
+    const script=document.createElement('script');
+    script.src='/tshop-v119.js?v=1.19.0';
+    script.dataset.kchV119='1';
+    script.defer=true;
+    head.appendChild(script);
+  }
+})();
