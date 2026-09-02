@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const portal=fs.readFileSync('public/seller-center.html','utf8');
+const entry=fs.readFileSync('public/seller-center.html','utf8');
+const portal=fs.readFileSync('public/seller-center-v2.html','utf8');
 const bridge=fs.readFileSync('public/app-admin-actions.js','utf8');
 const guard=fs.readFileSync('public/kch-production-guard.js','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
@@ -9,6 +10,9 @@ const staffAuth=fs.readFileSync('functions/_lib/staff-auth.js','utf8');
 const login=fs.readFileSync('functions/api/staff/login.js','utf8');
 const adminMiddleware=fs.readFileSync('functions/api/admin/_middleware.js','utf8');
 const adminLib=fs.readFileSync('functions/_lib/admin.js','utf8');
+
+assert.match(entry,/seller-center-v2\.html/);
+assert.match(entry,/noindex,nofollow,noarchive/);
 
 assert.match(portal,/\/api\/staff\/login/);
 assert.match(portal,/\/api\/staff\/me/);
