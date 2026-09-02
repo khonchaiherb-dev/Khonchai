@@ -1,0 +1,51 @@
+name: Cloudflare Pages Production Target Check
+
+on:
+  push:
+    branches: [storefront-social-commerce]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-pages-target:
+    name: Inspect Pages production branch and domains
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PROJECT_NAME: khonchaiherb-commerce
+    steps:
+      - name: Verify credentials are present
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+
+      - name: Read Pages project metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H 'Content-Type: application/json' \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PROJECT_NAME" \
+            > pages-project.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('pages-project.json').read_text())
+          if not d.get('success'):
+              raise SystemExit('Cloudflare Pages project metadata request was not successful')
+          r=d.get('result') or {}
+          print('project='+str(r.get('name') or ''))
+          print('subdomain='+str(r.get('subdomain') or ''))
+          print('production_branch='+str(r.get('production_branch') or ''))
+          domains=r.get('domains') or []
+          print('domains='+','.join(str(x) for x in domains))
+          if not r.get('production_branch'):
+              raise SystemExit('Pages project did not report a production_branch')
+          PY
