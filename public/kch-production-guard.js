@@ -1,12 +1,9 @@
-/* KHONCHAIHERB production storefront guard v1.21.2 — verified claims + authoritative master discovery + premium polish */
+/* KHONCHAIHERB production storefront guard v1.21.3 — verified claims + canonical master search consumer + premium polish */
 (()=>{
-  if(typeof window==='undefined'||window.__KCH_PRODUCTION_GUARD__==='1.21.2')return;
-  window.__KCH_PRODUCTION_GUARD__='1.21.2';
+  if(typeof window==='undefined'||window.__KCH_PRODUCTION_GUARD__==='1.21.3')return;
+  window.__KCH_PRODUCTION_GUARD__='1.21.3';
 
   let frame=0;
-  let searchQuery=String(document.querySelector?.('.tshop-searchbox input')?.value||'');
-  let lastSearchInput=document.querySelector?.('.tshop-searchbox input')||null;
-
   const catalog=()=>{try{return Array.isArray(PRODUCTS)?PRODUCTS:[]}catch{return []}};
   const productBySlug=slug=>catalog().find(p=>String(p?.slug||'')===String(slug||''))||null;
   const verified=p=>Boolean(p)&&Number(p.sale_verified)===1;
@@ -20,7 +17,6 @@
     const style=document.createElement('style');
     style.id='kch-production-guard-style';
     style.textContent=`
-      .kch-master-product.kch-search-hidden{display:none!important}
       .kch-master-search-empty{grid-column:1/-1;display:none;min-height:150px;place-items:center;text-align:center;border:1px dashed #d8d2c5;border-radius:18px;background:linear-gradient(145deg,#fffdf8,#f8f5ed);color:#52665c;padding:28px}
       .kch-master-search-empty.is-visible{display:grid}
       .kch-master-search-empty b{display:block;color:#173e30;font-size:16px;line-height:1.4}
@@ -101,7 +97,6 @@
   }
 
   function enforceUnsupportedSurfaces(){
-    /* Newsletter stays unavailable until a real subscription endpoint exists. */
     document.querySelectorAll('.kch-master-newsletter').forEach(section=>{
       section.hidden=true;
       section.setAttribute('aria-hidden','true');
@@ -124,8 +119,6 @@
     });
   }
 
-  function masterCards(){return [...document.querySelectorAll('.kch-master-products .kch-master-product')];}
-
   function ensureSearchEmpty(grid){
     let empty=grid?.querySelector(':scope > .kch-master-search-empty');
     if(!empty&&grid){
@@ -139,15 +132,7 @@
     return empty;
   }
 
-  function syncSearchQueryFromDom(){
-    const input=document.querySelector('.tshop-searchbox input');
-    if(!input)return;
-    const domValue=String(input.value||'');
-    if(domValue||!searchQuery)searchQuery=domValue;
-    lastSearchInput=input;
-  }
-
-  function syncSearchCount(main,visible,total){
+  function syncSearchCount(main,visible,total,q){
     const finder=main?.querySelector('.kch-master-finder');
     if(!finder)return;
     let count=finder.querySelector('.kch-master-search-count');
@@ -157,31 +142,20 @@
       count.setAttribute('aria-live','polite');
       finder.appendChild(count);
     }
-    const q=text(searchQuery);
     count.textContent=q?`พบ ${visible} จาก ${total} รายการ`:'';
     count.hidden=!q;
   }
 
-  function applySearch(){
+  function syncCanonicalSearchUi(){
     ensureGuardStyle();
     const main=document.querySelector('.kch-master-home');
     const grid=main?.querySelector('.kch-master-products');
     if(!main||!grid)return;
-    syncSearchQueryFromDom();
-    const q=text(searchQuery);
-    const cards=masterCards();
-    let visible=0;
-    cards.forEach(card=>{
-      const name=text(card.dataset.kchName||card.querySelector('h3')?.textContent);
-      const cat=text(card.dataset.kchCat);
-      const slug=text(card.dataset.product);
-      const show=!q||name.includes(q)||cat.includes(q)||slug.includes(q);
-      card.dataset.kchSearchMatch=show?'1':'0';
-      card.hidden=!show;
-      card.classList.toggle('kch-search-hidden',!show);
-      card.setAttribute('aria-hidden',String(!show));
-      if(show)visible++;
-    });
+    const owner=window.__KCH_MASTER_SEARCH__;
+    owner?.apply?.();
+    const q=text(owner?.get?.()??owner?.query??'');
+    const cards=[...grid.querySelectorAll('.kch-master-product')];
+    const visible=cards.filter(card=>card.dataset.kchSearchMatch!=='0'&&!card.hidden).length;
     const empty=ensureSearchEmpty(grid);
     if(empty){
       const noResults=Boolean(q)&&visible===0;
@@ -189,7 +163,7 @@
       empty.hidden=!noResults;
       empty.setAttribute('aria-hidden',String(!noResults));
     }
-    syncSearchCount(main,visible,cards.length);
+    syncSearchCount(main,visible,cards.length,q);
   }
 
   function run(){
@@ -197,51 +171,15 @@
     sanitizeSocialProof();
     enforceUnsupportedSurfaces();
     neutralizeUnsupportedDemandClaims();
-    applySearch();
+    syncCanonicalSearchUi();
   }
-  function schedule(){
-    if(frame)return;
-    frame=requestAnimationFrame(run);
-  }
+  function schedule(){if(!frame)frame=requestAnimationFrame(run)}
 
-  /* Master search owns discovery on the approved storefront. Capture prevents
-     legacy search renderers from replacing the master DOM after every keystroke. */
-  document.addEventListener('input',event=>{
-    const input=event.target;
-    if(!input?.matches?.('.tshop-searchbox input'))return;
-    if(!document.querySelector('.kch-master-home'))return;
-    searchQuery=String(input.value||'');
-    lastSearchInput=input;
-    applySearch();
-    event.stopImmediatePropagation();
-  },true);
-
-  document.addEventListener('search',event=>{
-    const input=event.target;
-    if(!input?.matches?.('.tshop-searchbox input')||!document.querySelector('.kch-master-home'))return;
-    searchQuery=String(input.value||'');
-    lastSearchInput=input;
-    applySearch();
-    event.stopImmediatePropagation();
-  },true);
-
-  document.addEventListener('click',event=>{
-    if(!document.querySelector('.kch-master-home'))return;
-    const reset=event.target?.closest?.('[data-kch-reset]');
-    if(!reset)return;
-    searchQuery='';
-    const input=document.querySelector('.tshop-searchbox input')||lastSearchInput;
-    if(input)input.value='';
-    queueMicrotask(applySearch);
-  },true);
-
+  /* Search state is deliberately not owned here. The synchronous storefront
+     bridge owns window.__KCH_MASTER_SEARCH__; this guard only consumes it. */
   const root=document.getElementById('app');
   if(root)new MutationObserver(schedule).observe(root,{childList:true,subtree:true,characterData:true});
-  window.addEventListener('load',()=>{
-    syncSearchQueryFromDom();
-    schedule();
-  },{once:true});
+  window.addEventListener('load',schedule,{once:true});
   ensureGuardStyle();
-  syncSearchQueryFromDom();
   schedule();
 })();
