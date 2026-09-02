@@ -25,7 +25,7 @@ jobs:
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
 
-      - name: Read Pages project metadata
+      - name: Read Pages project metadata (read only)
         shell: bash
         run: |
           set -euo pipefail
