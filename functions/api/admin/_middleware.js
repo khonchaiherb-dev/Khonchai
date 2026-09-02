@@ -6,7 +6,7 @@ function permissionFor(path,method){
   if(['finance','cod-reconciliation','daily-closing','costs'].includes(name))return write?'finance.manage':'finance.read';if(['refund-ledger','return-refund'].includes(name))return write?'refunds.manage':'finance.read';
   if(['inventory','warehouse','receiving','picking-waves','packing-verify','shipping-label','inventory-lots'].includes(name))return write?'inventory.manage':'inventory.read';if(name==='procurement')return write?'procurement.manage':'procurement.read';
   if(['order-action','fulfillment'].includes(name))return write?'fulfillment.manage':'orders.read';if(name==='returns')return write?'returns.manage':'orders.read';if(name==='notification-queue')return write?'notifications.manage':'orders.read';
-  if(['products-manage','product-media','promotions-manage','creator-commissions','social-content'].includes(name))return write?'catalog.manage':'catalog.read';
+  if(['products-manage','product-media','promotions-manage','creator-commissions','social-content','koonchaishop-source'].includes(name))return write?'catalog.manage':'catalog.read';
   if(name==='orders')return write?'orders.manage':'orders.read';
   return write?'orders.manage':'analytics.read';
 }
