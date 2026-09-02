@@ -1,5 +1,4 @@
-/* KHONCHAIHERB v1.34.0 — structural storefront baseline
-   One stable, readable storefront layer for real 100% zoom usage. */
+/* KHONCHAIHERB v1.34.6 — single-header structural baseline */
 :root{
   --kch-v134-shell:1760px;
   --kch-v134-green:#073b2d;
@@ -22,13 +21,14 @@ body .shell.kch-master-shell{
 }
 .kch-v134-obsolete-header,
 .kch-v134-obsolete-menu,
-.kch-v134-obsolete-account-strip{display:none!important}
+.kch-v134-obsolete-account-strip,
+.kch-v134-retired-chrome,
+.kch-v134-retired-chrome[hidden]{display:none!important;visibility:hidden!important;pointer-events:none!important}
 
-/* Structural header: no dependence on legacy header dimensions. */
 #kch-v134-header.kch-v134-header{
   display:block!important;
   position:relative!important;
-  z-index:70!important;
+  z-index:90!important;
   width:100%!important;
   background:linear-gradient(135deg,var(--kch-v134-green),#053428)!important;
   color:#fff!important;
@@ -78,11 +78,11 @@ body .shell.kch-master-shell{
   color:#fff!important;cursor:pointer!important;text-align:left!important;box-sizing:border-box!important;
 }
 #kch-v134-header .kch-v134-action:hover,#kch-v134-header .kch-v134-action:focus-visible{background:rgba(255,255,255,.12)!important;border-color:rgba(229,189,85,.55)!important;outline:none!important}
-#kch-v134-header .kch-v134-action-icon{font-size:22px!important;line-height:1!important;flex:0 0 auto!important}
+#kch-v134-header .kch-v134-action-icon{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:24px!important;height:24px!important;flex:0 0 24px!important}
+#kch-v134-header .kch-v134-action-icon svg{display:block!important;width:24px!important;height:24px!important;fill:currentColor!important}
 #kch-v134-header .kch-v134-action-copy{display:flex!important;flex-direction:column!important;min-width:0!important}
 #kch-v134-header .kch-v134-action-copy b{font-size:15px!important;line-height:1.25!important;font-weight:800!important;white-space:nowrap!important}
 #kch-v134-header .kch-v134-action-copy small{margin-top:2px!important;font-size:13px!important;line-height:1.25!important;color:#e8eee9!important;white-space:nowrap!important}
-#kch-v134-cart-count{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:20px!important;height:20px!important;padding:0 5px!important;margin-left:2px!important;border-radius:999px!important;background:var(--kch-v134-gold)!important;color:#153428!important;font-size:12px!important;font-weight:900!important;box-sizing:border-box!important}
 #kch-v134-nav{
   display:flex!important;align-items:center!important;justify-content:center!important;gap:4px!important;min-height:58px!important;
   padding:0 clamp(16px,2vw,36px)!important;border-top:1px solid rgba(255,255,255,.1)!important;background:rgba(0,0,0,.07)!important;overflow-x:auto!important;scrollbar-width:none!important;
@@ -94,7 +94,6 @@ body .shell.kch-master-shell{
 }
 #kch-v134-nav button:hover,#kch-v134-nav button:focus-visible{color:#f4d77d!important;border-bottom-color:var(--kch-v134-gold)!important;outline:none!important}
 
-/* Readability contract for the real storefront DOM, independent of legacy version classes. */
 body .kch-master-home,body .kch-master-home button,body .kch-master-home input,body .kch-master-home select,body .kch-master-home textarea{font-size:15px!important}
 body .kch-master-home .kch-master-hero h1,body .kch-master-home .kch-v131-hero h1{font-size:clamp(42px,3.1vw,58px)!important;line-height:1.08!important}
 body .kch-master-home .kch-master-tagline{font-size:19px!important;line-height:1.5!important}
@@ -120,9 +119,7 @@ body .kch-master-home .kch-master-product button,body .kch-master-home article.c
 body .kch-master-home .kch-source-title,body .kch-master-home .kch-v130-source-title{font-size:18px!important}
 body .kch-master-home .kch-source-copy,body .kch-master-home .kch-v130-source-copy,body .kch-master-home .kch-v130-review-copy{font-size:14px!important;line-height:1.55!important}
 
-@media (min-width:1100px){
-  body #app>.shell.kch-master-shell,body #app>.kch-master-shell{width:min(var(--kch-v134-shell),calc(100vw - 40px))!important}
-}
+@media (min-width:1100px){body #app>.shell.kch-master-shell,body #app>.kch-master-shell{width:min(var(--kch-v134-shell),calc(100vw - 40px))!important}}
 @media (max-width:1180px){
   #kch-v134-header .kch-v134-top{grid-template-columns:minmax(210px,.72fr) minmax(360px,1.5fr) minmax(320px,1fr)!important;gap:12px!important;padding-left:18px!important;padding-right:18px!important}
   #kch-v134-header .kch-v134-actions{grid-template-columns:repeat(3,1fr)!important;gap:5px!important}
