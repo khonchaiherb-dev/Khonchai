@@ -1,5 +1,10 @@
 const enc=new TextEncoder();
 export function adminAuthorized(request,env){
+  const internal=String(request.headers.get('X-KCH-Internal-Admin')||'');
+  const staffId=String(request.headers.get('X-KCH-Staff-Id')||'');
+  const staffRole=String(request.headers.get('X-KCH-Staff-Role')||'');
+  if(internal==='staff-session'&&/^\d+$/.test(staffId)&&staffRole.length>0)return true;
+  if(String(env.LEGACY_ADMIN_ENABLED??'false').toLowerCase()!=='true')return false;
   const expected=String(env.ADMIN_TOKEN||'');
   const got=String(request.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');
   if(!expected||got.length!==expected.length)return false;
