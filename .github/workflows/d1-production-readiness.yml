@@ -1,0 +1,107 @@
+name: KHONCHAIHERB Production D1 Readiness
+
+on:
+  push:
+    branches: [storefront-social-commerce]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: khonchaiherb-production-d1-readiness
+  cancel-in-progress: true
+
+jobs:
+  readiness:
+    name: Read-only remote D1 readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      DATABASE_NAME: khonchaiherb-commerce
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Confirm read-only contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('.github/workflows/d1-production-readiness.yml').read_text()
+          forbidden=['INSERT INTO','UPDATE ','DELETE FROM','DROP TABLE','ALTER TABLE','--file=']
+          body=text.split('Confirm read-only contract',1)[1]
+          for token in forbidden:
+            assert token not in body, f'forbidden mutation token in readiness workflow: {token}'
+          print('Read-only workflow contract passed')
+          PY
+
+      - name: Check Cloudflare credentials
+        id: credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "### Production D1 readiness" >> "$GITHUB_STEP_SUMMARY"
+            echo "Cloudflare credentials are not available to this workflow." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Inspect Koonchaishop schema on remote D1
+        if: steps.credentials.outputs.available == 'true'
+        id: schema
+        shell: bash
+        run: |
+          set -uo pipefail
+          QUERY="SELECT name FROM sqlite_master WHERE type='table' AND name IN ('commerce_sources','source_assets','source_reviews','source_product_links') ORDER BY name;"
+          set +e
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="$QUERY" > d1-readiness.txt 2>&1
+          code=$?
+          set -e
+          cat d1-readiness.txt
+          if [ "$code" -ne 0 ]; then
+            echo "ready=unknown" >> "$GITHUB_OUTPUT"
+            echo "### Production D1 readiness: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
+            echo "Remote read-only query could not be completed." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          missing=0
+          for table in commerce_sources source_assets source_reviews source_product_links; do
+            if ! grep -q "$table" d1-readiness.txt; then
+              echo "Missing: $table"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 0 ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "### Production D1 readiness: READY" >> "$GITHUB_STEP_SUMMARY"
+            echo "Migration 0021 schema is present on remote D1." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "### Production D1 readiness: NOT READY" >> "$GITHUB_STEP_SUMMARY"
+            echo "Migration 0021 has not been fully applied to remote D1." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Verify Koonchaishop source registration
+        if: steps.credentials.outputs.available == 'true' && steps.schema.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -uo pipefail
+          QUERY="SELECT platform,shop_code,shop_name,authorization_scope,active FROM commerce_sources WHERE shop_code='THLCRLWLHR' LIMIT 1;"
+          set +e
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="$QUERY" > d1-source-readiness.txt 2>&1
+          code=$?
+          set -e
+          cat d1-source-readiness.txt
+          if [ "$code" -ne 0 ] || ! grep -q 'THLCRLWLHR' d1-source-readiness.txt || ! grep -q 'owner_authorized_media_content_reviews' d1-source-readiness.txt; then
+            echo "### Koonchaishop source registration: CHECK REQUIRED" >> "$GITHUB_STEP_SUMMARY"
+            echo "Tables exist, but the expected source registration could not be confirmed." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "### Koonchaishop source registration: READY" >> "$GITHUB_STEP_SUMMARY"
+          echo "Shop Code THLCRLWLHR is registered with the expected authorization scope." >> "$GITHUB_STEP_SUMMARY"
