@@ -7,24 +7,25 @@ const px=async l=>Number.parseFloat(await l.evaluate(el=>getComputedStyle(el).fo
 const box=async l=>l.evaluate(el=>{const r=el.getBoundingClientRect();return {width:r.width,height:r.height,left:r.left,right:r.right}});
 const visibleCount=async l=>{let n=0;for(let i=0;i<await l.count();i++)if(await l.nth(i).isVisible())n++;return n};
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear());await mock(page)});
-test('canonical storefront has one readable header, search, navigation and account entry at 100% zoom',async({page})=>{
+test('canonical storefront has exactly one readable header, search, navigation and account entry at 100% zoom',async({page})=>{
 await page.goto('/?e2e=structural-cleanup',{waitUntil:'domcontentloaded'});
 await expect(page.locator('.kch-master-home')).toBeVisible();
-await page.addStyleTag({url:'/tshop-v134-structural-storefront.css?v=1.34.3'});
-await page.addScriptTag({url:'/kch-v134-structural-storefront.js?v=1.34.3'});
-const shell=page.locator('.kch-master-shell').first();await expect(shell).toHaveAttribute('data-kch-ui','1.34.3');
+await page.addStyleTag({url:'/tshop-v134-structural-storefront.css?v=1.34.4'});
+await page.addScriptTag({url:'/kch-v134-structural-storefront.js?v=1.34.4'});
+const shell=page.locator('.kch-master-shell').first();await expect(shell).toHaveAttribute('data-kch-ui','1.34.4');
 const viewport=page.viewportSize();const sb=await box(shell);if(viewport.width>=1100)expect(sb.width).toBeGreaterThan(viewport.width*.9);
-expect(await visibleCount(page.locator('.kch-master-shell .tshop-topbar,.kch-master-shell .topbar'))).toBe(1);
-expect(await visibleCount(page.locator('.kch-master-shell .kch-ref-menu,.kch-master-shell .tshop-menu,.kch-master-shell .tshop-nav'))).toBe(viewport.width>=700?1:0);
+const headers=page.locator('.kch-master-shell header,.kch-master-shell .tshop-topbar,.kch-master-shell .topbar');expect(await visibleCount(headers)).toBe(1);
+const chromeNav=page.locator('.kch-master-shell > nav:not(.tshop-bottom):not(.bottom),.kch-master-shell .kch-ref-menu,.kch-master-shell .tshop-menu,.kch-master-shell .tshop-nav');expect(await visibleCount(chromeNav)).toBe(viewport.width>=700?1:0);
 await expect(page.locator('#kch-v134-header')).toHaveCount(0);
 const header=page.locator('.kch-master-shell > .kch-structural-canonical-header');await expect(header).toBeVisible();
 const searches=page.locator('.kch-master-shell input[type="search"],.kch-master-shell .tshop-searchbox input');expect(await visibleCount(searches)).toBe(1);
 const search=header.locator('#kch-master-search');await expect(search).toBeVisible();expect(await px(search)).toBeGreaterThanOrEqual(16);expect((await box(search)).height).toBeGreaterThanOrEqual(44);
+expect(await visibleCount(page.locator('.kch-master-shell .kch-brand-lockup'))).toBe(1);
 const productName=page.locator('.kch-master-product-copy h3,.kch-master-product-name,.card-info h3,article.card h3').filter({visible:true}).first();await expect(productName).toBeVisible();expect(await px(productName)).toBeGreaterThanOrEqual(17);
 const filter=page.locator('.kch-master-filter,.kch-master-finder button,.cats button').filter({visible:true}).first();if(await filter.count()){expect(await px(filter)).toBeGreaterThanOrEqual(14);expect((await box(filter)).height).toBeGreaterThanOrEqual(44)}
 const trustTitle=page.locator('.kch-master-hero-benefits b,.kch-master-trust-item b,.trust b').filter({visible:true}).first();const trustSmall=page.locator('.kch-master-hero-benefits small,.kch-master-trust-item small,.trust small').filter({visible:true}).first();if(await trustTitle.count())expect(await px(trustTitle)).toBeGreaterThanOrEqual(viewport.width>=700?15:14);if(await trustSmall.count())expect(await px(trustSmall)).toBeGreaterThanOrEqual(viewport.width>=700?13:12);
 if(viewport.width>=700){const actions=header.locator('.kch-master-actions');for(const go of ['account','orders','cart']){const b=actions.locator(`[data-go="${go}"]`);await expect(b).toBeVisible();expect((await box(b)).height).toBeGreaterThanOrEqual(48)}expect(await visibleCount(page.locator('[data-go="account"]'))).toBe(1);expect(await px(actions.locator('[data-go="account"] .kch-master-utility-copy b'))).toBeGreaterThanOrEqual(15);const menu=page.locator('.kch-master-shell > .kch-master-nav button').first();await expect(menu).toBeVisible();expect(await px(menu)).toBeGreaterThanOrEqual(viewport.width>=1100?16:15);expect((await box(menu)).height).toBeGreaterThanOrEqual(48)}else{await expect(header.locator('[data-go="account"]')).toBeHidden();await expect(header.locator('[data-go="orders"]')).toBeHidden();await expect(header.locator('[data-go="cart"]')).toBeVisible();expect((await box(header.locator('[data-go="cart"]'))).height).toBeGreaterThanOrEqual(44)}
-const loginText=page.getByText(/เข้าสู่ระบบ\s*\/\s*สมัครสมาชิก/);let visibleLogin=0;for(let i=0;i<await loginText.count();i++)if(await loginText.nth(i).isVisible())visibleLogin++;expect(visibleLogin).toBeLessThanOrEqual(viewport.width>=700?1:1);
+const loginText=page.getByText(/เข้าสู่ระบบ\s*\/\s*สมัครสมาชิก/);let visibleLogin=0;for(let i=0;i<await loginText.count();i++)if(await loginText.nth(i).isVisible())visibleLogin++;expect(visibleLogin).toBe(1);
 const metrics=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth}));expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth+1);
 await page.screenshot({path:`preview-screenshots/structural-cleanup-${viewport.width}.png`,fullPage:true});
 });
