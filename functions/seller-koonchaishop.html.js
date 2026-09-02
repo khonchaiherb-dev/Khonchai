@@ -1,4 +1,4 @@
-const GUARD='/kch-koonchaishop-admin-readiness.js?v=1.0.0';
+const GUARD='/kch-koonchaishop-admin-readiness.js?v=1.0.1';
 
 export async function onRequest({request,next}){
   const response=await next();
