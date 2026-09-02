@@ -4,8 +4,8 @@
 /* Critical customer safeguards run synchronously with the storefront shell.
    They must not depend on asynchronously fetched hardening layers. */
 (()=>{
-  if(typeof document==='undefined'||window.__KCH_CRITICAL_STOREFRONT__==='1.21.5')return;
-  window.__KCH_CRITICAL_STOREFRONT__='1.21.5';
+  if(typeof document==='undefined'||window.__KCH_CRITICAL_STOREFRONT__==='1.21.6')return;
+  window.__KCH_CRITICAL_STOREFRONT__='1.21.6';
   const head=document.head||document.documentElement;
   const style=document.createElement('style');
   style.id='kch-critical-storefront-style';
@@ -13,13 +13,31 @@
     .kch-master-newsletter{display:none!important}
     .kch-critical-search-hidden,
     .kch-master-product[data-kch-search-match="0"]{display:none!important}
+    .kch-master-home,
+    .kch-master-home .kch-master-section,
+    .kch-master-home .kch-master-trust,
+    .kch-master-home .kch-master-story,
+    .kch-master-home .kch-master-split{min-width:0!important;max-width:100%!important}
+    .kch-master-home .kch-master-split>* ,
+    .kch-master-home .kch-master-story>* ,
+    .kch-master-home .kch-master-trust-inner>* ,
+    .kch-master-home .kch-master-products>* ,
+    .kch-master-home .kch-master-categories>*{min-width:0!important;max-width:100%!important}
     @media(max-width:1023px){
       .pdp-bottom,.kch-pdp-20 .pdp-bottom{box-sizing:border-box!important;width:auto!important;height:auto!important;grid-template-columns:48px 48px minmax(112px,1fr) minmax(122px,1.12fr)!important;align-items:stretch!important;overflow:visible!important;transform:none!important}
       .pdp-bottom .pdp-mini{min-width:0!important;padding:4px 2px!important}.pdp-bottom .pdp-add,.pdp-bottom .pdp-buy{min-width:0!important;padding-inline:8px!important;white-space:nowrap!important}
+      .kch-master-home .kch-master-split>*{min-width:0!important}
     }
     @media(max-width:699px){
       .pdp-bottom,.kch-pdp-20 .pdp-bottom{left:8px!important;right:8px!important;bottom:calc(76px + env(safe-area-inset-bottom))!important;grid-template-columns:42px 42px minmax(104px,1fr) minmax(112px,1.08fr)!important;gap:5px!important;padding:6px!important}
       .pdp-bottom button,.kch-pdp-20 .pdp-bottom button{min-height:50px!important}
+      .kch-master-home .kch-master-categories{grid-auto-flow:row!important;grid-auto-columns:auto!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;overflow-x:visible!important;width:100%!important;min-width:0!important;max-width:100%!important}
+      .kch-master-home .kch-master-promo-grid,
+      .kch-master-home .kch-master-review-grid,
+      .kch-master-home .kch-master-products{min-width:0!important;max-width:100%!important}
+      .kch-master-home .kch-master-promo-grid>* ,
+      .kch-master-home .kch-master-review-grid>* ,
+      .kch-master-home .kch-master-products>*{min-width:0!important}
     }
   `;
   head.appendChild(style);
@@ -88,8 +106,6 @@
 
   function run(){frame=0;ensureStoreStructuredData();neutralize();applyMasterSearch();document.querySelectorAll('[data-go="seller"]').forEach(el=>el.remove())}
 
-  // Single Master Storefront text-search owner. Capture stops legacy discovery
-  // handlers from mutating the Master DOM after this state has been committed.
   document.addEventListener('input',event=>{
     if(!event.target?.matches?.('.tshop-searchbox input'))return;
     setMasterQuery(event.target.value,{trusted:event.isTrusted,source:event.isTrusted?'user-input':'synthetic-input'});
@@ -115,9 +131,6 @@
 })();
 
 function kchOpenStaffPortal(){location.href='/seller-center.html'}
-
-// Retire every legacy in-store Seller Center entry point. The operating portal
-// now authenticates with an HttpOnly staff session on its own page.
 try{seller=kchOpenStaffPortal}catch{}
 try{sellerLogin=kchOpenStaffPortal}catch{}
 try{sellerLoginSubmit=kchOpenStaffPortal}catch{}
@@ -132,12 +145,9 @@ bind=function(){
 
 async function runAdminAction(){kchOpenStaffPortal()}
 
-// Remove any legacy seller entry that may be introduced by a later render.
 const kchPublicRoot=document.getElementById('app');
 if(kchPublicRoot)new MutationObserver(()=>document.querySelectorAll('[data-go="seller"]').forEach(el=>el.remove())).observe(kchPublicRoot,{childList:true,subtree:true});
 
-// Progressive storefront layers load only after the base storefront has finished
-// parsing. This prevents hardening and PDP enhancements racing older render layers.
 (()=>{
   if(typeof document==='undefined')return;
   const head=document.head||document.documentElement;
