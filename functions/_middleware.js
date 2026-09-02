@@ -24,9 +24,11 @@ const withCanonicalMetadata=(response,env)=>{
     head.append('<link rel="stylesheet" href="/tshop-v127-footer-premium.css?v=1.27.0">',{html:true});
     head.append('<link rel="stylesheet" href="/tshop-v128-future-standard.css?v=1.28.0">',{html:true});
     head.append('<link rel="stylesheet" href="/tshop-v129-readable-future.css?v=1.29.0">',{html:true});
+    head.append('<link rel="stylesheet" href="/tshop-v130-koonchaishop.css?v=1.30.0">',{html:true});
     head.append('<script defer src="/kch-thai-first.js?v=1.23.1"></script>',{html:true});
     head.append('<script defer src="/kch-footer-premium.js?v=1.27.0"></script>',{html:true});
     head.append('<script defer src="/kch-future-standard.js?v=1.28.1"></script>',{html:true});
+    head.append('<script defer src="/kch-koonchaishop-commerce.js?v=1.30.0"></script>',{html:true});
   }}).transform(response);
 };
 export async function onRequest({request,env,next}){
