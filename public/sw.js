@@ -1,4 +1,4 @@
-const CACHE='khonchaiherb-v1.18.2-ui1.34.4';
+const CACHE='khonchaiherb-v1.18.2-ui1.34.5';
 const CORE=[
   '/',
   '/index.html',
@@ -31,11 +31,12 @@ const CORE=[
   '/tshop-v117.css?v=1.18.2',
   '/tshop-v118.css?v=1.18.2',
   '/tshop-v134-structural-storefront.css?v=1.34.4',
+  '/tshop-v1345-header-isolation.css?v=1.34.5',
   '/app-core.js','/app-shop.js','/app-account.js','/app-admin-actions.js',
   '/tshop-v04.js','/tshop-v05.js','/tshop-v06.js','/tshop-v07.js','/tshop-v08.js','/tshop-v09.js','/tshop-v10.js','/tshop-v11.js','/tshop-v12.js','/tshop-v121.js','/tshop-v13.js','/tshop-v14.js','/tshop-v15.js','/tshop-v16.js',
   '/tshop-v17.js?v=1.18.2','/tshop-v18.js?v=1.18.2','/tshop-v19.js?v=1.18.2','/tshop-v110.js?v=1.18.2','/tshop-v111.js?v=1.18.2','/tshop-v112.js?v=1.18.2','/tshop-v113.js?v=1.18.2','/tshop-v114.js?v=1.18.2','/tshop-v161-hotfix.js?v=1.18.2','/tshop-v115.js?v=1.18.2','/tshop-v116.js?v=1.18.2','/tshop-v117.js?v=1.18.2','/tshop-v118.js?v=1.18.2',
   '/kch-conversion-storefront.js?v=1.32.0',
-  '/kch-v134-structural-storefront.js?v=1.34.4',
+  '/kch-v134-structural-storefront.js?v=1.34.5',
   '/assets/products/rang-jued-tea-360.webp','/assets/products/chiang-da-tea-360.webp','/assets/products/gymnema-capsules-100-512.webp','/assets/pandan-aromatic-dried.svg',
   '/privacy.html','/terms.html','/shipping-returns.html','/manifest.webmanifest'
 ];
