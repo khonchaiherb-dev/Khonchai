@@ -1,0 +1,25 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const read=p=>fs.readFileSync(p,'utf8');
+const migration=read('db/migrations/0021_koonchaishop_source_library.sql');
+const feed=read('functions/api/koonchaishop-feed.js');
+const admin=read('functions/api/admin/koonchaishop-source.js');
+const ui=read('public/tshop-v114.js');
+const css=read('public/tshop-v114.css');
+
+assert.match(migration,/THLCRLWLHR/,'migration must register the authorized Koonchaishop shop code');
+assert.match(migration,/owner_authorized_media_content_reviews/,'source authorization scope must be explicit');
+assert.match(migration,/CREATE TABLE IF NOT EXISTS source_assets/,'source assets must have a dedicated table');
+assert.match(migration,/CREATE TABLE IF NOT EXISTS source_reviews/,'external reviews must have a dedicated table');
+assert.match(migration,/verified_on_site INTEGER NOT NULL DEFAULT 0 CHECK\(verified_on_site = 0\)/,'external reviews must never be marked as on-site verified purchases');
+assert.match(feed,/verifiedOnSite:false/,'public source feed must disclose that imported reviews are not on-site verified');
+assert.match(feed,/databaseReady:false/,'source feed must fail closed before migration is ready');
+assert.doesNotMatch(feed,/Math\.random|fallbackReview|mockReview/i,'source feed must not synthesize social proof');
+assert.match(admin,/adminAuthorized/,'source imports must be admin protected');
+assert.match(admin,/owner_authorized/,'source imports must preserve rights basis');
+assert.match(admin,/verified_on_site=0/,'admin upserts must keep imported reviews separate from on-site verification');
+assert.match(ui,/\/api\/koonchaishop-feed/,'storefront must load the dedicated source feed');
+assert.match(ui,/แหล่งข้อมูลภายนอก/,'storefront must visibly disclose external source content');
+assert.match(ui,/แยกจากรีวิวผู้ซื้อที่ยืนยันคำสั่งซื้อบนเว็บไซต์ KHONCHAIHERB/,'storefront must distinguish TikTok reviews from on-site verified reviews');
+assert.match(css,/\.kch-source-proof/,'storefront must style source proof as a dedicated section');
+console.log('Koonchaishop source provenance + storefront disclosure contracts: OK');
