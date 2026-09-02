@@ -1,10 +1,12 @@
 import {adminAuthorized,json,clean,money,audit} from '../../_lib/admin.js';
 const n=v=>Math.trunc(Number(v)||0);
+const dateOnly=v=>{const s=clean(v,10);return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:null};
+async function enhancedLotSchema(env){try{const r=await env.DB.prepare("PRAGMA table_info('inventory_lots')").all(),c=new Set((r.results||[]).map(x=>String(x.name)));return c.has('lot_code')&&c.has('manufactured_at')&&c.has('quarantined')}catch{return false}}
 export async function onRequestGet({request,env}){
   if(!adminAuthorized(request,env))return json({error:'unauthorized'},401);
   if(!env.DB)return json({error:'database_not_bound'},503);
   const u=new URL(request.url),poNo=clean(u.searchParams.get('poNo'),80);
-  const [receipts,pos]=await Promise.all([
+  const [receipts,pos,lotTracking]=await Promise.all([
     env.DB.prepare(`SELECT gr.id,gr.receipt_no,gr.external_ref,gr.note,gr.received_by,gr.received_at,po.po_no,
       COALESCE(s.name,po.supplier_name) supplier_name,COUNT(gri.id) item_lines,COALESCE(SUM(gri.qty_received),0) qty_received,
       COALESCE(SUM(gri.qty_received*gri.unit_cost),0) received_cost
@@ -16,7 +18,7 @@ export async function onRequestGet({request,env}){
       FROM purchase_orders po LEFT JOIN suppliers s ON s.id=po.supplier_id
       LEFT JOIN purchase_order_items poi ON poi.purchase_order_id=po.id
       WHERE po.approval_status='approved' AND po.status IN ('ordered','partial')
-      GROUP BY po.id ORDER BY po.id DESC`).all()
+      GROUP BY po.id ORDER BY po.id DESC`).all(),enhancedLotSchema(env)
   ]);
   let detail=null;
   if(poNo){
@@ -30,7 +32,7 @@ export async function onRequestGet({request,env}){
       detail={...po,items:items.results||[]};
     }
   }
-  return json({receipts:receipts.results||[],openPurchaseOrders:pos.results||[],detail});
+  return json({receipts:receipts.results||[],openPurchaseOrders:pos.results||[],detail,lotTracking});
 }
 export async function onRequestPost({request,env}){
   if(!adminAuthorized(request,env))return json({error:'unauthorized'},401);
@@ -40,7 +42,7 @@ export async function onRequestPost({request,env}){
   const po=await env.DB.prepare("SELECT id,supplier_id,status,approval_status FROM purchase_orders WHERE po_no=?").bind(poNo).first();
   if(!po)return json({error:'purchase_order_not_found'},404);
   if(po.approval_status!=='approved'||!['ordered','partial'].includes(po.status))return json({error:'purchase_order_not_receivable'},409);
-  const receiptNo=`GR${new Date().toISOString().replace(/\D/g,'').slice(2,14)}${Math.floor(Math.random()*900+100)}`;
+  const receiptNo=`GR${new Date().toISOString().replace(/\D/g,'').slice(2,14)}${Math.floor(Math.random()*900+100)}`,lotTracking=await enhancedLotSchema(env);
   const normalized=[];
   for(const raw of rows){
     const itemId=n(raw.itemId),qty=n(raw.qty);
@@ -53,11 +55,17 @@ export async function onRequestPost({request,env}){
     if(!x)return json({error:'purchase_order_item_not_found',itemId},404);
     const remaining=Number(x.qty_ordered)-Number(x.qty_received);
     if(qty>remaining)return json({error:'receive_exceeds_remaining',itemId,remaining},409);
-    normalized.push({...x,qty});
+    let lotCode=null,manufacturedAt=null,expiresAt=null;
+    if(lotTracking){
+      lotCode=clean(raw.lotCode,80)||`${receiptNo}-${itemId}`;manufacturedAt=raw.manufacturedAt?dateOnly(raw.manufacturedAt):null;expiresAt=raw.expiresAt?dateOnly(raw.expiresAt):null;
+      if(raw.manufacturedAt&&!manufacturedAt)return json({error:'invalid_manufactured_date',itemId},400);if(raw.expiresAt&&!expiresAt)return json({error:'invalid_expiry_date',itemId},400);if(manufacturedAt&&expiresAt&&manufacturedAt>expiresAt)return json({error:'manufactured_after_expiry',itemId},400);
+    }
+    normalized.push({...x,qty,lotCode,manufacturedAt,expiresAt});
   }
   if(!normalized.length)return json({error:'nothing_to_receive'},400);
+  const actor=clean(request.headers.get('X-KCH-Staff-Name'),80)||'staff';
   const batch=[env.DB.prepare(`INSERT INTO goods_receipts(receipt_no,purchase_order_id,supplier_id,external_ref,note,received_by)
-    VALUES(?,?,?,?,?,'admin')`).bind(receiptNo,po.id,po.supplier_id||null,externalRef,note)];
+    VALUES(?,?,?,?,?,?)`).bind(receiptNo,po.id,po.supplier_id||null,externalRef,note,actor)];
   let totalQty=0;
   for(const x of normalized){
     const qty=x.qty,unitCost=Number(x.unit_cost||0);
@@ -71,7 +79,9 @@ export async function onRequestPost({request,env}){
     batch.push(env.DB.prepare("UPDATE purchase_order_items SET qty_received=qty_received+?,updated_at=datetime('now') WHERE id=?").bind(qty,x.id));
     batch.push(env.DB.prepare(`INSERT INTO goods_receipt_items(goods_receipt_id,purchase_order_item_id,product_id,variant_id,qty_received,unit_cost)
       VALUES((SELECT id FROM goods_receipts WHERE receipt_no=?),?,?,?,?,?)`).bind(receiptNo,x.id,x.product_id,x.variant_id,qty,unitCost));
-    batch.push(env.DB.prepare(`INSERT INTO inventory_lots(product_id,variant_id,source_type,source_ref,qty_received,qty_remaining,unit_cost)
+    if(lotTracking)batch.push(env.DB.prepare(`INSERT INTO inventory_lots(product_id,variant_id,source_type,source_ref,qty_received,qty_remaining,unit_cost,lot_code,manufactured_at,expires_at,quarantined)
+      VALUES(?,?,'purchase_order',?,?,?,?,?,?,?,0)`).bind(x.product_id,x.variant_id,`${poNo}:${receiptNo}`,qty,qty,unitCost,x.lotCode,x.manufacturedAt,x.expiresAt));
+    else batch.push(env.DB.prepare(`INSERT INTO inventory_lots(product_id,variant_id,source_type,source_ref,qty_received,qty_remaining,unit_cost)
       VALUES(?,?,'purchase_order',?,?,?,?)`).bind(x.product_id,x.variant_id,`${poNo}:${receiptNo}`,qty,qty,unitCost));
     batch.push(env.DB.prepare(`INSERT INTO inventory_movements(product_id,variant_id,movement_type,qty,reference_type,reference_id,note)
       VALUES(?,?,'purchase_receive',?,'goods_receipt',?,?)`).bind(x.product_id,x.variant_id,qty,receiptNo,`รับสินค้าเข้า • ${externalRef}`));
@@ -81,6 +91,6 @@ export async function onRequestPost({request,env}){
     WHEN NOT EXISTS(SELECT 1 FROM purchase_order_items WHERE purchase_order_id=? AND qty_received<qty_ordered) THEN 'received'
     ELSE 'partial' END,updated_at=datetime('now') WHERE id=?`).bind(po.id,po.id));
   await env.DB.batch(batch);
-  await audit(env,{action:'goods_receipt.create',entityType:'goods_receipt',entityId:receiptNo,metadata:{poNo,externalRef,qty:totalQty}});
-  return json({ok:true,receiptNo,poNo,receivedQty:totalQty});
+  await audit(env,{action:'goods_receipt.create',entityType:'goods_receipt',entityId:receiptNo,actorId:actor,metadata:{poNo,externalRef,qty:totalQty,lotTracking}});
+  return json({ok:true,receiptNo,poNo,receivedQty:totalQty,lotTracking});
 }
