@@ -1,0 +1,2 @@
+/* KHONCHAIHERB v1.32.1 — preserve native hidden state on flex product cards. */
+.kch-master-home.kch-v132-home .kch-master-products .kch-master-product[hidden]{display:none!important}
