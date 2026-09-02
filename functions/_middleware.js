@@ -28,7 +28,7 @@ const withCanonicalMetadata=(response,env)=>{
     head.append('<script defer src="/kch-thai-first.js?v=1.23.1"></script>',{html:true});
     head.append('<script defer src="/kch-footer-premium.js?v=1.27.0"></script>',{html:true});
     head.append('<script defer src="/kch-future-standard.js?v=1.28.1"></script>',{html:true});
-    head.append('<script defer src="/kch-koonchaishop-commerce.js?v=1.30.0"></script>',{html:true});
+    head.append('<script defer src="/kch-koonchaishop-commerce.js?v=1.30.1"></script>',{html:true});
   }}).transform(response);
 };
 export async function onRequest({request,env,next}){
