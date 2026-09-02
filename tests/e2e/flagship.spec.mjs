@@ -7,7 +7,7 @@ test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear(
 test('master storefront commerce remains stable under the isolated canonical structural baseline',async({page})=>{
 const errors=[];page.on('pageerror',e=>errors.push(e.message));await mockStore(page);await page.goto('/?flagship=master',{waitUntil:'domcontentloaded'});
 await page.addScriptTag({url:'/kch-conversion-storefront.js?v=1.32.0'});
-await page.addStyleTag({url:'/tshop-v134-structural-storefront.css?v=1.34.4'});
+await page.addStyleTag({url:'/tshop-v134-structural-storefront.css?v=1.34.5'});
 await page.addStyleTag({url:'/tshop-v1345-header-isolation.css?v=1.34.5'});
 await page.addScriptTag({url:'/kch-v134-structural-storefront.js?v=1.34.5'});
 await expect.poll(()=>page.evaluate(()=>window.__KCH_STRUCTURAL_STOREFRONT__)).toBe('1.34.5');
