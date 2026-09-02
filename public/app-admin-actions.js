@@ -4,8 +4,8 @@
 /* Critical customer safeguards run synchronously with the storefront shell.
    They must not depend on asynchronously fetched hardening layers. */
 (()=>{
-  if(typeof document==='undefined'||window.__KCH_CRITICAL_STOREFRONT__==='1.20.1')return;
-  window.__KCH_CRITICAL_STOREFRONT__='1.20.1';
+  if(typeof document==='undefined'||window.__KCH_CRITICAL_STOREFRONT__==='1.20.2')return;
+  window.__KCH_CRITICAL_STOREFRONT__='1.20.2';
   const head=document.head||document.documentElement;
   const style=document.createElement('style');
   style.id='kch-critical-storefront-style';
@@ -55,9 +55,14 @@
     });
   }
   function run(){frame=0;ensureStoreStructuredData();neutralize();search();document.querySelectorAll('[data-go="seller"]').forEach(el=>el.remove())}
+
+  // On the approved Master Storefront this is the single authoritative text-search
+  // handler. Stop the legacy bubbling handler from restoring all cards after our
+  // filter has already produced the correct result set.
   document.addEventListener('input',event=>{
     if(!event.target?.matches?.('.tshop-searchbox input'))return;
     searchQuery=String(event.target.value||'');
+    if(document.querySelector('.kch-master-shell'))event.stopImmediatePropagation();
     search();
     queueMicrotask(search);
     requestAnimationFrame(search);
@@ -100,7 +105,7 @@ if(kchPublicRoot)new MutationObserver(()=>document.querySelectorAll('[data-go="s
   addCss('/tshop-v119.css?v=1.19.0','kch-v119');
   addCss('/tshop-v120.css?v=1.20.0','kch-v120');
   const boot=()=>{
-    addScript('/kch-production-guard.js?v=1.20.1','kch-production-guard');
+    addScript('/kch-production-guard.js?v=1.20.2','kch-production-guard');
     addScript('/tshop-v119.js?v=1.19.0','kch-v119',()=>addScript('/tshop-v120.js?v=1.20.0','kch-v120'));
   };
   if(document.readyState==='complete')boot();else window.addEventListener('load',boot,{once:true});
