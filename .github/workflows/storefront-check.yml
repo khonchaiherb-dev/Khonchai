@@ -16,7 +16,18 @@ jobs:
         with:
           node-version: '22'
       - name: Check storefront JavaScript
-        run: npm run check
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run check 2>&1 | tee storefront-check.log
+      - name: Upload storefront quality diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storefront-quality-diagnostics
+          path: storefront-check.log
+          if-no-files-found: error
+          retention-days: 7
       - name: Validate all D1 migrations and operational workflows
         run: |
           python3 - <<'PY'
