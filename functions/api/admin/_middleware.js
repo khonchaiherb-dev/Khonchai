@@ -3,7 +3,7 @@ function permissionFor(path,method){
   const name=path.split('/').filter(Boolean).pop()||'',write=!['GET','HEAD','OPTIONS'].includes(method);
   if(name==='staff')return write?'staff.manage':'staff.read';if(name==='approvals')return 'approvals.manage';if(name==='backup')return 'backup.manage';if(name==='launch-readiness')return 'launch.read';if(['audit-log','security-events'].includes(name))return 'audit.read';
   if(['finance','cod-reconciliation','daily-closing','costs'].includes(name))return write?'finance.manage':'finance.read';if(['refund-ledger','return-refund'].includes(name))return write?'refunds.manage':'finance.read';
-  if(['inventory','warehouse','receiving','picking-waves','packing-verify','shipping-label'].includes(name))return write?'inventory.manage':'inventory.read';if(name==='procurement')return write?'procurement.manage':'procurement.read';
+  if(['inventory','warehouse','receiving','picking-waves','packing-verify','shipping-label','inventory-lots'].includes(name))return write?'inventory.manage':'inventory.read';if(name==='procurement')return write?'procurement.manage':'procurement.read';
   if(['order-action','fulfillment'].includes(name))return write?'fulfillment.manage':'orders.read';if(name==='returns')return write?'returns.manage':'orders.read';if(name==='notification-queue')return write?'notifications.manage':'orders.read';
   if(['products-manage','product-media','promotions-manage','creator-commissions'].includes(name))return write?'catalog.manage':'catalog.read';
   if(name==='orders')return write?'orders.manage':'orders.read';
@@ -46,7 +46,7 @@ export async function onRequest(context){
     if(csrfEnforced&&csrf===false){context.waitUntil(securityEvent(env,{staffUserId:staff.id,eventType:'csrf_block',severity:'warning',route:url.pathname,method:request.method,statusCode:403}));return json({error:'csrf_invalid'},403)}
     if(csrfEnforced&&csrf===null)return json({error:'csrf_security_not_ready'},503);
   }
-  const approval=await maybeRequireRiskApproval(context,staff);if(approval)return approval;if(!env.ADMIN_TOKEN)return json({error:'admin_bridge_not_configured'},503);
-  const headers=new Headers(request.headers);headers.set('Authorization',`Bearer ${env.ADMIN_TOKEN}`);headers.set('X-KCH-Staff-Id',String(staff.id));headers.set('X-KCH-Staff-Role',staff.role);headers.set('X-KCH-Staff-Name',staff.username);const forwarded=new Request(request,{headers});
+  const approval=await maybeRequireRiskApproval(context,staff);if(approval)return approval;
+  const headers=new Headers(request.headers);headers.delete('Authorization');headers.set('X-KCH-Internal-Admin','staff-session');headers.set('X-KCH-Staff-Id',String(staff.id));headers.set('X-KCH-Staff-Role',staff.role);headers.set('X-KCH-Staff-Name',staff.username);const forwarded=new Request(request,{headers});
   const response=await context.next(forwarded);if(unsafe)context.waitUntil(securityEvent(env,{staffUserId:staff.id,eventType:'admin_mutation',severity:response.status>=400?'warning':'info',route:url.pathname,method:request.method,statusCode:response.status,detail:{permission,csrfSchema:await tableExists(env,'staff_session_meta')}}));return response;
 }
