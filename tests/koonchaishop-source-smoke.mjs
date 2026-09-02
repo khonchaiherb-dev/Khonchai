@@ -42,12 +42,19 @@ assert.match(d1Workflow,/Verify production Koonchaishop source schema/,'producti
 assert.match(d1Workflow,/d1 execute \"\$DATABASE_NAME\" --remote/,'production migration must target remote D1 explicitly');
 assert.match(d1Readiness,/name: KHONCHAIHERB Production D1 Readiness/,'a dedicated production D1 readiness workflow must exist');
 assert.match(d1Readiness,/name: Read-only remote D1 readiness/,'production readiness job must identify itself as read-only');
+assert.match(d1Readiness,/Resolve account that owns the configured D1 database/,'readiness must resolve the D1-owning account without changing secrets');
+assert.match(d1Readiness,/env -u CLOUDFLARE_ACCOUNT_ID npx --yes wrangler@latest whoami --json/,'account discovery must authenticate independently of a possibly stale configured account id');
+assert.match(d1Readiness,/wrangler@latest d1 list --json/,'account discovery must use the read-only D1 list command');
+assert.match(d1Readiness,/::add-mask::\$candidate/,'candidate account identifiers must be masked in Actions logs');
+assert.match(d1Readiness,/::add-mask::\$selected/,'resolved account identifier must be masked before reuse');
+assert.match(d1Readiness,/D1_ACCOUNT_ID=\$selected/,'resolved D1 account must be scoped to subsequent workflow steps rather than committed to config');
 const readinessQueries=[...d1Readiness.matchAll(/QUERY="([^"]+)"/g)].map(m=>m[1]);
 assert.ok(readinessQueries.length>=2,'readiness workflow must inspect both schema and source registration');
 for(const query of readinessQueries)assert.match(query,/^SELECT\s/i,'all remote readiness queries must be SELECT-only');
-const readinessCommands=d1Readiness.split('\n').map(line=>line.trim()).filter(line=>line.startsWith('npx --yes wrangler@latest d1 execute'));
+const readinessCommands=d1Readiness.split('\n').map(line=>line.trim()).filter(line=>line.includes('wrangler@latest d1 execute')&&(line.startsWith('npx ')||line.startsWith('CLOUDFLARE_ACCOUNT_ID=')));
 assert.ok(readinessCommands.length>=2,'readiness workflow must run remote D1 inspections');
 for(const command of readinessCommands){assert.match(command,/--remote/,'readiness checks must target remote D1');assert.match(command,/--command="\$QUERY"/,'readiness checks must execute the validated SELECT query variable');assert.doesNotMatch(command,/--file=/,'readiness workflow must never apply a migration file')}
+assert.match(d1Readiness,/The API token could not find or read the configured D1 database/,'readiness must fail closed when D1 access cannot be resolved');
 assert.match(d1Readiness,/THLCRLWLHR/,'readiness workflow must verify the authorized Koonchaishop shop code');
 assert.match(d1Readiness,/owner_authorized_media_content_reviews/,'readiness workflow must verify the expected authorization scope');
-console.log('Koonchaishop source provenance + v1.30 storefront + guarded production migration/readiness contracts: OK');
+console.log('Koonchaishop source provenance + v1.30 storefront + guarded production migration/readiness/account-discovery contracts: OK');
