@@ -1,0 +1,45 @@
+/* KHONCHAIHERB member system — real OTP/session integration */
+(()=>{
+  if(typeof window==='undefined'||window.__KCH_MEMBER_READY__==='1.0.0')return;
+  window.__KCH_MEMBER_READY__='1.0.0';
+  const escHtml=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const request=async(url,options={})=>{const r=await fetch(url,{credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.headers||{})},...options});const data=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(data.error||'request_failed');e.status=r.status;e.data=data;throw e}return data};
+  const style=document.createElement('style');style.id='kch-member-ready-style';style.textContent=`
+  .kch-member-wrap{max-width:920px;margin:0 auto;padding:28px 16px 110px}.kch-member-card{border:1px solid #e1e8e2;border-radius:22px;background:#fff;padding:22px;box-shadow:0 18px 48px rgba(18,55,42,.08)}.kch-member-brand{display:flex;align-items:center;gap:12px;margin-bottom:18px}.kch-member-mark{display:grid;place-items:center;width:48px;height:48px;border-radius:15px;background:#0b4a38;color:#f2d58b;font:800 22px Georgia}.kch-member-brand h1{margin:0;color:#173f31;font-size:24px}.kch-member-brand p{margin:4px 0 0;color:#6f7d75;font-size:12px}.kch-member-form{display:grid;gap:12px;max-width:480px}.kch-member-form label{display:grid;gap:6px;color:#284d3d;font-size:12px;font-weight:800}.kch-member-form input{min-height:48px;border:1px solid #dce5df;border-radius:13px;padding:0 14px;font:500 15px inherit;background:#fff}.kch-member-form button,.kch-member-actions button{min-height:48px;border:0;border-radius:13px;padding:0 18px;font:800 13px inherit;cursor:pointer}.kch-member-primary{background:#0b4a38;color:#fff}.kch-member-secondary{background:#eef4ef;color:#214f3b}.kch-member-error{min-height:18px;color:#b34038;font-size:11px}.kch-member-note{padding:11px 12px;border-radius:12px;background:#f7faf7;color:#6a776f;font-size:11px;line-height:1.55}.kch-member-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}.kch-member-profile h2{margin:0;color:#173f31}.kch-member-phone{margin-top:4px;color:#6d7b72}.kch-member-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}.kch-member-stat{padding:14px;border:1px solid #e3e9e4;border-radius:15px;background:#fafcf9}.kch-member-stat b{display:block;color:#173f31;font-size:21px}.kch-member-stat span{color:#728078;font-size:10px}.kch-member-actions{display:grid;gap:9px;margin-top:16px}.kch-member-status{display:flex;align-items:center;gap:7px;color:#28704f;font-size:11px;font-weight:800;margin-bottom:12px}.kch-member-status:before{content:'';width:8px;height:8px;border-radius:50%;background:#2e9d68}.kch-member-orders{margin-top:16px}.kch-member-orders h3{margin:0 0 10px;color:#173f31}.kch-member-empty{padding:18px;border:1px dashed #d9e3dc;border-radius:14px;color:#728078;text-align:center;font-size:12px}@media(max-width:699px){.kch-member-wrap{padding:16px 12px 100px}.kch-member-card{padding:16px;border-radius:18px}.kch-member-grid{grid-template-columns:1fr}.kch-member-brand h1{font-size:20px}}
+  `;document.head.appendChild(style);
+
+  let phone='';
+  const shell=html=>typeof chrome==='function'?chrome(`<main class="kch-member-wrap">${html}</main>`):`<main class="kch-member-wrap">${html}</main>`;
+  const setApp=html=>{const root=window.app||document.getElementById('app');if(root)root.innerHTML=shell(html)};
+
+  async function renderAccount(){
+    try{const me=await request('/api/customer/me');renderProfile(me)}catch(e){if(e.status===401)renderLogin();else renderUnavailable(e)}
+  }
+  function renderLogin(){
+    setApp(`<section class="kch-member-card"><div class="kch-member-brand"><div class="kch-member-mark">K</div><div><h1>สมาชิก KHONCHAIHERB</h1><p>เข้าสู่ระบบด้วยเบอร์โทรศัพท์และรหัส OTP</p></div></div><div class="kch-member-form"><label>เบอร์โทรศัพท์<input id="kch-member-phone" inputmode="tel" autocomplete="tel" placeholder="08x-xxx-xxxx"></label><div id="kch-member-error" class="kch-member-error"></div><button class="kch-member-primary" data-kch-request-otp>ขอรหัส OTP</button><div class="kch-member-note">สมาชิกใหม่ไม่ต้องสมัครแยก เมื่อยืนยัน OTP สำเร็จ ระบบจะสร้างบัญชีสมาชิกให้โดยอัตโนมัติ และใช้บัญชีเดียวกันเพื่อติดตามออเดอร์ ที่อยู่ และสิทธิสมาชิก</div></div></section>`);
+  }
+  function renderOtp(devCode=''){
+    setApp(`<section class="kch-member-card"><div class="kch-member-brand"><div class="kch-member-mark">K</div><div><h1>ยืนยันรหัส OTP</h1><p>ส่งรหัส 6 หลักไปยัง ${escHtml(phone)}</p></div></div><div class="kch-member-form"><label>รหัส OTP<input id="kch-member-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" value="${escHtml(devCode)}"></label><div id="kch-member-error" class="kch-member-error"></div><button class="kch-member-primary" data-kch-verify-otp>ยืนยันและเข้าสู่ระบบ</button><button class="kch-member-secondary" data-kch-back-login>เปลี่ยนเบอร์โทร</button></div></section>`);
+  }
+  function renderProfile(me){
+    const c=me.customer||{},summary=me.summary||{};
+    setApp(`<div class="kch-member-status">เข้าสู่ระบบแล้ว</div><section class="kch-member-grid"><div class="kch-member-card kch-member-profile"><div class="kch-member-brand"><div class="kch-member-mark">K</div><div><h2>${escHtml(c.fullName||'สมาชิก KHONCHAIHERB')}</h2><div class="kch-member-phone">${escHtml(c.phone||'')}</div></div></div><div class="kch-member-stats"><div class="kch-member-stat"><b>${Number(summary.orders||0).toLocaleString('th-TH')}</b><span>คำสั่งซื้อทั้งหมด</span></div><div class="kch-member-stat"><b>฿${Number(summary.spend||0).toLocaleString('th-TH')}</b><span>ยอดซื้อสะสม</span></div></div><div class="kch-member-actions"><button class="kch-member-primary" data-go="orders">คำสั่งซื้อของฉัน</button><button class="kch-member-secondary" data-go="home">เลือกซื้อสินค้า</button><button class="kch-member-secondary" data-kch-logout>ออกจากระบบ</button></div></div><div class="kch-member-card"><h3 style="margin-top:0;color:#173f31">ข้อมูลบัญชี</h3><div class="kch-member-note">อีเมล: ${escHtml(c.email||'ยังไม่ได้ระบุ')}<br>ที่อยู่ที่บันทึก: ${Number((me.addresses||[]).length)} รายการ<br>บัญชีสมาชิกเชื่อมกับ session ฝั่งเซิร์ฟเวอร์และมีอายุสูงสุด 30 วัน</div><div class="kch-member-orders"><h3>สินค้าที่ดูล่าสุด</h3>${(me.recent||[]).length?`<div class="kch-member-note">มี ${(me.recent||[]).length} รายการในประวัติการดูสินค้า</div>`:`<div class="kch-member-empty">ยังไม่มีประวัติการดูสินค้า</div>`}</div></div></section>`);
+    try{typeof bind==='function'&&bind()}catch{}
+  }
+  function renderUnavailable(e){
+    const msg=e?.data?.error==='auth_not_configured'?'ระบบสมาชิกยังไม่ได้ตั้งค่า AUTH_PEPPER บน Cloudflare':e?.data?.error==='database_not_bound'?'ฐานข้อมูลสมาชิกยังไม่ได้เชื่อม D1':'ระบบสมาชิกยังเชื่อมต่อไม่ได้';
+    setApp(`<section class="kch-member-card"><div class="kch-member-brand"><div class="kch-member-mark">K</div><div><h1>ระบบสมาชิก</h1><p>กำลังเตรียมการเชื่อมต่อบริการสมาชิก</p></div></div><div class="kch-member-note">${escHtml(msg)}</div><div class="kch-member-actions"><button class="kch-member-secondary" data-go="home">กลับไปเลือกซื้อสินค้า</button></div></section>`);try{typeof bind==='function'&&bind()}catch{}
+  }
+
+  document.addEventListener('click',async e=>{
+    const btn=e.target?.closest?.('[data-kch-request-otp],[data-kch-verify-otp],[data-kch-back-login],[data-kch-logout]');if(!btn)return;
+    if(btn.matches('[data-kch-back-login]')){e.preventDefault();renderLogin();return}
+    if(btn.matches('[data-kch-request-otp]')){e.preventDefault();const input=document.getElementById('kch-member-phone'),err=document.getElementById('kch-member-error');phone=String(input?.value||'').trim();if(phone.replace(/\D/g,'').length<9){if(err)err.textContent='กรุณากรอกเบอร์โทรให้ถูกต้อง';return}btn.disabled=true;try{const d=await request('/api/customer/request-code',{method:'POST',body:JSON.stringify({phone})});renderOtp(d.devCode||'')}catch(ex){if(err)err.textContent=ex.data?.error==='otp_not_configured'?'ระบบส่ง OTP ยังไม่ได้เชื่อมผู้ให้บริการ':'ยังส่งรหัส OTP ไม่ได้';btn.disabled=false}return}
+    if(btn.matches('[data-kch-verify-otp]')){e.preventDefault();const code=String(document.getElementById('kch-member-code')?.value||'').replace(/\D/g,'').slice(0,6),err=document.getElementById('kch-member-error');if(code.length!==6){if(err)err.textContent='กรุณากรอกรหัส OTP 6 หลัก';return}btn.disabled=true;try{await request('/api/customer/verify-code',{method:'POST',body:JSON.stringify({phone,code})});await renderAccount()}catch(ex){if(err)err.textContent=ex.data?.error==='code_expired'?'รหัสหมดอายุ กรุณาขอรหัสใหม่':'รหัส OTP ไม่ถูกต้อง';btn.disabled=false}return}
+    if(btn.matches('[data-kch-logout]')){e.preventDefault();try{await request('/api/customer/logout',{method:'POST',body:'{}'})}catch{}renderLogin();return}
+  },true);
+
+  try{window.account=renderAccount;account=renderAccount}catch{}
+  window.kchMemberAccount=renderAccount;
+  if(typeof current!=='undefined'&&current==='account')renderAccount();
+})();
