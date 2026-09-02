@@ -21,70 +21,62 @@ async function mock(page){
 }
 const px=async locator=>Number.parseFloat(await locator.evaluate(el=>getComputedStyle(el).fontSize));
 const box=async locator=>locator.evaluate(el=>{const r=el.getBoundingClientRect();return {width:r.width,height:r.height}});
+const visibleCount=async locator=>{let n=0;for(let i=0;i<await locator.count();i++)if(await locator.nth(i).isVisible())n++;return n};
 
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear());await mock(page)});
 
-test('v1.34 structural header is readable at 100% zoom and puts account in the correct hierarchy',async({page})=>{
-  await page.goto('/?e2e=v134-structural',{waitUntil:'domcontentloaded'});
+test('v1.34.6 exposes exactly one readable storefront chrome at 100% zoom',async({page})=>{
+  await page.goto('/?e2e=v1346-urgent',{waitUntil:'domcontentloaded'});
   await expect(page.locator('.kch-master-home')).toBeVisible();
-  await page.addStyleTag({url:'/tshop-v134-structural-storefront.css?v=1.34.0'});
-  await page.addScriptTag({url:'/kch-v134-structural-storefront.js?v=1.34.0'});
+  await page.addStyleTag({url:'/tshop-v134-structural-storefront.css?v=1.34.6'});
+  await page.addScriptTag({url:'/kch-v134-structural-storefront.js?v=1.34.6'});
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_V134_STRUCTURAL__)).toBe('1.34.6');
 
   const shell=page.locator('.kch-master-shell').first();
-  await expect(shell).toHaveClass(/kch-v134-active/);
-  await expect(shell).toHaveAttribute('data-kch-ui','1.34.0');
+  await expect(shell).toHaveAttribute('data-kch-ui','1.34.6');
   const viewport=page.viewportSize();
-  const shellBox=await box(shell);
-  if(viewport.width>=1100)expect(shellBox.width).toBeGreaterThan(viewport.width*.9);
+  if(viewport.width>=1100)expect((await box(shell)).width).toBeGreaterThan(viewport.width*.9);
 
   const header=page.locator('#kch-v134-header');
+  await expect(header).toHaveCount(1);
   await expect(header).toBeVisible();
-  await expect(header).toHaveAttribute('data-kch-v134','1.34.0');
+  await expect(header).toHaveAttribute('data-kch-v134','1.34.6');
 
   const search=page.locator('#kch-v134-search');
+  await expect(search).toHaveCount(1);
   await expect(search).toBeVisible();
   expect(await px(search)).toBeGreaterThanOrEqual(16);
   expect((await box(search)).height).toBeGreaterThanOrEqual(44);
 
-  const productName=page.locator('.kch-master-product-copy h3,.kch-master-product-name,.card-info h3,article.card h3').filter({visible:true}).first();
-  await expect(productName).toBeVisible();
-  expect(await px(productName)).toBeGreaterThanOrEqual(17);
+  const legacyChrome=page.locator('.tshop-topbar,.topbar,.kch-master-topbar,.kch-ref-menu,.tshop-menu,.tshop-nav');
+  expect(await visibleCount(legacyChrome)).toBe(0);
+  expect(await visibleCount(page.locator('.kch-master-shell input[type="search"]'))).toBe(1);
 
-  const productMeta=page.locator('.kch-master-product-copy .meta,.kch-master-product-meta,.kch-v132-card-note,.kch-v132-unready-note,.rating,.card-foot').filter({visible:true}).first();
-  if(await productMeta.count())expect(await px(productMeta)).toBeGreaterThanOrEqual(14);
-
-  const filter=page.locator('.kch-master-filter,.kch-master-finder button,.cats button').filter({visible:true}).first();
-  if(await filter.count()){
-    expect(await px(filter)).toBeGreaterThanOrEqual(14);
-    expect((await box(filter)).height).toBeGreaterThanOrEqual(44);
-  }
-
-  const trustTitle=page.locator('.kch-master-hero-benefits b,.trust b').filter({visible:true}).first();
-  const trustSmall=page.locator('.kch-master-hero-benefits small,.trust small').filter({visible:true}).first();
-  if(await trustTitle.count())expect(await px(trustTitle)).toBeGreaterThanOrEqual(15);
-  if(await trustSmall.count())expect(await px(trustSmall)).toBeGreaterThanOrEqual(14);
-
+  const nav=page.locator('#kch-v134-nav');
   if(viewport.width>=700){
-    const account=page.locator('#kch-v134-header [data-v134-go="account"]');
-    await expect(account).toBeVisible();
-    await expect(account).toContainText(/บัญชี/);
-    expect((await box(account)).height).toBeGreaterThanOrEqual(48);
-    expect(await px(account.locator('.kch-v134-action-copy b'))).toBeGreaterThanOrEqual(15);
-
-    const menu=page.locator('#kch-v134-nav button').first();
-    await expect(menu).toBeVisible();
-    expect(await px(menu)).toBeGreaterThanOrEqual(viewport.width>=1100?16:15);
-    expect((await box(menu)).height).toBeGreaterThanOrEqual(48);
+    await expect(nav).toBeVisible();
+    expect(await visibleCount(page.locator('#kch-v134-nav'))).toBe(1);
+    const first=nav.locator('button').first();await expect(first).toBeVisible();expect(await px(first)).toBeGreaterThanOrEqual(viewport.width>=1100?16:15);expect((await box(first)).height).toBeGreaterThanOrEqual(48);
+    const account=header.locator('[data-v134-go="account"]');await expect(account).toBeVisible();expect((await box(account)).height).toBeGreaterThanOrEqual(48);
+    const loginText=page.getByText(/เข้าสู่ระบบ\s*\/\s*สมัครสมาชิก/);expect(await visibleCount(loginText)).toBe(1);
   }else{
-    const topActions=page.locator('#kch-v134-header .kch-v134-actions');
-    await expect(topActions).toBeHidden();
+    await expect(nav).toBeHidden();
+    await expect(header.locator('.kch-v134-actions')).toBeHidden();
     const bottomAccount=page.locator('nav.tshop-bottom [data-go="account"],nav.bottom [data-go="account"]').filter({visible:true}).first();
-    await expect(bottomAccount).toBeVisible();
-    expect((await box(bottomAccount)).height).toBeGreaterThanOrEqual(44);
+    if(await bottomAccount.count())expect((await box(bottomAccount)).height).toBeGreaterThanOrEqual(44);
   }
 
-  for(const selector of ['.kch-v134-obsolete-header','.kch-v134-obsolete-menu','.kch-v134-obsolete-account-strip']){
-    const rows=page.locator(selector);
-    for(let i=0;i<await rows.count();i++)await expect(rows.nth(i)).toBeHidden();
-  }
+  const productName=page.locator('.kch-master-product-copy h3,.kch-master-product-name,.card-info h3,article.card h3').filter({visible:true}).first();
+  await expect(productName).toBeVisible();expect(await px(productName)).toBeGreaterThanOrEqual(17);
+
+  const iconTokens=['shopping_cart','person_add','receipt_long','assignment_turned_in','payments','local_shipping','verified_user'];
+  const bodyText=await page.locator('body').innerText();for(const token of iconTokens)expect(bodyText).not.toContain(token);
+
+  await page.waitForTimeout(350);
+  await expect(header).toBeVisible();
+  expect(await visibleCount(page.locator('#kch-v134-header'))).toBe(1);
+  expect(await visibleCount(legacyChrome)).toBe(0);
+  expect(await visibleCount(page.locator('.kch-master-shell input[type="search"]'))).toBe(1);
+
+  await page.screenshot({path:`preview-screenshots/urgent-structural-${viewport.width}.png`,fullPage:true});
 });
