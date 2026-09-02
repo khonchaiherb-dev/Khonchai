@@ -10,6 +10,7 @@ const legacy=read('public/tshop-v114.js');
 const middleware=read('functions/_middleware.js');
 const d1Workflow=read('.github/workflows/d1-production-migration.yml');
 const d1Readiness=read('.github/workflows/d1-production-readiness.yml');
+const publicSmoke=read('.github/workflows/production-public-smoke.yml');
 
 assert.match(migration,/THLCRLWLHR/,'migration must register the authorized Koonchaishop shop code');
 assert.match(migration,/owner_authorized_media_content_reviews/,'source authorization scope must be explicit');
@@ -57,4 +58,16 @@ for(const command of readinessCommands){assert.match(command,/--remote/,'readine
 assert.match(d1Readiness,/The API token could not find or read the configured D1 database/,'readiness must fail closed when D1 access cannot be resolved');
 assert.match(d1Readiness,/THLCRLWLHR/,'readiness workflow must verify the authorized Koonchaishop shop code');
 assert.match(d1Readiness,/owner_authorized_media_content_reviews/,'readiness workflow must verify the expected authorization scope');
-console.log('Koonchaishop source provenance + v1.30 storefront + guarded production migration/readiness/account-discovery contracts: OK');
+
+assert.match(publicSmoke,/workflow_run:/,'production public smoke must run from the deployment completion event');
+assert.match(publicSmoke,/Deploy KHONCHAIHERB to Cloudflare Pages/,'production public smoke must follow the actual Cloudflare Pages deployment workflow');
+assert.match(publicSmoke,/https:\/\/khonchaiherb-commerce\.pages\.dev/,'production public smoke must target the deployed Pages origin');
+assert.match(publicSmoke,/\/api\/koonchaishop-feed\?limit=2/,'production public smoke must inspect the deployed source feed through the Pages Functions binding');
+assert.match(publicSmoke,/source\.get\('shopCode'\)==\s*'THLCRLWLHR'/,'production public smoke must validate Koonchaishop provenance');
+assert.match(publicSmoke,/review\.get\('verifiedOnSite'\) is False/,'production public smoke must reject external reviews marked as on-site verified');
+assert.match(publicSmoke,/databaseReady=\{'true' if ready else 'false'\}/,'production public smoke must record D1 schema readiness from the deployed binding');
+assert.match(publicSmoke,/kch-koonchaishop-commerce\.js\?v=1\.30\.1/,'production smoke must verify the deployed v1.30.1 runtime');
+assert.match(publicSmoke,/tshop-v130-koonchaishop\.css\?v=1\.30\.0/,'production smoke must verify the deployed v1.30 styles');
+assert.doesNotMatch(publicSmoke,/curl[^\n]*(?:-X|--request)\s*(?:POST|PUT|PATCH|DELETE)/i,'production public smoke must not mutate HTTP state');
+
+console.log('Koonchaishop source provenance + v1.30 storefront + guarded production migration/readiness/account-discovery/public-smoke contracts: OK');
