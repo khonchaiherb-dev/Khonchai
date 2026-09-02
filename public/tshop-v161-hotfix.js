@@ -207,7 +207,7 @@
 
 /* KHONCHAIHERB Thai-first UI v1.23.0 */
 (()=>{
-  if(typeof document==='undefined'||window.__KCH_THAI_FIRST__==='1.23.0')return;
+  if(typeof document==='undefined'||typeof document.createElement!=='function'||window.__KCH_THAI_FIRST__==='1.23.0')return;
   window.__KCH_THAI_FIRST__='1.23.0';
   document.documentElement.lang='th';
 
