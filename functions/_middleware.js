@@ -27,7 +27,7 @@ const withCanonicalMetadata=(response,env,pathname='')=>{
     head.append('<link rel="stylesheet" href="/tshop-v128-future-standard.css?v=1.28.0">',{html:true});
     head.append('<link rel="stylesheet" href="/tshop-v129-readable-future.css?v=1.29.0">',{html:true});
     head.append('<link rel="stylesheet" href="/tshop-v130-koonchaishop.css?v=1.30.0">',{html:true});
-    head.append('<link rel="stylesheet" href="/tshop-v134-structural-storefront.css?v=1.34.4">',{html:true});
+    head.append('<link rel="stylesheet" href="/tshop-v134-structural-storefront.css?v=1.34.5">',{html:true});
     head.append('<link rel="stylesheet" href="/tshop-v1345-header-isolation.css?v=1.34.5">',{html:true});
     head.append('<script defer src="/kch-thai-first.js?v=1.23.1"></script>',{html:true});
     head.append('<script defer src="/kch-footer-premium.js?v=1.27.0"></script>',{html:true});
