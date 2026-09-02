@@ -1,0 +1,231 @@
+/* KHONCHAIHERB v1.31.0 — top-of-store conversion refresh
+   Header + hero + quick discovery only. Commerce integrity stays data-driven. */
+
+:root{
+  --kch-v131-forest:#073a2c;
+  --kch-v131-forest-dark:#042b21;
+  --kch-v131-gold:#d6b15d;
+  --kch-v131-gold-soft:#f0d893;
+  --kch-v131-ivory:#f7f3e9;
+  --kch-v131-paper:#fffdf8;
+  --kch-v131-ink:#173e31;
+  --kch-v131-muted:#6b7b72;
+  --kch-v131-line:rgba(225,231,225,.94);
+}
+
+/* ---------- Header: brand | search | actions ---------- */
+.shell.kch-master-shell.kch-v131 .tshop-topbar.kch-master-topbar{
+  grid-template-columns:minmax(215px,.72fr) minmax(390px,1.45fr) minmax(250px,.83fr)!important;
+  gap:clamp(18px,2.3vw,34px)!important;
+  min-height:74px!important;
+  padding:10px clamp(30px,5vw,76px)!important;
+  background:linear-gradient(180deg,#043528 0%,#052f25 100%)!important;
+  border-bottom:1px solid rgba(225,188,97,.24)!important;
+}
+.shell.kch-master-shell.kch-v131 .kch-brand-lockup{
+  grid-column:1!important;grid-row:1!important;justify-self:start!important;
+  place-items:start!important;padding:0!important;text-align:left!important;
+}
+.shell.kch-master-shell.kch-v131 .kch-brand-lockup b{
+  font-size:clamp(23px,1.9vw,29px)!important;letter-spacing:.055em!important;
+  white-space:nowrap!important;
+}
+.shell.kch-master-shell.kch-v131 .kch-brand-lockup small{
+  margin-top:5px!important;font-size:10px!important;letter-spacing:.02em!important;
+}
+.shell.kch-master-shell.kch-v131 .tshop-topbar .tshop-searchbox{
+  grid-column:2!important;grid-row:1!important;width:100%!important;max-width:none!important;
+  min-height:46px!important;border-radius:14px!important;
+  border:1px solid rgba(235,213,157,.28)!important;
+  background:rgba(255,255,255,.105)!important;
+}
+.shell.kch-master-shell.kch-v131 .tshop-topbar .tshop-searchbox input{
+  font-size:14px!important;line-height:1.45!important;color:#fff!important;
+}
+.shell.kch-master-shell.kch-v131 .tshop-topbar .tshop-searchbox input::placeholder{color:#c3d1cb!important}
+.shell.kch-master-shell.kch-v131 .tshop-topbar .tshop-top-actions,
+.shell.kch-master-shell.kch-v131 .tshop-topbar .actions{
+  grid-column:3!important;grid-row:1!important;justify-self:end!important;gap:12px!important;
+}
+.shell.kch-master-shell.kch-v131 .tshop-topbar .tshop-icon{
+  min-height:44px!important;padding:0 8px!important;font-size:11px!important;border-radius:11px!important;
+}
+.shell.kch-master-shell.kch-v131 .kch-ref-menu{
+  top:74px!important;min-height:50px!important;gap:clamp(22px,3vw,46px)!important;
+  padding-inline:clamp(28px,5vw,76px)!important;
+}
+.shell.kch-master-shell.kch-v131 .kch-ref-menu button{
+  min-height:50px!important;padding:0!important;font-size:11.5px!important;line-height:1.35!important;
+}
+
+/* ---------- Hero: shorter, clearer, commerce-first ---------- */
+.kch-master-home.kch-v131-home .kch-master-hero{
+  grid-template-columns:minmax(0,1.05fr) minmax(430px,.95fr)!important;
+  gap:clamp(28px,4vw,60px)!important;
+  min-height:420px!important;
+  padding:40px clamp(48px,6vw,92px) 44px!important;
+  background:
+    radial-gradient(circle at 76% 22%,rgba(80,213,151,.16),transparent 26%),
+    radial-gradient(circle at 95% 78%,rgba(219,174,77,.11),transparent 28%),
+    linear-gradient(112deg,#052b22 0%,#074434 58%,#063528 100%)!important;
+}
+.kch-master-home.kch-v131-home .kch-master-hero:after{font-size:150px!important;opacity:.75!important}
+.kch-master-home.kch-v131-home .kch-master-hero-copy{max-width:660px!important}
+.kch-master-home.kch-v131-home .kch-master-kicker{
+  margin:0!important;font-size:11px!important;letter-spacing:.08em!important;color:#efd388!important;
+}
+.kch-master-home.kch-v131-home .kch-master-hero h1{
+  margin:14px 0 0!important;color:#fff4d4!important;
+  font-family:'Noto Sans Thai',Tahoma,sans-serif!important;
+  font-size:clamp(36px,3.7vw,54px)!important;font-weight:900!important;
+  letter-spacing:-.025em!important;line-height:1.14!important;text-shadow:none!important;
+}
+.kch-master-home.kch-v131-home .kch-master-hero h1 .kch-v131-brandline{
+  display:block!important;margin-bottom:5px!important;color:#e7c46d!important;
+  font-family:Georgia,'Times New Roman',serif!important;font-size:.48em!important;
+  font-weight:500!important;letter-spacing:.08em!important;line-height:1.15!important;
+}
+.kch-master-home.kch-v131-home .kch-master-hero h1 small{
+  display:block!important;margin-top:8px!important;color:#f7e7b8!important;
+  font-family:'Noto Sans Thai',Tahoma,sans-serif!important;font-size:.48em!important;
+  font-weight:800!important;line-height:1.4!important;
+}
+.kch-master-home.kch-v131-home .kch-master-tagline{
+  margin-top:18px!important;color:#e8d8ac!important;font-size:16px!important;font-weight:800!important;
+}
+.kch-master-home.kch-v131-home .kch-master-desc{
+  max-width:610px!important;margin-top:9px!important;color:#c9d9d1!important;
+  font-size:13px!important;line-height:1.72!important;
+}
+.kch-master-home.kch-v131-home .kch-master-hero-actions{margin-top:22px!important;gap:10px!important}
+.kch-master-home.kch-v131-home .kch-master-hero-actions button{
+  min-height:48px!important;padding-inline:22px!important;border-radius:12px!important;font-size:12px!important;
+}
+
+/* Equal-ratio product showcase: no fake rating/sold data */
+.kch-master-home.kch-v131-home .kch-master-stage{
+  align-items:stretch!important;gap:12px!important;min-height:300px!important;padding:10px 0 16px!important;
+}
+.kch-master-home.kch-v131-home .kch-master-stage:before{bottom:-4px!important;height:64px!important;opacity:.72!important}
+.kch-master-home.kch-v131-home .kch-master-showcase,
+.kch-master-home.kch-v131-home .kch-master-showcase:nth-child(2),
+.kch-master-home.kch-v131-home .kch-master-showcase:nth-child(3){
+  width:calc((100% - 24px)/3)!important;height:auto!important;min-height:0!important;
+  aspect-ratio:4/5!important;transform:none!important;padding:9px!important;border-radius:18px!important;
+  display:grid!important;grid-template-rows:minmax(0,1fr) auto!important;
+  background:linear-gradient(150deg,#fff,#f7f5ed)!important;
+}
+.kch-master-home.kch-v131-home .kch-master-showcase:hover{transform:translateY(-4px)!important}
+.kch-master-home.kch-v131-home .kch-master-showcase img{
+  width:100%!important;height:100%!important;min-height:0!important;object-fit:contain!important;
+}
+.kch-v131-showcase-meta{
+  display:grid;gap:3px;padding:8px 5px 3px;text-align:left;color:#173e31;
+}
+.kch-v131-showcase-meta b{font-size:11px;line-height:1.4;color:#173e31}
+.kch-v131-showcase-meta strong{font-size:14px;line-height:1.3;color:#0d513b}
+.kch-v131-showcase-meta small{font-size:9px;line-height:1.35;color:#6f7c75}
+
+/* ---------- Trust: larger and easier to scan ---------- */
+.kch-master-home.kch-v131-home .kch-master-hero-benefits{
+  grid-column:1/-1!important;width:100%!important;max-width:none!important;
+  margin:8px 0 0!important;padding-top:16px!important;
+  border-top:1px solid rgba(234,211,153,.18)!important;
+  gap:12px!important;
+}
+.kch-master-home.kch-v131-home .kch-master-hero-benefits>div{gap:10px!important}
+.kch-master-home.kch-v131-home .kch-master-hero-benefits .material-symbols-rounded{
+  width:38px!important;height:38px!important;font-size:19px!important;flex:0 0 38px!important;
+}
+.kch-master-home.kch-v131-home .kch-master-hero-benefits b{font-size:11px!important;line-height:1.35!important}
+.kch-master-home.kch-v131-home .kch-master-hero-benefits small{font-size:9px!important;line-height:1.45!important}
+
+/* ---------- Remove the login interruption from the purchase path ---------- */
+.kch-master-home.kch-v131-home .kch-v131-member-interrupt{display:none!important}
+
+/* ---------- Finder becomes quick discovery; price range belongs to catalog ---------- */
+.kch-master-home.kch-v131-home .kch-master-finder{
+  width:min(1320px,calc(100% - 64px))!important;margin:16px auto 0!important;
+  padding:13px 16px!important;border-radius:18px!important;box-shadow:0 12px 34px rgba(20,55,42,.07)!important;
+  background:rgba(255,253,248,.99)!important;
+}
+.kch-master-home.kch-v131-home .kch-master-finder h2{
+  margin-right:10px!important;font-size:14px!important;line-height:1.4!important;
+}
+.kch-master-home.kch-v131-home .kch-master-filter{
+  min-height:42px!important;padding-inline:15px!important;border-radius:999px!important;font-size:11px!important;
+}
+.kch-master-home.kch-v131-home .kch-master-range{display:none!important}
+.kch-master-home.kch-v131-home .kch-master-reset{min-height:42px!important;padding:0 10px!important}
+.kch-master-home.kch-v131-home .kch-master-section{margin-top:22px!important}
+
+/* Warm paper begins immediately after hero so the viewport is not dominated by dark green. */
+.kch-master-home.kch-v131-home{background:linear-gradient(180deg,#f7f3e9 0,#fffdf8 25%,#f8faf7 100%)!important}
+
+@media(max-width:1180px){
+  .shell.kch-master-shell.kch-v131 .tshop-topbar.kch-master-topbar{
+    grid-template-columns:minmax(190px,.62fr) minmax(320px,1.38fr) auto!important;padding-inline:28px!important;
+  }
+  .kch-master-home.kch-v131-home .kch-master-hero{grid-template-columns:minmax(0,1fr) minmax(360px,.9fr)!important;padding-inline:44px!important}
+  .kch-master-home.kch-v131-home .kch-master-stage{min-height:270px!important}
+}
+
+@media(max-width:899px){
+  .shell.kch-master-shell.kch-v131 .tshop-topbar.kch-master-topbar{
+    position:sticky!important;display:grid!important;
+    grid-template-columns:1fr auto!important;grid-template-rows:auto auto!important;
+    gap:9px 12px!important;min-height:auto!important;padding:10px 16px 11px!important;
+  }
+  .shell.kch-master-shell.kch-v131 .kch-brand-lockup{grid-column:1!important;grid-row:1!important}
+  .shell.kch-master-shell.kch-v131 .kch-brand-lockup b{font-size:22px!important}
+  .shell.kch-master-shell.kch-v131 .kch-brand-lockup small{display:none!important}
+  .shell.kch-master-shell.kch-v131 .tshop-topbar .tshop-top-actions,
+  .shell.kch-master-shell.kch-v131 .tshop-topbar .actions{grid-column:2!important;grid-row:1!important;gap:5px!important}
+  .shell.kch-master-shell.kch-v131 .tshop-topbar .tshop-searchbox{grid-column:1/-1!important;grid-row:2!important;min-height:45px!important}
+  .shell.kch-master-shell.kch-v131 .kch-ref-menu{
+    top:111px!important;justify-content:flex-start!important;gap:24px!important;overflow-x:auto!important;
+    padding:0 16px!important;scrollbar-width:none!important;white-space:nowrap!important;
+  }
+  .shell.kch-master-shell.kch-v131 .kch-ref-menu::-webkit-scrollbar{display:none!important}
+  .kch-master-home.kch-v131-home .kch-master-hero{
+    grid-template-columns:1fr!important;gap:22px!important;min-height:0!important;padding:32px 22px 28px!important;
+  }
+  .kch-master-home.kch-v131-home .kch-master-hero h1{font-size:clamp(34px,8vw,46px)!important}
+  .kch-master-home.kch-v131-home .kch-master-stage{
+    display:grid!important;grid-auto-flow:column!important;grid-auto-columns:minmax(180px,58vw)!important;
+    justify-content:start!important;min-height:0!important;overflow-x:auto!important;overscroll-behavior-inline:contain!important;
+    scroll-snap-type:x mandatory!important;scrollbar-width:none!important;padding-bottom:6px!important;
+  }
+  .kch-master-home.kch-v131-home .kch-master-stage::-webkit-scrollbar{display:none!important}
+  .kch-master-home.kch-v131-home .kch-master-stage:before{display:none!important}
+  .kch-master-home.kch-v131-home .kch-master-showcase,
+  .kch-master-home.kch-v131-home .kch-master-showcase:nth-child(2),
+  .kch-master-home.kch-v131-home .kch-master-showcase:nth-child(3){width:auto!important;scroll-snap-align:start!important}
+  .kch-master-home.kch-v131-home .kch-master-hero-benefits{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .kch-master-home.kch-v131-home .kch-master-finder{width:calc(100% - 28px)!important;margin-top:12px!important;overflow-x:auto!important;flex-wrap:nowrap!important;scrollbar-width:none!important}
+  .kch-master-home.kch-v131-home .kch-master-finder::-webkit-scrollbar{display:none!important}
+  .kch-master-home.kch-v131-home .kch-master-finder h2{position:sticky!important;left:0!important;z-index:2!important;background:#fffdf8!important;padding-right:8px!important}
+  .kch-master-home.kch-v131-home .kch-master-filter{flex:0 0 auto!important;min-height:44px!important}
+}
+
+@media(max-width:520px){
+  .shell.kch-master-shell.kch-v131 .tshop-topbar .tshop-icon{padding:0 5px!important;min-width:42px!important}
+  .shell.kch-master-shell.kch-v131 .tshop-topbar .tshop-icon .label,
+  .shell.kch-master-shell.kch-v131 .tshop-topbar .tshop-icon>span:not(.material-symbols-rounded):not(.badge){display:none!important}
+  .kch-master-home.kch-v131-home .kch-master-hero{padding:26px 16px 22px!important}
+  .kch-master-home.kch-v131-home .kch-master-kicker{font-size:10px!important}
+  .kch-master-home.kch-v131-home .kch-master-hero h1{font-size:34px!important}
+  .kch-master-home.kch-v131-home .kch-master-tagline{font-size:14px!important}
+  .kch-master-home.kch-v131-home .kch-master-desc{font-size:12px!important}
+  .kch-master-home.kch-v131-home .kch-master-hero-actions{display:grid!important;grid-template-columns:1fr 1fr!important}
+  .kch-master-home.kch-v131-home .kch-master-hero-actions button{padding-inline:12px!important;min-height:50px!important}
+  .kch-master-home.kch-v131-home .kch-master-stage{grid-auto-columns:minmax(168px,72vw)!important}
+  .kch-master-home.kch-v131-home .kch-master-hero-benefits{gap:10px 8px!important}
+  .kch-master-home.kch-v131-home .kch-master-hero-benefits .material-symbols-rounded{width:34px!important;height:34px!important;flex-basis:34px!important}
+  .kch-master-home.kch-v131-home .kch-master-hero-benefits b{font-size:10px!important}
+  .kch-master-home.kch-v131-home .kch-master-hero-benefits small{font-size:8px!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .kch-v131 *{transition:none!important;scroll-behavior:auto!important}
+}
