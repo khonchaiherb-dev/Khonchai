@@ -9,6 +9,7 @@ on:
         type: choice
         options:
           - 0019_inventory_fefo.sql
+          - 0020_operational_alert_state.sql
       confirmation:
         description: Type APPLY-PRODUCTION-D1 to confirm
         required: true
@@ -61,15 +62,26 @@ jobs:
           db=sqlite3.connect(':memory:')
           files=sorted(Path('db/migrations').glob('*.sql'))
           target='${{ inputs.migration }}'
+          found=False
           for f in files:
             db.executescript(f.read_text())
             if f.name==target:
+              found=True
               break
+          assert found, f'migration not found: {target}'
           if target=='0019_inventory_fefo.sql':
             tables={r[0] for r in db.execute("select name from sqlite_master where type='table'")}
             assert 'inventory_lot_allocations' in tables
             cols={r[1] for r in db.execute("pragma table_info('inventory_lots')")}
             assert {'lot_code','manufactured_at','quarantined','quarantine_note','updated_at'} <= cols
+          if target=='0020_operational_alert_state.sql':
+            tables={r[0] for r in db.execute("select name from sqlite_master where type='table'")}
+            assert 'operational_alert_state' in tables
+            cols={r[1] for r in db.execute("pragma table_info('operational_alert_state')")}
+            assert {'alert_key','status','assigned_to','acknowledged_by','acknowledged_at','resolved_by','resolved_at','first_seen_at','last_seen_at'} <= cols
+            indexes={r[1] for r in db.execute("pragma index_list('operational_alert_state')")}
+            assert 'idx_operational_alert_state_status' in indexes
+            assert 'idx_operational_alert_state_assigned' in indexes
           print('Migration validation passed:',target)
           PY
 
@@ -86,3 +98,12 @@ jobs:
           set -euo pipefail
           npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="SELECT name FROM sqlite_master WHERE type='table' AND name='inventory_lot_allocations';"
           npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA table_info('inventory_lots');"
+
+      - name: Verify production operational alert schema
+        if: ${{ inputs.migration == '0020_operational_alert_state.sql' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="SELECT name FROM sqlite_master WHERE type='table' AND name='operational_alert_state';"
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA table_info('operational_alert_state');"
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA index_list('operational_alert_state');"
