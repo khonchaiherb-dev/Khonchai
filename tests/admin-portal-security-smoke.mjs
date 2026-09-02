@@ -29,7 +29,7 @@ assert.match(bridge,/\[data-go=["']seller["']\]/);
 assert.match(bridge,/kch-production-guard\.js/);
 assert.match(bridge,/__KCH_MASTER_SEARCH__/);
 assert.match(bridge,/tshop-searchbox input/);
-assert.match(bridge,/data\.kchSearchMatch/);
+assert.match(bridge,/dataset\.kchSearchMatch/);
 assert.match(bridge,/stopImmediatePropagation/);
 assert.doesNotMatch(bridge,/kch-admin-token/);
 assert.doesNotMatch(bridge,/sessionStorage/);
