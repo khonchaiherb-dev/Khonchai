@@ -17,7 +17,7 @@ jobs:
           node-version: '22'
       - name: Check storefront JavaScript and commerce smoke tests
         run: npm run check
-      - name: Validate v1.6 schema and integrity queries
+      - name: Validate resilience, staff security, and FEFO schema
         run: |
           python3 - <<'PY'
           import sqlite3
@@ -27,12 +27,15 @@ jobs:
             '0001_init.sql','0002_production_hardening.sql','0003_social_commerce.sql','0004_attribution_analytics.sql',
             '0005_growth_engine.sql','0006_customer_platform.sql','0007_customer_service.sql','0008_production_readiness.sql',
             '0009_fulfillment_finance.sql','0010_warehouse_customer_experience.sql','0011_production_operations.sql',
-            '0012_staff_security.sql','0013_session_launch_hardening.sql','0014_resilience_recovery.sql'
+            '0012_staff_security.sql','0013_session_launch_hardening.sql','0014_resilience_recovery.sql','0015_customer_favorites.sql',
+            '0016_pandan_product.sql','0017_chiang_da_products.sql','0018_sale_readiness.sql','0019_inventory_fefo.sql'
           ]
           for f in files: db.executescript(Path('db/migrations',f).read_text())
           for f in ['seed.sql','seed-social.sql','seed-growth.sql','seed-production.sql']: db.executescript(Path('db',f).read_text())
           tables={r[0] for r in db.execute("select name from sqlite_master where type='table'")}
-          assert {'order_request_registry','maintenance_runs','system_integrity_snapshots','product_variants'} <= tables
+          assert {'order_request_registry','maintenance_runs','system_integrity_snapshots','product_variants','staff_users','staff_sessions','approval_requests','inventory_lots','inventory_lot_allocations'} <= tables
+          lot_cols={r[1] for r in db.execute("pragma table_info('inventory_lots')")}
+          assert {'lot_code','manufactured_at','quarantined','quarantine_note','updated_at'} <= lot_cols
           queries=[
             "SELECT COUNT(*) c FROM orders o WHERE NOT EXISTS(SELECT 1 FROM order_items i WHERE i.order_id=o.id)",
             "SELECT COUNT(*) c FROM orders o WHERE NOT EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id)",
@@ -43,7 +46,10 @@ jobs:
             "SELECT COUNT(*) c FROM stock_reservations r JOIN orders o ON o.id=r.order_id WHERE r.status='active' AND o.status='cancelled'",
             "SELECT COUNT(*) c FROM financial_ledger l LEFT JOIN orders o ON o.id=l.order_id WHERE l.order_id IS NOT NULL AND o.id IS NULL",
             "SELECT COUNT(*) c FROM order_request_registry WHERE order_no IS NULL AND first_seen_at<datetime('now','-24 hours')",
-            "SELECT COUNT(*) c FROM order_request_registry r LEFT JOIN orders o ON o.order_no=r.order_no WHERE r.order_no IS NOT NULL AND o.id IS NULL"
+            "SELECT COUNT(*) c FROM order_request_registry r LEFT JOIN orders o ON o.order_no=r.order_no WHERE r.order_no IS NOT NULL AND o.id IS NULL",
+            "SELECT COUNT(*) c FROM inventory_lots WHERE qty_remaining<0 OR qty_remaining>qty_received",
+            "SELECT COUNT(*) c FROM inventory_lot_allocations a LEFT JOIN inventory_lots l ON l.id=a.inventory_lot_id WHERE l.id IS NULL",
+            "SELECT COUNT(*) c FROM inventory_lots WHERE quarantined=0 AND qty_remaining>0 AND expires_at IS NOT NULL AND date(expires_at)<date('now')"
           ]
           for q in queries: db.execute(q).fetchone()
           db.execute("insert into order_request_registry(idempotency_key,request_fingerprint) values('idem-v16','fp-a')")
@@ -54,7 +60,7 @@ jobs:
           db.execute("insert into maintenance_runs(run_no,job_key,status,affected_rows) values('MNT-TEST','safe_cleanup','completed',0)")
           db.execute("insert into system_integrity_snapshots(status,score,anomalies_count,detail_json) values('healthy',100,0,'{}')")
           assert db.execute("select score from system_integrity_snapshots order by id desc limit 1").fetchone()[0]==100
-          print('v1.6+ resilience schema and integrity SQL: OK')
+          print('resilience, staff security, and FEFO schema SQL: OK')
           PY
       - name: Validate production resilience source contracts
         run: |
@@ -68,6 +74,11 @@ jobs:
           grep -q "scanIntegrity" functions/api/admin/backup.js
           grep -q "Resilience & recovery schema" functions/api/admin/launch-readiness.js
           grep -q "Integrity & Recovery Center" public/tshop-v16.js
+          grep -q "X-KCH-Internal-Admin" functions/api/admin/_middleware.js
+          ! grep -q 'Bearer ${env.ADMIN_TOKEN}' functions/api/admin/_middleware.js
+          grep -q "inventory_lot_allocations" functions/api/admin/order-action.js
+          grep -q "fefo_insufficient_lot_stock" functions/api/admin/order-action.js
+          grep -q "cod_delivered_uncollected" functions/api/admin/ops-monitoring.js
       - name: Validate forward-compatible storefront assets
         run: |
           grep -q "khonchaiherb-v1." public/sw.js
