@@ -28,12 +28,13 @@ const withCanonicalMetadata=(response,env,pathname='')=>{
     head.append('<link rel="stylesheet" href="/tshop-v129-readable-future.css?v=1.29.0">',{html:true});
     head.append('<link rel="stylesheet" href="/tshop-v130-koonchaishop.css?v=1.30.0">',{html:true});
     head.append('<link rel="stylesheet" href="/tshop-v134-structural-storefront.css?v=1.34.4">',{html:true});
+    head.append('<link rel="stylesheet" href="/tshop-v1345-header-isolation.css?v=1.34.5">',{html:true});
     head.append('<script defer src="/kch-thai-first.js?v=1.23.1"></script>',{html:true});
     head.append('<script defer src="/kch-footer-premium.js?v=1.27.0"></script>',{html:true});
     head.append('<script defer src="/kch-future-standard.js?v=1.28.1"></script>',{html:true});
     head.append('<script defer src="/kch-koonchaishop-commerce.js?v=1.30.1"></script>',{html:true});
     head.append('<script defer src="/kch-conversion-storefront.js?v=1.32.0"></script>',{html:true});
-    head.append('<script defer src="/kch-v134-structural-storefront.js?v=1.34.4"></script>',{html:true});
+    head.append('<script defer src="/kch-v134-structural-storefront.js?v=1.34.5"></script>',{html:true});
     if(pathname===SELLER_KOONCHAISHOP)head.append(`<script defer src="${KOONCHAISHOP_ADMIN_GUARD}"></script>`,{html:true});
   }}).transform(response);
 };
