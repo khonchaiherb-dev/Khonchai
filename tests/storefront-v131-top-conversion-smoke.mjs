@@ -7,7 +7,7 @@ const middleware=fs.readFileSync('functions/_middleware.js','utf8');
 const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
 
 assert.match(middleware,/tshop-v131-top-conversion\.css\?v=1\.31\.0/);
-assert.match(middleware,/kch-top-conversion\.js\?v=1\.31\.1/);
+assert.match(middleware,/kch-top-conversion\.js\?v=1\.31\.2/);
 assert.ok(middleware.indexOf('tshop-v131-top-conversion.css')>middleware.indexOf('tshop-v130-koonchaishop.css'));
 assert.ok(middleware.indexOf('kch-top-conversion.js')>middleware.indexOf('kch-koonchaishop-commerce.js'));
 
@@ -21,7 +21,7 @@ assert.match(css,/@media\(max-width:520px\)/);
 assert.match(css,/grid-auto-flow:column!important/);
 assert.match(css,/min-height:44px!important/);
 
-assert.match(js,/const BUILD='1\.31\.1'/);
+assert.match(js,/const BUILD='1\.31\.2'/);
 assert.match(js,/Number\(p\?\.sale_verified\)===1/);
 assert.match(js,/function enhanceHeader\(\)/);
 assert.match(js,/function enhanceHero\(\)/);
@@ -29,10 +29,15 @@ assert.match(js,/function enhanceShowcase\(\)/);
 assert.match(js,/function enhanceTrust\(\)/);
 assert.match(js,/function hideMemberInterrupt\(\)/);
 assert.match(js,/function enhanceFinder\(\)/);
+assert.match(js,/function ensureSearchRule\(\)/);
 assert.match(js,/function applyMasterSearch\(\)/);
 assert.match(js,/normalize\('NFKC'\)/);
 assert.match(js,/tokens\.every\(token=>hay\.includes\(token\)\)/);
-assert.match(js,/dataset\.kchSearchMatch=match\?'1':'0'/);
+assert.match(js,/data-kch-v131-search-match/);
+assert.match(js,/dataset\.kchV131SearchMatch=match\?'1':'0'/);
+assert.match(js,/removeAttribute\('data-kch-v131-search-match'\)/);
+assert.match(js,/display:none!important/);
+assert.doesNotMatch(js,/dataset\.kchSearchMatch=match/);
 assert.match(js,/setTimeout\(applyMasterSearch,180\)/);
 assert.match(js,/สมุนไพรไทยที่คัดสรร/);
 assert.match(js,/เก็บเงินปลายทาง/);
@@ -47,4 +52,4 @@ assert.doesNotMatch(js,/rating\s*[:=]\s*[45](?:\.|\b)/i);
 assert.ok(pkg.scripts['qa:v131']);
 assert.match(pkg.scripts.check,/storefront-v131-top-conversion-smoke\.mjs/);
 
-console.log('storefront v1.31.1 top conversion + Thai search + responsive + integrity smoke: OK');
+console.log('storefront v1.31.2 top conversion + isolated Thai search + responsive + integrity smoke: OK');
