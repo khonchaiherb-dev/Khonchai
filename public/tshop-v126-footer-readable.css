@@ -1,0 +1,163 @@
+/* KHONCHAIHERB v1.26 — readable lower-page navigation and footer */
+
+/* Newsletter / lower call-to-action */
+html body .kch-master-news-copy b{
+  font-size:17px!important;
+  line-height:1.45!important;
+}
+html body .kch-master-news-copy small{
+  font-size:14px!important;
+  line-height:1.6!important;
+  margin-top:5px!important;
+}
+html body .kch-master-news-form input{
+  min-height:48px!important;
+  font-size:15px!important;
+  padding-inline:15px!important;
+}
+html body .kch-master-news-form button{
+  min-height:48px!important;
+  font-size:15px!important;
+  padding-inline:22px!important;
+}
+html body .kch-master-social b{
+  font-size:14px!important;
+  line-height:1.4!important;
+}
+html body .kch-master-social span{
+  width:36px!important;
+  height:36px!important;
+  font-size:12px!important;
+}
+
+/* Current Master footer */
+html body .kch-master-footer-inner{
+  gap:34px!important;
+  padding-top:38px!important;
+  padding-bottom:32px!important;
+}
+html body .kch-master-footer-brand h3{
+  font-size:27px!important;
+  line-height:1.25!important;
+}
+html body .kch-master-footer-brand b{
+  font-size:15px!important;
+  line-height:1.5!important;
+  margin-top:7px!important;
+}
+html body .kch-master-footer-brand p{
+  font-size:15px!important;
+  line-height:1.75!important;
+  margin-top:16px!important;
+}
+html body .kch-master-footer-col h4{
+  font-size:17px!important;
+  line-height:1.45!important;
+  margin-bottom:9px!important;
+}
+html body .kch-master-footer-col button,
+html body .kch-master-footer-col a{
+  min-height:36px!important;
+  padding:7px 0!important;
+  font-size:15px!important;
+  line-height:1.5!important;
+  font-weight:600!important;
+}
+html body .kch-master-footer-bottom>div{
+  padding-top:17px!important;
+  padding-bottom:17px!important;
+  font-size:13px!important;
+  line-height:1.6!important;
+}
+html body .kch-master-payments span{
+  padding:6px 9px!important;
+  font-size:12px!important;
+  line-height:1.3!important;
+}
+
+/* Legacy/reference footer, in case an older rendering path is shown */
+html body .v118-signature-home .kch-ref-footer .story b{
+  font-size:23px!important;
+  line-height:1.35!important;
+}
+html body .v118-signature-home .kch-ref-footer .story p{
+  font-size:15px!important;
+  line-height:1.75!important;
+}
+html body .v118-signature-home .kch-ref-footitem b{
+  font-size:16px!important;
+  line-height:1.45!important;
+}
+html body .v118-signature-home .kch-ref-footitem small,
+html body .v118-signature-home .kch-ref-footitem small::after{
+  font-size:14px!important;
+  line-height:1.65!important;
+}
+
+/* Persistent mobile bottom navigation */
+html body .tshop-bottom{
+  min-height:72px!important;
+  padding-top:7px!important;
+  padding-bottom:max(7px,env(safe-area-inset-bottom))!important;
+}
+html body .tshop-bottom button,
+html body .tshop-bottom a{
+  min-height:56px!important;
+  padding:6px 5px!important;
+  font-size:14px!important;
+  line-height:1.35!important;
+  font-weight:800!important;
+}
+html body .tshop-bottom button span:not(.material-symbols-rounded),
+html body .tshop-bottom a span:not(.material-symbols-rounded),
+html body .tshop-bottom button small,
+html body .tshop-bottom a small,
+html body .tshop-bottom button b,
+html body .tshop-bottom a b{
+  font-size:14px!important;
+  line-height:1.35!important;
+}
+html body .tshop-bottom .material-symbols-rounded{
+  font-size:25px!important;
+}
+
+@media(max-width:699px){
+  html body .kch-master-newsletter-inner{
+    gap:15px!important;
+    padding-top:20px!important;
+    padding-bottom:20px!important;
+  }
+  html body .kch-master-news-copy b{font-size:16px!important}
+  html body .kch-master-news-copy small{font-size:13.5px!important}
+  html body .kch-master-news-form input,
+  html body .kch-master-news-form button{font-size:14px!important}
+
+  html body .kch-master-footer-inner{
+    gap:24px!important;
+    padding-top:30px!important;
+    padding-bottom:96px!important;
+  }
+  html body .kch-master-footer-brand h3{font-size:24px!important}
+  html body .kch-master-footer-brand b{font-size:14px!important}
+  html body .kch-master-footer-brand p{font-size:14px!important}
+  html body .kch-master-footer-col h4{font-size:16px!important}
+  html body .kch-master-footer-col button,
+  html body .kch-master-footer-col a{
+    min-height:38px!important;
+    font-size:14.5px!important;
+    padding:8px 0!important;
+  }
+  html body .kch-master-footer-bottom>div{
+    font-size:12.5px!important;
+    padding-top:16px!important;
+    padding-bottom:20px!important;
+  }
+  html body .tshop-bottom button,
+  html body .tshop-bottom a,
+  html body .tshop-bottom button span:not(.material-symbols-rounded),
+  html body .tshop-bottom a span:not(.material-symbols-rounded),
+  html body .tshop-bottom button small,
+  html body .tshop-bottom a small{
+    font-size:13.5px!important;
+  }
+}
