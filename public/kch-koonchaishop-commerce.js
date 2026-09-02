@@ -1,7 +1,7 @@
 /* KHONCHAIHERB Commerce v1.30 — source-aware Koonchaishop social proof */
 (()=>{
   'use strict';
-  const BUILD='1.30.0';
+  const BUILD='1.30.1';
   const state={cache:new Map(),frame:0,lastView:'',lastProductId:0};
   const $=(s,r=document)=>r.querySelector(s);
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -27,9 +27,9 @@
   function assetMedia(asset){
     const media=safeHref(asset?.mediaUrl),poster=safeHref(asset?.posterUrl),type=String(asset?.type||'').toLowerCase(),title=esc(asset?.title||'สื่อจาก Koonchaishop');
     const imageLike=type==='image'||/\.(?:png|jpe?g|webp|gif|avif)(?:$|\?)/i.test(media);
-    const videoLike=type==='video'||/\.(?:mp4|webm|mov)(?:$|\?)/i.test(media);
+    const directVideo=/\.(?:mp4|webm)(?:$|\?)/i.test(media);
     if(media&&imageLike)return `<img src="${esc(media)}" alt="${title}" loading="lazy" decoding="async">`;
-    if(media&&videoLike)return `<video src="${esc(media)}" ${poster?`poster="${esc(poster)}"`:''} controls playsinline preload="metadata" aria-label="${title}"></video>`;
+    if(media&&directVideo)return `<video src="${esc(media)}" ${poster?`poster="${esc(poster)}"`:''} controls playsinline preload="metadata" aria-label="${title}"></video>`;
     if(poster)return `<img src="${esc(poster)}" alt="${title}" loading="lazy" decoding="async">`;
     return `<div class="kch-source-media-fallback"><span class="material-symbols-rounded">smart_display</span><b>ดูสื่อต้นฉบับจาก TikTok Shop</b></div>`;
   }
