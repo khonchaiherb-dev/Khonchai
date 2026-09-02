@@ -6,6 +6,7 @@ const actor=request=>({
   role:clean(request.headers.get('X-KCH-Staff-Role'),40),
   name:clean(request.headers.get('X-KCH-Staff-Name'),80)||'staff'
 });
+const MANAGE_ROLES=new Set(['owner','admin','operations','warehouse','finance']);
 
 function alertKey(type,id,reason){
   return `${type}:${String(id).replace(/[^a-zA-Z0-9._-]/g,'-')}:${reason}`.slice(0,180);
@@ -105,8 +106,9 @@ export async function onRequestGet({env}){
 export async function onRequestPost({request,env}){
   if(!sameOrigin(request))return json({error:'invalid_origin'},403);
   if(!env.DB)return json({error:'database_not_bound'},503);
-  if(!(await tableExists(env,'operational_alert_state')))return json({error:'operational_alert_state_not_ready'},503);
   const a=actor(request);if(!a.id)return json({error:'staff_session_required'},403);
+  if(!MANAGE_ROLES.has(a.role))return json({error:'permission_denied',permission:'operational_alert.manage'},403);
+  if(!(await tableExists(env,'operational_alert_state')))return json({error:'operational_alert_state_not_ready'},503);
   const body=await request.json().catch(()=>({})),key=clean(body.alertKey,180),action=clean(body.action,40),note=clean(body.note,500);
   if(!key||!['acknowledge','assign','resolve','reopen'].includes(action))return json({error:'invalid_alert_action'},400);
 
@@ -122,7 +124,7 @@ export async function onRequestPost({request,env}){
     await env.DB.prepare(`UPDATE operational_alert_state SET status=CASE WHEN status='resolved' THEN status ELSE 'acknowledged' END,
       acknowledged_by=?,acknowledged_at=COALESCE(acknowledged_at,datetime('now')),note=COALESCE(?,note),updated_at=datetime('now') WHERE alert_key=?`).bind(a.id,note||null,key).run();
   }else if(action==='assign'){
-    let assignedTo=Number(body.assignedTo)||a.id;
+    const assignedTo=Number(body.assignedTo)||a.id;
     if(assignedTo!==a.id&&!['owner','admin'].includes(a.role))return json({error:'cannot_assign_other_staff'},403);
     const target=await env.DB.prepare("SELECT id,active FROM staff_users WHERE id=?").bind(assignedTo).first();
     if(!target||!Number(target.active))return json({error:'assigned_staff_not_active'},409);
@@ -135,7 +137,7 @@ export async function onRequestPost({request,env}){
     await env.DB.prepare(`UPDATE operational_alert_state SET status='open',resolved_by=NULL,resolved_at=NULL,note=COALESCE(?,note),updated_at=datetime('now') WHERE alert_key=?`).bind(note||null,key).run();
   }
 
-  await env.DB.prepare("INSERT INTO audit_logs(actor_type,actor_id,action,entity_type,entity_id,metadata_json) VALUES('staff',?,'operational_alert.'||?, ?, ?, ?)")
+  await env.DB.prepare("INSERT INTO audit_logs(actor_type,actor_id,action,entity_type,entity_id,metadata_json) VALUES('staff',?,'operational_alert.'||?,?,?,?)")
     .bind(a.name,action,current.entityType,current.entityId,JSON.stringify({alertKey:key,note:note||null,assignedTo:Number(body.assignedTo)||null}).slice(0,4000)).run().catch(()=>{});
   await securityEvent(env,{staffUserId:a.id,eventType:`operational_alert_${action}`,route:'/api/admin/operational-alerts',method:'POST',statusCode:200,detail:{alertKey:key,entityType:current.entityType,entityId:current.entityId}});
   return json({ok:true,action,alertKey:key});
