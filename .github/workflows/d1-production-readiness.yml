@@ -31,12 +31,18 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          text=Path('.github/workflows/d1-production-readiness.yml').read_text()
-          forbidden=['INSERT INTO','UPDATE ','DELETE FROM','DROP TABLE','ALTER TABLE','--file=']
-          body=text.split('Confirm read-only contract',1)[1]
-          for token in forbidden:
-            assert token not in body, f'forbidden mutation token in readiness workflow: {token}'
-          print('Read-only workflow contract passed')
+          lines=Path('.github/workflows/d1-production-readiness.yml').read_text().splitlines()
+          queries=[line.strip() for line in lines if line.strip().startswith('QUERY=')]
+          commands=[line.strip() for line in lines if 'wrangler@latest d1 execute' in line]
+          assert queries, 'readiness workflow must define at least one query'
+          assert commands, 'readiness workflow must execute at least one D1 query'
+          for query in queries:
+            assert query.startswith('QUERY="SELECT '), f'non-read-only query definition: {query}'
+          for command in commands:
+            assert '--remote' in command, f'readiness command must target remote D1: {command}'
+            assert '--command="$QUERY"' in command, f'readiness command must execute the validated SELECT query variable: {command}'
+            assert '--file=' not in command, f'readiness workflow must never apply a migration file: {command}'
+          print(f'Read-only workflow contract passed: {len(queries)} SELECT queries, {len(commands)} remote executions')
           PY
 
       - name: Check Cloudflare credentials
