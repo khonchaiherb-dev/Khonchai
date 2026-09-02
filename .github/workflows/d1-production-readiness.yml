@@ -33,7 +33,7 @@ jobs:
           from pathlib import Path
           lines=Path('.github/workflows/d1-production-readiness.yml').read_text().splitlines()
           queries=[line.strip() for line in lines if line.strip().startswith('QUERY=')]
-          commands=[line.strip() for line in lines if 'wrangler@latest d1 execute' in line]
+          commands=[line.strip() for line in lines if line.strip().startswith('npx --yes wrangler@latest d1 execute')]
           assert queries, 'readiness workflow must define at least one query'
           assert commands, 'readiness workflow must execute at least one D1 query'
           for query in queries:
