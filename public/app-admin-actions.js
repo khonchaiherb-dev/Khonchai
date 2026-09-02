@@ -4,8 +4,8 @@
 /* Critical customer safeguards run synchronously with the storefront shell.
    They must not depend on asynchronously fetched hardening layers. */
 (()=>{
-  if(typeof document==='undefined'||window.__KCH_CRITICAL_STOREFRONT__==='1.21.2')return;
-  window.__KCH_CRITICAL_STOREFRONT__='1.21.2';
+  if(typeof document==='undefined'||window.__KCH_CRITICAL_STOREFRONT__==='1.21.3')return;
+  window.__KCH_CRITICAL_STOREFRONT__='1.21.3';
   const head=document.head||document.documentElement;
   const style=document.createElement('style');
   style.id='kch-critical-storefront-style';
@@ -32,7 +32,7 @@
   }
   ensureStoreStructuredData();
 
-  let frame=0,searchQuery='';
+  let frame=0,searchQuery=String(document.querySelector('.tshop-searchbox input')?.value||'');
   const schedule=()=>{if(frame)return;frame=requestAnimationFrame(run)};
   function neutralize(){
     document.querySelectorAll('span,small,b,strong,h2,h3,button,option,a').forEach(el=>{
@@ -44,7 +44,14 @@
     });
     document.querySelectorAll('.rating').forEach(el=>{if(/(?:^|\s)0(?:\.0)?(?:\s|$)/.test(el.textContent||''))el.remove()});
   }
+  function syncSearchQueryFromDom(){
+    const input=document.querySelector('.tshop-searchbox input');
+    if(!input)return;
+    const domValue=String(input.value||'');
+    if(domValue||!searchQuery)searchQuery=domValue;
+  }
   function search(){
+    syncSearchQueryFromDom();
     const q=String(searchQuery||'').trim().toLowerCase();
     document.querySelectorAll('.kch-master-product').forEach(card=>{
       const name=String(card.dataset.kchName||card.querySelector('h3')?.textContent||'').toLowerCase();
@@ -59,9 +66,9 @@
   }
   function run(){frame=0;ensureStoreStructuredData();neutralize();search();document.querySelectorAll('[data-go="seller"]').forEach(el=>el.remove())}
 
-  // On the approved Master Storefront this is the single authoritative text-search
-  // handler. A persistent data attribute keeps the result authoritative even when
-  // a legacy mobile renderer later rewrites hidden/class/aria-hidden attributes.
+  // On the approved Master Storefront this is the authoritative early text-search
+  // safeguard. It adopts the live input value so asynchronously loaded hardening
+  // code cannot reset an already active mobile search back to an empty query.
   document.addEventListener('input',event=>{
     if(!event.target?.matches?.('.tshop-searchbox input'))return;
     searchQuery=String(event.target.value||'');
@@ -80,6 +87,7 @@
     queueMicrotask(search);
   },true);
   const root=document.getElementById('app');if(root)new MutationObserver(schedule).observe(root,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['hidden','class','style','aria-hidden']});
+  syncSearchQueryFromDom();
   schedule();
 })();
 
@@ -115,7 +123,7 @@ if(kchPublicRoot)new MutationObserver(()=>document.querySelectorAll('[data-go="s
   addCss('/tshop-v119.css?v=1.19.0','kch-v119');
   addCss('/tshop-v120.css?v=1.20.0','kch-v120');
   const boot=()=>{
-    addScript('/kch-production-guard.js?v=1.21.1','kch-production-guard');
+    addScript('/kch-production-guard.js?v=1.21.2','kch-production-guard');
     addScript('/tshop-v119.js?v=1.19.0','kch-v119',()=>addScript('/tshop-v120.js?v=1.20.0','kch-v120'));
   };
   if(document.readyState==='complete')boot();else window.addEventListener('load',boot,{once:true});
