@@ -1,0 +1,88 @@
+name: KHONCHAIHERB Production D1 Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      migration:
+        description: Migration file to apply
+        required: true
+        type: choice
+        options:
+          - 0019_inventory_fefo.sql
+      confirmation:
+        description: Type APPLY-PRODUCTION-D1 to confirm
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: khonchaiherb-production-d1-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Apply guarded production D1 migration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      DATABASE_NAME: khonchaiherb-commerce
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Validate explicit production confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ inputs.confirmation }}" = "APPLY-PRODUCTION-D1" || {
+            echo "Production migration confirmation did not match."
+            exit 1
+          }
+          test -f "db/migrations/${{ inputs.migration }}" || {
+            echo "Migration file not found."
+            exit 1
+          }
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "Cloudflare credentials are required."
+            exit 1
+          fi
+
+      - name: Validate migration against a disposable SQLite database
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import sqlite3
+          from pathlib import Path
+          db=sqlite3.connect(':memory:')
+          files=sorted(Path('db/migrations').glob('*.sql'))
+          target='${{ inputs.migration }}'
+          for f in files:
+            db.executescript(f.read_text())
+            if f.name==target:
+              break
+          if target=='0019_inventory_fefo.sql':
+            tables={r[0] for r in db.execute("select name from sqlite_master where type='table'")}
+            assert 'inventory_lot_allocations' in tables
+            cols={r[1] for r in db.execute("pragma table_info('inventory_lots')")}
+            assert {'lot_code','manufactured_at','quarantined','quarantine_note','updated_at'} <= cols
+          print('Migration validation passed:',target)
+          PY
+
+      - name: Apply selected migration to remote production D1
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --file="db/migrations/${{ inputs.migration }}"
+
+      - name: Verify production FEFO schema
+        if: ${{ inputs.migration == '0019_inventory_fefo.sql' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="SELECT name FROM sqlite_master WHERE type='table' AND name='inventory_lot_allocations';"
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA table_info('inventory_lots');"
