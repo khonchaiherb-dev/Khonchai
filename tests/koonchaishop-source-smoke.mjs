@@ -45,7 +45,7 @@ assert.match(d1Readiness,/name: Read-only remote D1 readiness/,'production readi
 const readinessQueries=[...d1Readiness.matchAll(/QUERY="([^"]+)"/g)].map(m=>m[1]);
 assert.ok(readinessQueries.length>=2,'readiness workflow must inspect both schema and source registration');
 for(const query of readinessQueries)assert.match(query,/^SELECT\s/i,'all remote readiness queries must be SELECT-only');
-const readinessCommands=d1Readiness.split('\n').filter(line=>line.includes('wrangler@latest d1 execute'));
+const readinessCommands=d1Readiness.split('\n').map(line=>line.trim()).filter(line=>line.startsWith('npx --yes wrangler@latest d1 execute'));
 assert.ok(readinessCommands.length>=2,'readiness workflow must run remote D1 inspections');
 for(const command of readinessCommands){assert.match(command,/--remote/,'readiness checks must target remote D1');assert.match(command,/--command="\$QUERY"/,'readiness checks must execute the validated SELECT query variable');assert.doesNotMatch(command,/--file=/,'readiness workflow must never apply a migration file')}
 assert.match(d1Readiness,/THLCRLWLHR/,'readiness workflow must verify the authorized Koonchaishop shop code');
