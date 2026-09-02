@@ -1,11 +1,11 @@
-/* KHONCHAIHERB production storefront guard v1.21.1 — verified claims + authoritative master discovery + premium polish */
+/* KHONCHAIHERB production storefront guard v1.21.2 — verified claims + authoritative master discovery + premium polish */
 (()=>{
-  if(typeof window==='undefined'||window.__KCH_PRODUCTION_GUARD__==='1.21.1')return;
-  window.__KCH_PRODUCTION_GUARD__='1.21.1';
+  if(typeof window==='undefined'||window.__KCH_PRODUCTION_GUARD__==='1.21.2')return;
+  window.__KCH_PRODUCTION_GUARD__='1.21.2';
 
   let frame=0;
-  let searchQuery='';
-  let lastSearchInput=null;
+  let searchQuery=String(document.querySelector?.('.tshop-searchbox input')?.value||'');
+  let lastSearchInput=document.querySelector?.('.tshop-searchbox input')||null;
 
   const catalog=()=>{try{return Array.isArray(PRODUCTS)?PRODUCTS:[]}catch{return []}};
   const productBySlug=slug=>catalog().find(p=>String(p?.slug||'')===String(slug||''))||null;
@@ -139,6 +139,14 @@
     return empty;
   }
 
+  function syncSearchQueryFromDom(){
+    const input=document.querySelector('.tshop-searchbox input');
+    if(!input)return;
+    const domValue=String(input.value||'');
+    if(domValue||!searchQuery)searchQuery=domValue;
+    lastSearchInput=input;
+  }
+
   function syncSearchCount(main,visible,total){
     const finder=main?.querySelector('.kch-master-finder');
     if(!finder)return;
@@ -159,6 +167,7 @@
     const main=document.querySelector('.kch-master-home');
     const grid=main?.querySelector('.kch-master-products');
     if(!main||!grid)return;
+    syncSearchQueryFromDom();
     const q=text(searchQuery);
     const cards=masterCards();
     let visible=0;
@@ -167,6 +176,7 @@
       const cat=text(card.dataset.kchCat);
       const slug=text(card.dataset.product);
       const show=!q||name.includes(q)||cat.includes(q)||slug.includes(q);
+      card.dataset.kchSearchMatch=show?'1':'0';
       card.hidden=!show;
       card.classList.toggle('kch-search-hidden',!show);
       card.setAttribute('aria-hidden',String(!show));
@@ -228,10 +238,10 @@
   const root=document.getElementById('app');
   if(root)new MutationObserver(schedule).observe(root,{childList:true,subtree:true,characterData:true});
   window.addEventListener('load',()=>{
-    const input=document.querySelector('.tshop-searchbox input');
-    if(input)searchQuery=String(input.value||'');
+    syncSearchQueryFromDom();
     schedule();
   },{once:true});
   ensureGuardStyle();
+  syncSearchQueryFromDom();
   schedule();
 })();
