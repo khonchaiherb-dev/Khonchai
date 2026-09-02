@@ -148,7 +148,7 @@ if(kchPublicRoot)new MutationObserver(()=>document.querySelectorAll('[data-go="s
   const boot=()=>{
     addScript('/kch-production-guard.js?v=1.21.3','kch-production-guard');
     addScript('/kch-footer-premium.js?v=2.0.0','kch-footer-v2');
-    addScript('/kch-future-standard.js?v=1.28.1','kch-future-standard');
+    addScript('/kch-future-standard.js?v=1.29.0','kch-future-standard');
     addScript('/tshop-v119.js?v=1.19.0','kch-v119',()=>addScript('/tshop-v120.js?v=1.20.0','kch-v120'));
   };
   if(document.readyState==='complete')boot();else window.addEventListener('load',boot,{once:true});
