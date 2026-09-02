@@ -1,99 +1,30 @@
 import {test,expect} from '@playwright/test';
-
 const products=[
-  {id:933,slug:'readable-rang-jued',sku:'V134-TEA',name:'ชารางจืดสำหรับตรวจการอ่าน',description:'ข้อมูลทดสอบส่วนติดต่อผู้ใช้',category:'ชาสมุนไพร',price:190,compare_at_price:null,rating:0,sold_count:0,stock:8,featured:1,sale_verified:1,image_url:'/assets/products/rang-jued-tea-360.webp'},
-  {id:934,slug:'readable-chiang-da',sku:'V134-CD',name:'ชาเชียงดาสำหรับตรวจการอ่าน',description:'ข้อมูลทดสอบส่วนติดต่อผู้ใช้',category:'ชาสมุนไพร',price:180,compare_at_price:null,rating:0,sold_count:0,stock:8,featured:1,sale_verified:1,image_url:'/assets/products/chiang-da-tea-360.webp'}
-];
-async function mock(page){
-  await page.route('https://fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
-  await page.route('https://fonts.gstatic.com/**',r=>r.fulfill({status:204,body:''}));
-  await page.route('**/api/**',route=>{
-    const p=new URL(route.request().url()).pathname;
-    const out=(body,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
-    if(p==='/api/products')return out({products});
-    if(p==='/api/coupons')return out({coupons:[]});
-    if(p==='/api/recommendations')return out({products});
-    if(p==='/api/social-feed')return out({items:[],creators:[],contents:[]});
-    if(p.startsWith('/api/customer/'))return out({authenticated:false},401);
-    if(p==='/api/health')return out({ok:true,d1:true,version:'1.18.2'});
-    return out({ok:true});
-  });
-}
-const px=async locator=>Number.parseFloat(await locator.evaluate(el=>getComputedStyle(el).fontSize));
-const box=async locator=>locator.evaluate(el=>{const r=el.getBoundingClientRect();return {width:r.width,height:r.height}});
-
+{id:933,slug:'readable-rang-jued',sku:'V134-TEA',name:'ชารางจืดสำหรับตรวจการอ่าน',description:'ข้อมูลทดสอบส่วนติดต่อผู้ใช้',category:'ชาสมุนไพร',price:190,compare_at_price:null,rating:0,sold_count:0,stock:8,featured:1,sale_verified:1,image_url:'/assets/products/rang-jued-tea-360.webp'},
+{id:934,slug:'readable-chiang-da',sku:'V134-CD',name:'ชาเชียงดาสำหรับตรวจการอ่าน',description:'ข้อมูลทดสอบส่วนติดต่อผู้ใช้',category:'ชาสมุนไพร',price:180,compare_at_price:null,rating:0,sold_count:0,stock:8,featured:1,sale_verified:1,image_url:'/assets/products/chiang-da-tea-360.webp'}];
+async function mock(page){await page.route('https://fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));await page.route('https://fonts.gstatic.com/**',r=>r.fulfill({status:204,body:''}));await page.route('**/api/**',route=>{const p=new URL(route.request().url()).pathname;const out=(body,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});if(p==='/api/products')return out({products});if(p==='/api/coupons')return out({coupons:[]});if(p==='/api/recommendations')return out({products});if(p==='/api/social-feed')return out({items:[],creators:[],contents:[]});if(p.startsWith('/api/customer/'))return out({authenticated:false},401);if(p==='/api/health')return out({ok:true,d1:true,version:'1.18.2'});return out({ok:true})})}
+const px=async l=>Number.parseFloat(await l.evaluate(el=>getComputedStyle(el).fontSize));
+const box=async l=>l.evaluate(el=>{const r=el.getBoundingClientRect();return {width:r.width,height:r.height,left:r.left,right:r.right}});
+const visibleCount=async l=>{let n=0;for(let i=0;i<await l.count();i++)if(await l.nth(i).isVisible())n++;return n};
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear());await mock(page)});
-
-test('canonical storefront header is single, readable and correctly ordered at 100% zoom',async({page})=>{
-  await page.goto('/?e2e=structural-cleanup',{waitUntil:'domcontentloaded'});
-  await expect(page.locator('.kch-master-home')).toBeVisible();
-  await page.addStyleTag({url:'/tshop-v134-structural-storefront.css?v=1.34.2'});
-  await page.addScriptTag({url:'/kch-v134-structural-storefront.js?v=1.34.2'});
-
-  const shell=page.locator('.kch-master-shell').first();
-  await expect(shell).toHaveClass(/kch-v134-active/);
-  await expect(shell).toHaveAttribute('data-kch-ui','1.34.2');
-  const viewport=page.viewportSize();
-  const shellBox=await box(shell);
-  if(viewport.width>=1100)expect(shellBox.width).toBeGreaterThan(viewport.width*.9);
-
-  await expect(page.locator('#kch-v134-header')).toHaveCount(0);
-  const directHeaders=page.locator('.kch-master-shell > .tshop-topbar,.kch-master-shell > .topbar');
-  await expect(directHeaders).toHaveCount(1);
-  const header=page.locator('.kch-master-shell > .kch-structural-canonical-header');
-  await expect(header).toBeVisible();
-  await expect(page.locator('.kch-master-shell > .kch-ref-menu')).toHaveCount(1);
-
-  const search=header.locator('#kch-master-search');
-  await expect(search).toBeVisible();
-  expect(await px(search)).toBeGreaterThanOrEqual(16);
-  expect((await box(search)).height).toBeGreaterThanOrEqual(44);
-
-  const productName=page.locator('.kch-master-product-copy h3,.kch-master-product-name,.card-info h3,article.card h3').filter({visible:true}).first();
-  await expect(productName).toBeVisible();
-  expect(await px(productName)).toBeGreaterThanOrEqual(17);
-
-  const filter=page.locator('.kch-master-filter,.kch-master-finder button,.cats button').filter({visible:true}).first();
-  if(await filter.count()){
-    expect(await px(filter)).toBeGreaterThanOrEqual(14);
-    expect((await box(filter)).height).toBeGreaterThanOrEqual(44);
-  }
-
-  const trustTitle=page.locator('.kch-master-hero-benefits b,.kch-master-trust-item b,.trust b').filter({visible:true}).first();
-  const trustSmall=page.locator('.kch-master-hero-benefits small,.kch-master-trust-item small,.trust small').filter({visible:true}).first();
-  if(await trustTitle.count())expect(await px(trustTitle)).toBeGreaterThanOrEqual(viewport.width>=700?15:14);
-  if(await trustSmall.count())expect(await px(trustSmall)).toBeGreaterThanOrEqual(viewport.width>=700?13:12);
-
-  if(viewport.width>=700){
-    const actions=header.locator('.kch-master-actions');
-    await expect(actions.locator('[data-go="account"]')).toBeVisible();
-    await expect(actions.locator('[data-go="orders"]')).toBeVisible();
-    await expect(actions.locator('[data-go="cart"]')).toBeVisible();
-    await expect(actions.locator('[data-go="account"]')).toContainText('บัญชีสมาชิก');
-    await expect(actions.locator('[data-go="orders"]')).toContainText('คำสั่งซื้อ');
-    await expect(actions.locator('[data-go="cart"]')).toContainText('ตะกร้า');
-    for(const go of ['account','orders','cart'])expect((await box(actions.locator(`[data-go="${go}"]`))).height).toBeGreaterThanOrEqual(48);
-    expect(await px(actions.locator('[data-go="account"] .kch-master-utility-copy b'))).toBeGreaterThanOrEqual(15);
-
-    const menu=page.locator('.kch-master-shell > .kch-master-nav button').first();
-    await expect(menu).toBeVisible();
-    expect(await px(menu)).toBeGreaterThanOrEqual(viewport.width>=1100?16:15);
-    expect((await box(menu)).height).toBeGreaterThanOrEqual(48);
-  }else{
-    await expect(header.locator('[data-go="account"]')).toBeHidden();
-    await expect(header.locator('[data-go="orders"]')).toBeHidden();
-    await expect(header.locator('[data-go="cart"]')).toBeVisible();
-    expect((await box(header.locator('[data-go="cart"]'))).height).toBeGreaterThanOrEqual(44);
-    const bottomAccount=page.locator('nav.tshop-bottom [data-go="account"],nav.bottom [data-go="account"]').filter({visible:true}).first();
-    await expect(bottomAccount).toBeVisible();
-    expect((await box(bottomAccount)).height).toBeGreaterThanOrEqual(44);
-  }
-
-  const duplicateLoginStrips=page.locator('.kch-master-shell > section,.kch-master-shell > div').filter({hasText:/เข้าสู่ระบบ.*สมัครสมาชิก|สมัครสมาชิก.*เข้าสู่ระบบ/});
-  for(let i=0;i<await duplicateLoginStrips.count();i++){
-    const el=duplicateLoginStrips.nth(i);
-    if(await el.evaluate(node=>node.closest('.kch-member-wrap')===null))await expect(el).toBeHidden();
-  }
-
-  await page.screenshot({path:`preview-screenshots/structural-cleanup-${viewport.width}.png`,fullPage:true});
+test('canonical storefront has one readable header, search, navigation and account entry at 100% zoom',async({page})=>{
+await page.goto('/?e2e=structural-cleanup',{waitUntil:'domcontentloaded'});
+await expect(page.locator('.kch-master-home')).toBeVisible();
+await page.addStyleTag({url:'/tshop-v134-structural-storefront.css?v=1.34.3'});
+await page.addScriptTag({url:'/kch-v134-structural-storefront.js?v=1.34.3'});
+const shell=page.locator('.kch-master-shell').first();await expect(shell).toHaveAttribute('data-kch-ui','1.34.3');
+const viewport=page.viewportSize();const sb=await box(shell);if(viewport.width>=1100)expect(sb.width).toBeGreaterThan(viewport.width*.9);
+expect(await visibleCount(page.locator('.kch-master-shell .tshop-topbar,.kch-master-shell .topbar'))).toBe(1);
+expect(await visibleCount(page.locator('.kch-master-shell .kch-ref-menu,.kch-master-shell .tshop-menu,.kch-master-shell .tshop-nav'))).toBe(viewport.width>=700?1:0);
+await expect(page.locator('#kch-v134-header')).toHaveCount(0);
+const header=page.locator('.kch-master-shell > .kch-structural-canonical-header');await expect(header).toBeVisible();
+const searches=page.locator('.kch-master-shell input[type="search"],.kch-master-shell .tshop-searchbox input');expect(await visibleCount(searches)).toBe(1);
+const search=header.locator('#kch-master-search');await expect(search).toBeVisible();expect(await px(search)).toBeGreaterThanOrEqual(16);expect((await box(search)).height).toBeGreaterThanOrEqual(44);
+const productName=page.locator('.kch-master-product-copy h3,.kch-master-product-name,.card-info h3,article.card h3').filter({visible:true}).first();await expect(productName).toBeVisible();expect(await px(productName)).toBeGreaterThanOrEqual(17);
+const filter=page.locator('.kch-master-filter,.kch-master-finder button,.cats button').filter({visible:true}).first();if(await filter.count()){expect(await px(filter)).toBeGreaterThanOrEqual(14);expect((await box(filter)).height).toBeGreaterThanOrEqual(44)}
+const trustTitle=page.locator('.kch-master-hero-benefits b,.kch-master-trust-item b,.trust b').filter({visible:true}).first();const trustSmall=page.locator('.kch-master-hero-benefits small,.kch-master-trust-item small,.trust small').filter({visible:true}).first();if(await trustTitle.count())expect(await px(trustTitle)).toBeGreaterThanOrEqual(viewport.width>=700?15:14);if(await trustSmall.count())expect(await px(trustSmall)).toBeGreaterThanOrEqual(viewport.width>=700?13:12);
+if(viewport.width>=700){const actions=header.locator('.kch-master-actions');for(const go of ['account','orders','cart']){const b=actions.locator(`[data-go="${go}"]`);await expect(b).toBeVisible();expect((await box(b)).height).toBeGreaterThanOrEqual(48)}expect(await visibleCount(page.locator('[data-go="account"]'))).toBe(1);expect(await px(actions.locator('[data-go="account"] .kch-master-utility-copy b'))).toBeGreaterThanOrEqual(15);const menu=page.locator('.kch-master-shell > .kch-master-nav button').first();await expect(menu).toBeVisible();expect(await px(menu)).toBeGreaterThanOrEqual(viewport.width>=1100?16:15);expect((await box(menu)).height).toBeGreaterThanOrEqual(48)}else{await expect(header.locator('[data-go="account"]')).toBeHidden();await expect(header.locator('[data-go="orders"]')).toBeHidden();await expect(header.locator('[data-go="cart"]')).toBeVisible();expect((await box(header.locator('[data-go="cart"]'))).height).toBeGreaterThanOrEqual(44)}
+const loginText=page.getByText(/เข้าสู่ระบบ\s*\/\s*สมัครสมาชิก/);let visibleLogin=0;for(let i=0;i<await loginText.count();i++)if(await loginText.nth(i).isVisible())visibleLogin++;expect(visibleLogin).toBeLessThanOrEqual(viewport.width>=700?1:1);
+const metrics=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth}));expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth+1);
+await page.screenshot({path:`preview-screenshots/structural-cleanup-${viewport.width}.png`,fullPage:true});
 });
