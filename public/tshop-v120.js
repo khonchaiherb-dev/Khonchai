@@ -7,7 +7,6 @@
   const catalog=()=>{try{return Array.isArray(PRODUCTS)?PRODUCTS:[]}catch{return []}};
   const productBySlug=s=>catalog().find(p=>String(p?.slug||'')===String(s||''));
   const ready=p=>Boolean(p)&&!demo(p)&&Number(p.price||0)>0&&Number(p.stock||0)>0&&!p.comingSoon&&Boolean(String(p.image||p.image_url||'').trim());
-  const escHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   function sanitizeClaims(){
     document.querySelectorAll('span,small,b,strong,h2,h3,button,option,a').forEach(el=>{
@@ -18,21 +17,15 @@
       else if(t==='ขายดี'||t==='ฮิต'||t==='คนซื้อเยอะ')el.textContent='แนะนำ';
     });
     document.querySelectorAll('.rating').forEach(el=>{if(/0(?:\.0)?/.test(el.textContent||''))el.remove()});
-    document.querySelectorAll('.kch-master-newsletter').forEach(section=>{
-      const functional=Boolean(section.querySelector('form[action],a[href^="https://"],a[href^="http://"]'));
-      if(!functional)section.hidden=true;
-    });
+    document.querySelectorAll('.kch-master-newsletter').forEach(section=>{const functional=Boolean(section.querySelector('form[action],a[href^="https://"],a[href^="http://"]'));if(!functional)section.hidden=true});
   }
 
   function cardStatus(){
     document.querySelectorAll('.kch-master-product[data-product],.tshop-card[data-product]').forEach(card=>{
       const p=productBySlug(card.dataset.product);if(!ready(p)){card.classList.remove('v120-ready-card');card.querySelector('.v120-card-status')?.remove();return}
-      card.classList.add('v120-ready-card');
-      if(card.querySelector('.v120-card-status'))return;
+      card.classList.add('v120-ready-card');if(card.querySelector('.v120-card-status'))return;
       const anchor=card.querySelector('h3,.name,.tshop-name');if(!anchor)return;
-      const row=document.createElement('div');row.className='v120-card-status';
-      row.innerHTML='<span><span class="material-symbols-rounded">inventory_2</span>พร้อมสั่งซื้อ</span><small>ข้อมูลจากร้าน</small>';
-      anchor.insertAdjacentElement('afterend',row);
+      const row=document.createElement('div');row.className='v120-card-status';row.innerHTML='<span><span class="material-symbols-rounded">inventory_2</span>พร้อมสั่งซื้อ</span><small>ข้อมูลจากร้าน</small>';anchor.insertAdjacentElement('afterend',row);
     });
   }
 
@@ -54,14 +47,16 @@
       el.innerHTML='<div><span class="material-symbols-rounded">price_check</span><span><b>ตรวจยอดอีกครั้ง</b><small>เซิร์ฟเวอร์ยืนยันราคา สต็อก ค่าจัดส่ง และส่วนลดก่อนสร้างออเดอร์</small></span></div><div><span class="material-symbols-rounded">payments</span><span><b>COD เมื่อเข้าเงื่อนไข</b><small>ชำระเมื่อได้รับสินค้าโดยไม่ต้องโอนก่อน</small></span></div><div><span class="material-symbols-rounded">receipt_long</span><span><b>มีหลักฐานหลังชำระ</b><small>ใบเสร็จเชื่อมกับสถานะการรับชำระของคำสั่งซื้อ</small></span></div>';
       if(payment)payment.insertAdjacentElement('afterend',el);else page.prepend(el);
     }
-    const place=page.querySelector('[data-place]');if(place&&!page.querySelector('.v120-checkout-final')){
-      const n=document.createElement('div');n.className='v120-checkout-final';n.textContent='ก่อนยืนยัน โปรดตรวจชื่อผู้รับ ที่อยู่ เบอร์โทรศัพท์ รายการสินค้า และยอดชำระให้ครบถ้วน';place.insertAdjacentElement('beforebegin',n);
-    }
+    const place=page.querySelector('[data-place]');if(place&&!page.querySelector('.v120-checkout-final')){const n=document.createElement('div');n.className='v120-checkout-final';n.textContent='ก่อนยืนยัน โปรดตรวจชื่อผู้รับ ที่อยู่ เบอร์โทรศัพท์ รายการสินค้า และยอดชำระให้ครบถ้วน';place.insertAdjacentElement('beforebegin',n)}
   }
 
+  function loadMember(){
+    if(document.querySelector('script[data-kch-member-ready]'))return;
+    const s=document.createElement('script');s.src='/kch-member-ready.js?v=1.0.0';s.async=false;s.dataset.kchMemberReady='1';(document.head||document.documentElement).appendChild(s);
+  }
   function run(){state.frame=0;sanitizeClaims();cardStatus();promise();checkoutTrust()}
   function schedule(){if(state.frame)return;state.frame=requestAnimationFrame(run)}
   const root=document.getElementById('app');if(root)new MutationObserver(schedule).observe(root,{childList:true,subtree:true,characterData:true});
   document.addEventListener('input',schedule,true);document.addEventListener('click',()=>setTimeout(schedule,0),true);
-  schedule();
+  loadMember();schedule();
 })();
