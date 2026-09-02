@@ -1,0 +1,352 @@
+/* KHONCHAIHERB v1.32.0 — conversion storefront refinement
+   Wider desktop canvas, shorter hero, clearer product commerce and stronger trust.
+   No fabricated ratings, sold counts or prices are introduced here. */
+
+:root{
+  --kch-v132-max:1760px;
+  --kch-v132-content:1500px;
+  --kch-v132-forest:#063b2d;
+  --kch-v132-forest-deep:#03291f;
+  --kch-v132-gold:#d8b45d;
+  --kch-v132-gold-soft:#f1d78e;
+  --kch-v132-paper:#fffdf8;
+  --kch-v132-cream:#f7f3e9;
+  --kch-v132-ink:#173e31;
+  --kch-v132-muted:#718078;
+}
+
+/* ---------- Desktop canvas: reduce empty side gutters ---------- */
+.shell.kch-master-shell.kch-v131.kch-v132{
+  width:min(calc(100% - 24px),var(--kch-v132-max))!important;
+  max-width:var(--kch-v132-max)!important;
+  margin-inline:auto!important;
+}
+.kch-master-home.kch-v131-home.kch-v132-home .kch-master-section,
+.kch-master-home.kch-v131-home.kch-v132-home .kch-master-trust-inner{
+  width:min(var(--kch-v132-content),calc(100% - 64px))!important;
+}
+.kch-master-home.kch-v131-home.kch-v132-home .kch-master-finder{
+  width:min(var(--kch-v132-content),calc(100% - 64px))!important;
+}
+
+/* ---------- Header: larger search, clearer brand and cart ---------- */
+.shell.kch-master-shell.kch-v132 .tshop-topbar.kch-master-topbar{
+  grid-template-columns:minmax(250px,.7fr) minmax(520px,1.65fr) minmax(280px,.75fr)!important;
+  gap:clamp(22px,2.5vw,42px)!important;
+  min-height:80px!important;
+  padding:11px clamp(34px,4.8vw,82px)!important;
+}
+.shell.kch-master-shell.kch-v132 .kch-brand-lockup b{
+  font-size:clamp(25px,1.65vw,31px)!important;
+}
+.shell.kch-master-shell.kch-v132 .kch-brand-lockup small{
+  font-size:10px!important;
+}
+.shell.kch-master-shell.kch-v132 .tshop-topbar .tshop-searchbox{
+  min-height:50px!important;
+  border-radius:15px!important;
+  background:rgba(255,255,255,.12)!important;
+  border-color:rgba(240,214,150,.34)!important;
+}
+.shell.kch-master-shell.kch-v132 .tshop-topbar .tshop-searchbox input{
+  font-size:14.5px!important;
+}
+.shell.kch-master-shell.kch-v132 .tshop-topbar .tshop-icon{
+  min-height:46px!important;
+  font-size:11.5px!important;
+}
+.shell.kch-master-shell.kch-v132 .kch-v132-cart-action{
+  min-width:112px!important;
+  justify-content:center!important;
+  padding:0 14px!important;
+  border:1px solid rgba(238,208,132,.36)!important;
+  border-radius:13px!important;
+  background:rgba(255,255,255,.075)!important;
+}
+.shell.kch-master-shell.kch-v132 .kch-ref-menu{
+  top:80px!important;
+  min-height:52px!important;
+  gap:clamp(26px,3vw,50px)!important;
+}
+.shell.kch-master-shell.kch-v132 .kch-ref-menu button{
+  min-height:52px!important;
+  font-size:12px!important;
+}
+
+/* ---------- Hero: 10–15% shorter and denser ---------- */
+.kch-master-home.kch-v132-home .kch-master-hero{
+  grid-template-columns:minmax(0,.92fr) minmax(520px,1.08fr)!important;
+  gap:clamp(26px,3.4vw,54px)!important;
+  min-height:365px!important;
+  padding:30px clamp(46px,5vw,86px) 26px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-hero-copy{
+  max-width:690px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-hero h1{
+  font-size:clamp(38px,3.3vw,50px)!important;
+  line-height:1.1!important;
+}
+.kch-master-home.kch-v132-home .kch-master-tagline{
+  margin-top:13px!important;
+  font-size:15.5px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-desc{
+  margin-top:7px!important;
+  font-size:12.5px!important;
+  line-height:1.62!important;
+}
+.kch-master-home.kch-v132-home .kch-master-hero-actions{
+  margin-top:17px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-stage{
+  min-height:246px!important;
+  gap:11px!important;
+  padding:6px 0 10px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-stage:before{
+  height:50px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-showcase,
+.kch-master-home.kch-v132-home .kch-master-showcase:nth-child(2),
+.kch-master-home.kch-v132-home .kch-master-showcase:nth-child(3){
+  aspect-ratio:4/5!important;
+  min-height:0!important;
+  height:auto!important;
+  padding:8px!important;
+  border-radius:16px!important;
+  grid-template-rows:minmax(0,1fr) auto!important;
+}
+.kch-master-home.kch-v132-home .kch-master-showcase img{
+  min-height:0!important;
+}
+.kch-v132-hero-meta{
+  display:grid!important;
+  gap:2px!important;
+  padding:7px 5px 3px!important;
+  color:var(--kch-v132-ink)!important;
+  text-align:left!important;
+}
+.kch-v132-hero-meta b{font-size:11px!important;line-height:1.35!important}
+.kch-v132-hero-meta strong{font-size:14px!important;color:#0c573f!important}
+.kch-v132-hero-meta small{font-size:9px!important;color:#718078!important;line-height:1.35!important}
+.kch-master-home.kch-v132-home .kch-master-hero-benefits{
+  margin-top:5px!important;
+  padding-top:13px!important;
+  gap:15px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-hero-benefits .material-symbols-rounded{
+  width:40px!important;height:40px!important;flex-basis:40px!important;font-size:20px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-hero-benefits b{
+  font-size:12px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-hero-benefits small{
+  font-size:9.5px!important;
+}
+
+/* ---------- Quick categories: lighter and less admin-like ---------- */
+.kch-master-home.kch-v132-home .kch-master-finder{
+  margin:14px auto 0!important;
+  padding:12px 15px!important;
+  border-radius:17px!important;
+  box-shadow:0 10px 30px rgba(17,54,40,.07)!important;
+}
+.kch-master-home.kch-v132-home .kch-master-finder h2{
+  font-size:15px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-filter{
+  min-height:44px!important;
+  padding-inline:16px!important;
+  font-size:11.5px!important;
+  border-radius:999px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-filter .kch-v132-filter-icon{
+  margin-right:6px!important;
+  font-size:16px!important;
+  vertical-align:-3px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-reset{
+  display:none!important;
+}
+.kch-master-home.kch-v132-home .kch-master-finder.kch-v132-has-filter .kch-master-reset{
+  display:inline-flex!important;
+}
+
+/* ---------- Product cards: image smaller, commerce controls visible sooner ---------- */
+.kch-master-home.kch-v132-home .kch-master-products{
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr))!important;
+  gap:18px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-product{
+  display:flex!important;
+  flex-direction:column!important;
+  min-height:0!important;
+  border-radius:17px!important;
+  box-shadow:0 10px 28px rgba(24,59,45,.07)!important;
+}
+.kch-master-home.kch-v132-home .kch-master-product-media{
+  height:194px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-product-media img{
+  padding:11px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-product-copy{
+  display:flex!important;
+  flex:1 1 auto!important;
+  flex-direction:column!important;
+  padding:13px 14px 14px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-product-copy h3{
+  min-height:36px!important;
+  font-size:13px!important;
+  line-height:1.4!important;
+}
+.kch-master-home.kch-v132-home .kch-master-product-copy .meta{
+  font-size:9px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-product-bottom{
+  margin-top:7px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-price{
+  font-size:18px!important;
+}
+.kch-v132-card-cta{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:7px!important;
+  margin-top:11px!important;
+}
+.kch-v132-card-cta button{
+  width:100%!important;
+  min-height:42px!important;
+  border-radius:11px!important;
+  padding:0 12px!important;
+  font-size:11.5px!important;
+  font-weight:900!important;
+  cursor:pointer!important;
+}
+.kch-v132-card-cta .kch-v132-buy{
+  border:1px solid #0d5b43!important;
+  background:linear-gradient(135deg,#0d6046,#084634)!important;
+  color:#fff4d0!important;
+  box-shadow:0 8px 20px rgba(8,70,52,.14)!important;
+}
+.kch-v132-card-cta .kch-v132-detail{
+  border:1px solid #ded8ca!important;
+  background:#fffdf8!important;
+  color:#245441!important;
+}
+.kch-master-product[data-kch-v132-ready="0"] .kch-master-tag.soon{
+  background:#49675a!important;
+}
+.kch-v132-unready-note{
+  display:block!important;
+  margin-top:auto!important;
+  padding-top:7px!important;
+  color:#7a704f!important;
+  font-size:9.5px!important;
+  line-height:1.45!important;
+}
+
+/* ---------- Trust bar: make delivery/COD confidence readable ---------- */
+.kch-master-home.kch-v132-home .kch-master-trust-item{
+  gap:13px!important;
+  padding:20px 14px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-trust-item .material-symbols-rounded{
+  font-size:30px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-trust-item b{
+  font-size:12px!important;
+}
+.kch-master-home.kch-v132-home .kch-master-trust-item small{
+  font-size:9.5px!important;
+  line-height:1.45!important;
+}
+
+@media(min-width:1500px){
+  .kch-master-home.kch-v132-home .kch-master-product-media{height:210px!important}
+  .kch-master-home.kch-v132-home .kch-master-products{grid-template-columns:repeat(auto-fit,minmax(235px,1fr))!important}
+}
+
+@media(max-width:1180px){
+  .shell.kch-master-shell.kch-v132 .tshop-topbar.kch-master-topbar{
+    grid-template-columns:minmax(210px,.65fr) minmax(360px,1.45fr) auto!important;
+    gap:18px!important;
+    padding-inline:26px!important;
+  }
+  .kch-master-home.kch-v132-home .kch-master-hero{
+    grid-template-columns:minmax(0,1fr) minmax(410px,.95fr)!important;
+    padding-inline:38px!important;
+  }
+  .kch-master-home.kch-v132-home .kch-master-section,
+  .kch-master-home.kch-v132-home .kch-master-trust-inner,
+  .kch-master-home.kch-v132-home .kch-master-finder{
+    width:calc(100% - 42px)!important;
+  }
+}
+
+@media(max-width:899px){
+  .shell.kch-master-shell.kch-v131.kch-v132{
+    width:100%!important;
+    max-width:none!important;
+  }
+  .shell.kch-master-shell.kch-v132 .tshop-topbar.kch-master-topbar{
+    grid-template-columns:1fr auto!important;
+    grid-template-rows:auto auto!important;
+    min-height:auto!important;
+    padding:9px 14px 10px!important;
+  }
+  .shell.kch-master-shell.kch-v132 .tshop-topbar .tshop-searchbox{
+    min-height:47px!important;
+  }
+  .shell.kch-master-shell.kch-v132 .kch-v132-cart-action{
+    min-width:46px!important;
+    padding-inline:7px!important;
+  }
+  .shell.kch-master-shell.kch-v132 .kch-ref-menu{top:108px!important}
+  .kch-master-home.kch-v132-home .kch-master-hero{
+    grid-template-columns:1fr!important;
+    gap:17px!important;
+    min-height:0!important;
+    padding:25px 18px 22px!important;
+  }
+  .kch-master-home.kch-v132-home .kch-master-stage{
+    min-height:0!important;
+    padding-bottom:2px!important;
+  }
+  .kch-master-home.kch-v132-home .kch-master-hero-benefits{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  .kch-master-home.kch-v132-home .kch-master-section,
+  .kch-master-home.kch-v132-home .kch-master-trust-inner,
+  .kch-master-home.kch-v132-home .kch-master-finder{
+    width:calc(100% - 24px)!important;
+  }
+  .kch-master-home.kch-v132-home .kch-master-products{
+    display:grid!important;
+    grid-auto-flow:column!important;
+    grid-auto-columns:minmax(190px,68vw)!important;
+    grid-template-columns:none!important;
+    gap:10px!important;
+    overflow-x:auto!important;
+  }
+  .kch-master-home.kch-v132-home .kch-master-product-media{
+    height:176px!important;
+  }
+}
+
+@media(max-width:520px){
+  .shell.kch-master-shell.kch-v132 .kch-brand-lockup b{font-size:21px!important}
+  .kch-master-home.kch-v132-home .kch-master-hero{padding:22px 15px 19px!important}
+  .kch-master-home.kch-v132-home .kch-master-hero h1{font-size:32px!important}
+  .kch-master-home.kch-v132-home .kch-master-tagline{font-size:14px!important}
+  .kch-master-home.kch-v132-home .kch-master-desc{font-size:11px!important}
+  .kch-master-home.kch-v132-home .kch-master-hero-benefits b{font-size:10.5px!important}
+  .kch-master-home.kch-v132-home .kch-master-hero-benefits small{font-size:8.5px!important}
+  .kch-master-home.kch-v132-home .kch-master-filter{min-height:42px!important;padding-inline:13px!important}
+  .kch-master-home.kch-v132-home .kch-master-products{grid-auto-columns:minmax(180px,79vw)!important}
+  .kch-master-home.kch-v132-home .kch-master-product-media{height:166px!important}
+  .kch-v132-card-cta button{min-height:44px!important}
+}
