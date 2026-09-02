@@ -16,11 +16,12 @@ jobs:
   readiness:
     name: Read-only remote D1 readiness
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 7
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CONFIGURED_CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       DATABASE_NAME: khonchaiherb-commerce
+      DATABASE_ID: de66c3d3-0082-47ac-b956-58f9c12d13b1
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -33,47 +34,145 @@ jobs:
           from pathlib import Path
           lines=Path('.github/workflows/d1-production-readiness.yml').read_text().splitlines()
           queries=[line.strip() for line in lines if line.strip().startswith('QUERY=')]
-          commands=[line.strip() for line in lines if line.strip().startswith('npx --yes wrangler@latest d1 execute')]
+          executes=[line.strip() for line in lines if 'wrangler@latest d1 execute' in line and line.strip().startswith(('npx ','CLOUDFLARE_ACCOUNT_ID='))]
+          lists=[line.strip() for line in lines if 'wrangler@latest d1 list' in line and line.strip().startswith(('npx ','CLOUDFLARE_ACCOUNT_ID='))]
           assert queries, 'readiness workflow must define at least one query'
-          assert commands, 'readiness workflow must execute at least one D1 query'
+          assert executes, 'readiness workflow must execute at least one D1 query'
+          assert lists, 'readiness workflow must discover D1 access with a read-only list command'
           for query in queries:
             assert query.startswith('QUERY="SELECT '), f'non-read-only query definition: {query}'
-          for command in commands:
-            assert '--remote' in command, f'readiness command must target remote D1: {command}'
-            assert '--command="$QUERY"' in command, f'readiness command must execute the validated SELECT query variable: {command}'
+          for command in executes:
+            assert '--remote' in command, f'readiness execute must target remote D1: {command}'
+            assert '--command="$QUERY"' in command, f'readiness execute must use the validated SELECT variable: {command}'
             assert '--file=' not in command, f'readiness workflow must never apply a migration file: {command}'
-          print(f'Read-only workflow contract passed: {len(queries)} SELECT queries, {len(commands)} remote executions')
+          for command in lists:
+            assert '--json' in command, f'D1 discovery must use structured read-only list output: {command}'
+          print(f'Read-only workflow contract passed: {len(queries)} SELECT queries, {len(executes)} remote executes, {len(lists)} D1 list probes')
           PY
 
-      - name: Check Cloudflare credentials
+      - name: Check Cloudflare token
         id: credentials
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "### Production D1 readiness" >> "$GITHUB_STEP_SUMMARY"
-            echo "Cloudflare credentials are not available to this workflow." >> "$GITHUB_STEP_SUMMARY"
+            echo "### Production D1 readiness: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
+            echo "Cloudflare API token is not available to this workflow." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "available=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Inspect Koonchaishop schema on remote D1
+      - name: Resolve account that owns the configured D1 database
         if: steps.credentials.outputs.available == 'true'
+        id: account
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > account-candidates.txt
+          if [[ "$CONFIGURED_CF_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]]; then
+            printf '%s\n' "$CONFIGURED_CF_ACCOUNT_ID" >> account-candidates.txt
+          fi
+
+          set +e
+          env -u CLOUDFLARE_ACCOUNT_ID npx --yes wrangler@latest whoami --json > whoami.json 2>/dev/null
+          whoami_code=$?
+          set -e
+          if [ "$whoami_code" -eq 0 ]; then
+            python3 - <<'PY'
+          import json,re
+          from pathlib import Path
+          try:
+              data=json.loads(Path('whoami.json').read_text())
+          except Exception:
+              data={}
+          found=[]
+          def walk(value):
+              if isinstance(value,dict):
+                  for v in value.values(): walk(v)
+              elif isinstance(value,list):
+                  for v in value: walk(v)
+              elif isinstance(value,str) and re.fullmatch(r'[0-9a-fA-F]{32}',value):
+                  found.append(value)
+          walk(data)
+          with Path('account-candidates.txt').open('a') as f:
+              for value in found: f.write(value+'\n')
+          PY
+          fi
+
+          python3 - <<'PY'
+          from pathlib import Path
+          values=[]
+          for line in Path('account-candidates.txt').read_text().splitlines():
+              value=line.strip()
+              if value and value not in values: values.append(value)
+          Path('account-candidates.txt').write_text('\n'.join(values)+('\n' if values else ''))
+          PY
+
+          selected=''
+          while IFS= read -r candidate; do
+            [ -n "$candidate" ] || continue
+            echo "::add-mask::$candidate"
+            set +e
+            CLOUDFLARE_ACCOUNT_ID="$candidate" npx --yes wrangler@latest d1 list --json > d1-list.json 2>/dev/null
+            list_code=$?
+            set -e
+            if [ "$list_code" -ne 0 ]; then
+              continue
+            fi
+            if DATABASE_ID="$DATABASE_ID" DATABASE_NAME="$DATABASE_NAME" python3 - <<'PY'
+          import json,os,sys
+          from pathlib import Path
+          try:
+              data=json.loads(Path('d1-list.json').read_text())
+          except Exception:
+              sys.exit(1)
+          target_id=os.environ['DATABASE_ID'].lower()
+          target_name=os.environ['DATABASE_NAME']
+          rows=data if isinstance(data,list) else data.get('result',[]) if isinstance(data,dict) else []
+          for row in rows:
+              if not isinstance(row,dict): continue
+              rid=str(row.get('uuid') or row.get('id') or row.get('database_id') or '').lower()
+              name=str(row.get('name') or row.get('database_name') or '')
+              if rid==target_id or name==target_name:
+                  sys.exit(0)
+          sys.exit(1)
+          PY
+            then
+              selected="$candidate"
+              break
+            fi
+          done < account-candidates.txt
+
+          if [ -z "$selected" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "### Production D1 readiness: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
+            echo "The API token could not find or read the configured D1 database in any accessible account. Check Cloudflare Account ID and grant the token D1 Read permission." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "::add-mask::$selected"
+          echo "D1_ACCOUNT_ID=$selected" >> "$GITHUB_ENV"
+          echo "available=true" >> "$GITHUB_OUTPUT"
+          echo "### Cloudflare D1 account resolution: READY" >> "$GITHUB_STEP_SUMMARY"
+          echo "The workflow found an accessible account containing the configured KHONCHAIHERB D1 database without changing repository secrets." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Inspect Koonchaishop schema on remote D1
+        if: steps.account.outputs.available == 'true'
         id: schema
         shell: bash
         run: |
           set -uo pipefail
           QUERY="SELECT name FROM sqlite_master WHERE type='table' AND name IN ('commerce_sources','source_assets','source_reviews','source_product_links') ORDER BY name;"
           set +e
-          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="$QUERY" > d1-readiness.txt 2>&1
+          CLOUDFLARE_ACCOUNT_ID="$D1_ACCOUNT_ID" npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="$QUERY" > d1-readiness.txt 2>&1
           code=$?
           set -e
           cat d1-readiness.txt
           if [ "$code" -ne 0 ]; then
             echo "ready=unknown" >> "$GITHUB_OUTPUT"
             echo "### Production D1 readiness: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
-            echo "Remote read-only query could not be completed." >> "$GITHUB_STEP_SUMMARY"
+            echo "Remote read-only schema query could not be completed." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           missing=0
@@ -94,13 +193,13 @@ jobs:
           fi
 
       - name: Verify Koonchaishop source registration
-        if: steps.credentials.outputs.available == 'true' && steps.schema.outputs.ready == 'true'
+        if: steps.account.outputs.available == 'true' && steps.schema.outputs.ready == 'true'
         shell: bash
         run: |
           set -uo pipefail
           QUERY="SELECT platform,shop_code,shop_name,authorization_scope,active FROM commerce_sources WHERE shop_code='THLCRLWLHR' LIMIT 1;"
           set +e
-          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="$QUERY" > d1-source-readiness.txt 2>&1
+          CLOUDFLARE_ACCOUNT_ID="$D1_ACCOUNT_ID" npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="$QUERY" > d1-source-readiness.txt 2>&1
           code=$?
           set -e
           cat d1-source-readiness.txt
