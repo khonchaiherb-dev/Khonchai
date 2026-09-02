@@ -1,0 +1,16 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const read=p=>fs.readFileSync(p,'utf8');
+const ui=read('public/seller-koonchaishop.html');
+const middleware=read('functions/api/admin/_middleware.js');
+const api=read('functions/api/admin/koonchaishop-source.js');
+assert.match(ui,/Koonchaishop Content Library/,'admin UI must identify the Koonchaishop source library');
+assert.match(ui,/THLCRLWLHR/,'admin UI must show the authorized shop code');
+assert.match(ui,/\/api\/admin\/koonchaishop-source/,'admin UI must use the protected source manager endpoint');
+assert.match(ui,/\/api\/staff\/me/,'admin UI must require a staff session');
+assert.match(ui,/X-KCH-CSRF/,'admin mutations must carry the staff CSRF token');
+assert.match(ui,/ไม่ใช่ Verified Purchase ของเว็บไซต์ KHONCHAIHERB/,'external review provenance must be visible to operators');
+assert.match(middleware,/['"]koonchaishop-source['"]/,'Koonchaishop source management must be explicitly scoped in admin permissions');
+assert.match(middleware,/catalog\.manage/,'catalog writes must use catalog.manage');
+assert.match(api,/adminAuthorized/,'source manager API must reject unforwarded direct access');
+console.log('Koonchaishop catalog manager UI + permission contracts: OK');
