@@ -7,6 +7,7 @@ on:
     paths:
       - 'functions/api/admin/koonchaishop-source.js'
       - 'functions/seller-koonchaishop.html.js'
+      - 'functions/_middleware.js'
       - 'public/kch-koonchaishop-admin-readiness.js'
       - '.github/workflows/koonchaishop-admin-readiness-check.yml'
   workflow_dispatch:
@@ -50,16 +51,17 @@ jobs:
           print('Koonchaishop admin API readiness contract: OK')
           PY
 
-      - name: Verify route-specific Seller readiness wiring
+      - name: Verify Seller readiness wiring and production fallback
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
           r=Path('functions/seller-koonchaishop.html.js').read_text()
+          m=Path('functions/_middleware.js').read_text()
           g=Path('public/kch-koonchaishop-admin-readiness.js').read_text()
           required_route=[
-            '/kch-koonchaishop-admin-readiness.js?v=1.0.0',
+            '/kch-koonchaishop-admin-readiness.js?v=1.0.1',
             'const response=await next()',
             "type.includes('text/html')",
             "new HTMLRewriter().on('head'",
@@ -68,7 +70,18 @@ jobs:
           ]
           missing=[x for x in required_route if x not in r]
           if missing: raise SystemExit('route-specific seller wiring missing: '+', '.join(missing))
+          required_fallback=[
+            "const SELLER_KOONCHAISHOP='/seller-koonchaishop.html'",
+            "const KOONCHAISHOP_ADMIN_GUARD='/kch-koonchaishop-admin-readiness.js?v=1.0.1'",
+            'pathname===SELLER_KOONCHAISHOP',
+            'KOONCHAISHOP_ADMIN_GUARD',
+            'withCanonicalMetadata(response,env,u.pathname)'
+          ]
+          missing=[x for x in required_fallback if x not in m]
+          if missing: raise SystemExit('global Seller fallback missing: '+', '.join(missing))
           required_guard=[
+            "const BUILD='1.0.1'",
+            '__KCH_KOONCHAISHOP_ADMIN_READINESS_BOOT__',
             "location.pathname!=='/seller-koonchaishop.html'",
             'databaseReady===true','writeEnabled===true','migration_0021_required','setForms(false)','el.disabled=!enabled',
             '/api/admin/koonchaishop-source','__KCH_KOONCHAISHOP_ADMIN_READINESS__'
@@ -76,7 +89,7 @@ jobs:
           missing=[x for x in required_guard if x not in g]
           if missing: raise SystemExit('admin readiness guard missing: '+', '.join(missing))
           if 'button[type="submit"]' not in g: raise SystemExit('guard must visibly cover submit controls')
-          print('Koonchaishop route-specific seller readiness wiring: OK')
+          print('Koonchaishop Seller readiness route + global fallback: OK')
           PY
 
       - name: Verify no external reviews become on-site verified
