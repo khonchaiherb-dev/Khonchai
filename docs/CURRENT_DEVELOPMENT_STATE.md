@@ -12,21 +12,22 @@ This file is the rolling execution state for continuous development. Update it w
 - Support Platform 0023 exists in source with tickets, messages, SLA, assignment, audit events and CSAT.
 - Support Operations console includes Customer 360, SLA monitoring, CSAT, assignment, internal notes and staff permissions.
 - Self-service support knowledge base exists for customer-facing help.
-- Omnichannel migration 0024 exists with:
-  - channel contact identity mapping
-  - external event idempotency ledger
-  - outbound delivery outbox
-- Secured normalized support ingestion endpoint exists and is fail-closed when `SUPPORT_INGEST_SECRET` is absent.
+- Omnichannel migration 0024 exists with channel-contact identity mapping, external-event idempotency and an outbound delivery outbox.
+- Secured normalized support ingestion endpoint is fail-closed when `SUPPORT_INGEST_SECRET` is absent.
 - External inbound events are deduplicated by channel + external event ID.
-- Staff replies to LINE/email/social tickets are queued in the outbox instead of being falsely represented as delivered.
+- Staff replies to LINE/email/social tickets are queued instead of being falsely represented as delivered.
 - Support console exposes truthful queued/failed/sent foundation state and per-ticket outbox/contact information.
-- Migration guard understands 0024 but still requires explicit production confirmation.
+- Migration guard understands 0024 and still requires explicit production confirmation.
 - Dedicated support omnichannel smoke coverage is included in `npm check`.
-- A read-only support D1 diagnostic workflow exists to distinguish credential/account/schema states.
+- Read-only Support Omnichannel Readiness diagnostics now run successfully and distinguish account/permission/schema states.
+- Storefront Quality Check passed for the omnichannel implementation commit `478692d91a4c0e4e7b6e72ba3dded17cb631291e`.
+- Cloudflare Pages deployment passed for that implementation commit.
 
 ## Current production truth
 
 - Static/Pages deployment and application QA are separate from D1 schema readiness.
+- The latest successful support readiness diagnostic confirms the configured Cloudflare credential/account cannot currently list the target D1 database. Therefore remote Support 0023 and Omnichannel 0024 schema state is **UNKNOWN**.
+- This is currently classified as `D1_PERMISSION_OR_ACCOUNT_MISMATCH`, not as a failed 0023/0024 schema.
 - Do not mark Support 0023 or Omnichannel 0024 production-ready until remote D1 checks confirm the required tables.
 - Do not mark LINE, email or social as connected merely because the omnichannel data foundation exists.
 - Actual channel adapters still require channel-specific credentials/signature verification and sender implementations.
@@ -34,20 +35,21 @@ This file is the rolling execution state for continuous development. Update it w
 
 ## Active blockers / dependencies
 
-1. Verify Cloudflare D1 account/token read access and remote 0023/0024 schema state.
-2. If 0023/0024 are absent, production migration remains a guarded explicit operation.
-3. LINE/email/social sender adapters cannot be enabled without their actual provider credentials/configuration.
+1. Correct/verify Cloudflare D1 Read permission and the Account ID used by GitHub Actions so the target database can be listed.
+2. Once D1 read access works, run the read-only diagnostic to determine actual remote 0023/0024 state.
+3. If 0023/0024 are absent, production migration remains a guarded explicit operation.
+4. LINE/email/social sender adapters cannot be enabled without their actual provider credentials/configuration.
 
 ## Next execution queue
 
 ### Next 1 — Close P0 support production truth
-- make readiness diagnostics stable and non-mutating
-- report credential/account mismatch separately from missing schema
-- verify 0023 and 0024 remotely when D1 access is available
+- resolve the external Cloudflare D1 account/permission dependency when valid credentials are available
+- verify 0023 and 0024 remotely
+- keep all schema claims UNKNOWN until that verification succeeds
 
 ### Next 2 — P1 Storefront Conversion Audit + vertical slice
 - audit mobile product discovery → PDP → cart → checkout using current real components
-- identify the largest conversion friction that can be fixed without redesigning unrelated areas
+- identify the largest executable conversion friction that does not depend on external secrets
 - implement one measurable vertical slice
 - protect COD, receipt, order and inventory contracts
 
@@ -67,7 +69,7 @@ When the user says **“พัฒนาต่อ”**, **“ทำต่อ”**
 1. read this file and the continuous roadmap,
 2. inspect the current repository HEAD and latest verification state,
 3. close any P0 blocker that can be safely fixed without external secrets or irreversible production changes,
-4. otherwise take the first executable item in `Next execution queue`,
+4. if P0 is externally blocked, take the first executable item in the next workstream instead of stopping,
 5. implement a complete vertical slice,
 6. run/inspect QA and deployment/readiness checks,
 7. update this state file when the execution state materially changes.
