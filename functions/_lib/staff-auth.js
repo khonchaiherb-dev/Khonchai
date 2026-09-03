@@ -1,11 +1,11 @@
 const enc=new TextEncoder();
 const ROLES={
   owner:['*'],
-  admin:['analytics.read','orders.read','orders.manage','catalog.read','catalog.manage','inventory.read','inventory.manage','procurement.read','procurement.manage','fulfillment.manage','finance.read','finance.manage','refunds.manage','returns.manage','notifications.manage','audit.read','staff.read','approvals.manage','backup.manage','launch.read'],
-  operations:['analytics.read','orders.read','orders.manage','fulfillment.manage','returns.manage','notifications.manage'],
+  admin:['analytics.read','orders.read','orders.manage','catalog.read','catalog.manage','inventory.read','inventory.manage','procurement.read','procurement.manage','fulfillment.manage','finance.read','finance.manage','refunds.manage','returns.manage','support.read','support.manage','notifications.manage','audit.read','staff.read','approvals.manage','backup.manage','launch.read'],
+  operations:['analytics.read','orders.read','orders.manage','fulfillment.manage','returns.manage','support.read','support.manage','notifications.manage'],
   warehouse:['orders.read','inventory.read','inventory.manage','procurement.read','procurement.manage','fulfillment.manage'],
   finance:['analytics.read','orders.read','finance.read','finance.manage','refunds.manage','audit.read'],
-  support:['orders.read','returns.manage','notifications.manage'],
+  support:['orders.read','returns.manage','support.read','support.manage','notifications.manage'],
   viewer:['analytics.read','orders.read','inventory.read']
 };
 export const clean=(v,n=200)=>String(v??'').trim().slice(0,n);
