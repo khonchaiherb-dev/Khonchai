@@ -37,7 +37,7 @@ async function loadV132(page){
 
 async function loadSearchAuthority(page){
   await page.addScriptTag({path:'public/kch-search-authority.js'});
-  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.4');
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.5');
 }
 
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
@@ -107,6 +107,7 @@ test('master storefront discovery is readable, Thai-first and stable across view
   await expect(chiangDa).toHaveAttribute('data-kch-v131-search-match','0');
   await expect(chiangDa).toHaveAttribute('data-kch-search-match','0');
   await search.fill('');
+  await expect(search).toHaveValue('');
   await expect(chiangDa).toBeVisible();
   await expect(chiangDa).not.toHaveAttribute('data-kch-v131-search-match','0');
   await expect(chiangDa).not.toHaveAttribute('data-kch-search-match','0');
