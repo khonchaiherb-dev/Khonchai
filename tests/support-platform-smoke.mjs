@@ -1,0 +1,13 @@
+import fs from 'node:fs';
+const read=p=>fs.readFileSync(p,'utf8');
+const migration=read('db/migrations/0023_support_platform.sql');
+const api=read('functions/api/support/tickets.js');
+const admin=read('functions/api/admin/support-tickets.js');
+const html=read('public/support.html');
+const js=read('public/support.js');
+for(const token of ['support_tickets','support_messages','support_ticket_events','support_satisfaction'])if(!migration.includes(token))throw new Error(`missing schema ${token}`);
+for(const token of ['sla_first_response_due_at','access_code_hash','ticket_access_denied','rate_limited'])if(!api.includes(token))throw new Error(`missing public support capability ${token}`);
+for(const token of ['assign_self','pending_customer','internal_note_added'])if(!admin.includes(token))throw new Error(`missing admin support capability ${token}`);
+for(const token of ['ศูนย์ช่วยเหลือ','ติดตามเคส','ส่งเรื่องให้ทีมดูแล'])if(!html.includes(token))throw new Error(`missing support ui ${token}`);
+if(!js.includes('/api/support/tickets'))throw new Error('support frontend is not connected to API');
+console.log('support platform smoke: ok');
