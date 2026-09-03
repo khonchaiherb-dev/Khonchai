@@ -3,17 +3,50 @@ import {adminAuthorized,json,clean,audit} from '../../_lib/admin.js';
 const STATUSES=new Set(['open','pending_customer','pending_team','resolved','closed']);
 const PRIORITIES=new Set(['low','normal','high','urgent']);
 const CHANNELS=new Set(['web','line','email','phone','social','other']);
+const ASSIGNABLE_ROLES=new Set(['owner','admin','operations','support']);
 const staffId=request=>{const v=Number(request.headers.get('X-KCH-Staff-Id'));return Number.isInteger(v)&&v>0?v:null};
-async function ticketByNo(env,ticketNo){return env.DB.prepare(`SELECT t.*,o.order_no,o.total order_total,o.payment_method,o.payment_status,o.fulfillment_status,c.full_name customer_name,c.phone customer_phone,c.email customer_email,s.display_name assigned_agent FROM support_tickets t LEFT JOIN orders o ON o.id=t.order_id LEFT JOIN customers c ON c.id=t.customer_id LEFT JOIN staff_users s ON s.id=t.assigned_staff_id WHERE t.ticket_no=? LIMIT 1`).bind(ticketNo).first()}
+async function ticketByNo(env,ticketNo){return env.DB.prepare(`SELECT t.*,o.order_no,o.total order_total,o.payment_method,o.payment_status,o.fulfillment_status,o.status order_status,o.created_at order_created_at,c.full_name customer_name,c.phone customer_phone,c.email customer_email,s.display_name assigned_agent FROM support_tickets t LEFT JOIN orders o ON o.id=t.order_id LEFT JOIN customers c ON c.id=t.customer_id LEFT JOIN staff_users s ON s.id=t.assigned_staff_id WHERE t.ticket_no=? LIMIT 1`).bind(ticketNo).first()}
 async function addEvent(env,ticketId,type,fromStatus,toStatus,staff,detail=null){await env.DB.prepare(`INSERT INTO support_ticket_events(ticket_id,event_type,from_status,to_status,staff_user_id,detail_json) VALUES(?,?,?,?,?,?)`).bind(ticketId,type,fromStatus||null,toStatus||null,staff||null,detail==null?null:JSON.stringify(detail).slice(0,4000)).run()}
+async function customerSnapshot(env,ticket){if(!ticket?.customer_id)return null;const c=await env.DB.prepare(`SELECT c.id,c.full_name,c.phone,c.email,c.created_at,c.last_login_at,
+  COUNT(DISTINCT o.id) order_count,
+  COALESCE(SUM(CASE WHEN o.payment_status IN ('paid','cod_collected') THEN o.total ELSE 0 END),0) lifetime_value,
+  MAX(o.created_at) last_order_at,
+  COUNT(DISTINCT CASE WHEN rr.status IN ('requested','reviewing','approved') THEN rr.id END) open_returns,
+  COUNT(DISTINCT CASE WHEN st.status NOT IN ('resolved','closed') THEN st.id END) open_support_tickets
+  FROM customers c
+  LEFT JOIN orders o ON o.customer_id=c.id
+  LEFT JOIN return_requests rr ON rr.customer_id=c.id
+  LEFT JOIN support_tickets st ON st.customer_id=c.id
+  WHERE c.id=? GROUP BY c.id`).bind(ticket.customer_id).first();if(!c)return null;
+  const recent=await env.DB.prepare(`SELECT order_no,total,payment_method,payment_status,fulfillment_status,status,created_at FROM orders WHERE customer_id=? ORDER BY id DESC LIMIT 6`).bind(ticket.customer_id).all();
+  const orderCount=Number(c.order_count||0),ltv=Math.round(Number(c.lifetime_value||0)*100)/100;let segment='new';if(orderCount>=5||ltv>=5000)segment='vip';else if(orderCount>=2)segment='repeat';else if(orderCount===1)segment='first_order';
+  return {id:Number(c.id),name:c.full_name||'',phone:c.phone||'',email:c.email||'',createdAt:c.created_at||null,lastLoginAt:c.last_login_at||null,orderCount,lifetimeValue:ltv,lastOrderAt:c.last_order_at||null,openReturns:Number(c.open_returns||0),openSupportTickets:Number(c.open_support_tickets||0),segment,recentOrders:recent.results||[]};
+}
+async function supportStats(env){const r=await env.DB.prepare(`SELECT
+  COUNT(*) total,
+  SUM(CASE WHEN status NOT IN ('resolved','closed') THEN 1 ELSE 0 END) open_count,
+  SUM(CASE WHEN status NOT IN ('resolved','closed') AND priority='urgent' THEN 1 ELSE 0 END) urgent_open,
+  SUM(CASE WHEN status NOT IN ('resolved','closed') AND assigned_staff_id IS NULL THEN 1 ELSE 0 END) unassigned,
+  SUM(CASE WHEN status='pending_team' THEN 1 ELSE 0 END) pending_team,
+  SUM(CASE WHEN status NOT IN ('resolved','closed') AND first_response_at IS NULL AND sla_first_response_due_at<datetime('now') THEN 1 ELSE 0 END) first_response_breached,
+  SUM(CASE WHEN status NOT IN ('resolved','closed') AND sla_resolution_due_at<datetime('now') THEN 1 ELSE 0 END) resolution_breached,
+  AVG(CASE WHEN first_response_at IS NOT NULL THEN (julianday(first_response_at)-julianday(created_at))*1440 END) avg_first_response_minutes
+  FROM support_tickets`).first();return {total:Number(r?.total||0),open:Number(r?.open_count||0),urgentOpen:Number(r?.urgent_open||0),unassigned:Number(r?.unassigned||0),pendingTeam:Number(r?.pending_team||0),firstResponseBreached:Number(r?.first_response_breached||0),resolutionBreached:Number(r?.resolution_breached||0),avgFirstResponseMinutes:r?.avg_first_response_minutes==null?null:Math.max(0,Math.round(Number(r.avg_first_response_minutes)))} }
+async function agents(env){const r=await env.DB.prepare("SELECT id,display_name,username,role FROM staff_users WHERE active=1 AND role IN ('owner','admin','operations','support') ORDER BY CASE role WHEN 'support' THEN 0 WHEN 'operations' THEN 1 WHEN 'admin' THEN 2 ELSE 3 END,display_name").all();return (r.results||[]).map(x=>({id:Number(x.id),name:x.display_name||x.username,username:x.username,role:x.role}))}
 
 export async function onRequestGet({request,env}){
   if(!adminAuthorized(request,env))return json({error:'unauthorized'},401);if(!env.DB)return json({error:'database_not_bound'},503);
   const url=new URL(request.url),ticketNo=clean(url.searchParams.get('ticketNo'),80);
-  if(ticketNo){const ticket=await ticketByNo(env,ticketNo);if(!ticket)return json({error:'ticket_not_found'},404);const messages=await env.DB.prepare(`SELECT m.id,m.author_type,m.body,m.visibility,m.channel,m.created_at,COALESCE(s.display_name,c.full_name,m.author_type) author_name FROM support_messages m LEFT JOIN staff_users s ON s.id=m.staff_user_id LEFT JOIN customers c ON c.id=m.customer_id WHERE m.ticket_id=? ORDER BY m.id`).bind(ticket.id).all();const events=await env.DB.prepare(`SELECT e.event_type,e.from_status,e.to_status,e.detail_json,e.created_at,s.display_name staff_name FROM support_ticket_events e LEFT JOIN staff_users s ON s.id=e.staff_user_id WHERE e.ticket_id=? ORDER BY e.id`).bind(ticket.id).all();return json({ticket,messages:messages.results||[],events:events.results||[]});}
-  const status=clean(url.searchParams.get('status'),30),priority=clean(url.searchParams.get('priority'),30),q=clean(url.searchParams.get('q'),120),limit=Math.max(1,Math.min(200,Number(url.searchParams.get('limit'))||80)),where=[],binds=[];
-  if(STATUSES.has(status)){where.push('t.status=?');binds.push(status)}if(PRIORITIES.has(priority)){where.push('t.priority=?');binds.push(priority)}if(q){where.push('(t.ticket_no LIKE ? OR t.subject LIKE ? OR t.contact_name LIKE ? OR o.order_no LIKE ?)');const like=`%${q}%`;binds.push(like,like,like,like)}
-  let sql=`SELECT t.ticket_no,t.contact_name,t.category,t.priority,t.status,t.channel,t.subject,t.assigned_staff_id,t.sla_first_response_due_at,t.sla_resolution_due_at,t.first_response_at,t.created_at,t.updated_at,o.order_no,s.display_name assigned_agent,(SELECT COUNT(*) FROM support_messages m WHERE m.ticket_id=t.id) message_count FROM support_tickets t LEFT JOIN orders o ON o.id=t.order_id LEFT JOIN staff_users s ON s.id=t.assigned_staff_id`;if(where.length)sql+=` WHERE ${where.join(' AND ')}`;sql+=' ORDER BY CASE t.priority WHEN \'urgent\' THEN 0 WHEN \'high\' THEN 1 WHEN \'normal\' THEN 2 ELSE 3 END,t.updated_at DESC LIMIT ?';binds.push(limit);const rows=await env.DB.prepare(sql).bind(...binds).all();return json({tickets:rows.results||[]});
+  if(ticketNo){const ticket=await ticketByNo(env,ticketNo);if(!ticket)return json({error:'ticket_not_found'},404);const [messages,events,customer]=await Promise.all([env.DB.prepare(`SELECT m.id,m.author_type,m.body,m.visibility,m.channel,m.created_at,COALESCE(s.display_name,c.full_name,m.author_type) author_name FROM support_messages m LEFT JOIN staff_users s ON s.id=m.staff_user_id LEFT JOIN customers c ON c.id=m.customer_id WHERE m.ticket_id=? ORDER BY m.id`).bind(ticket.id).all(),env.DB.prepare(`SELECT e.event_type,e.from_status,e.to_status,e.detail_json,e.created_at,s.display_name staff_name FROM support_ticket_events e LEFT JOIN staff_users s ON s.id=e.staff_user_id WHERE e.ticket_id=? ORDER BY e.id`).bind(ticket.id).all(),customerSnapshot(env,ticket)]);return json({ticket,messages:messages.results||[],events:events.results||[],customer});}
+  const status=clean(url.searchParams.get('status'),30),priority=clean(url.searchParams.get('priority'),30),q=clean(url.searchParams.get('q'),120),mine=clean(url.searchParams.get('mine'),10),limit=Math.max(1,Math.min(200,Number(url.searchParams.get('limit'))||80)),where=[],binds=[],sid=staffId(request);
+  if(STATUSES.has(status)){where.push('t.status=?');binds.push(status)}if(PRIORITIES.has(priority)){where.push('t.priority=?');binds.push(priority)}if(mine==='1'&&sid){where.push('t.assigned_staff_id=?');binds.push(sid)}if(q){where.push('(t.ticket_no LIKE ? OR t.subject LIKE ? OR t.contact_name LIKE ? OR t.contact_phone LIKE ? OR o.order_no LIKE ?)');const like=`%${q}%`;binds.push(like,like,like,like,like)}
+  let sql=`SELECT t.ticket_no,t.contact_name,t.contact_phone,t.category,t.priority,t.status,t.channel,t.subject,t.assigned_staff_id,t.sla_first_response_due_at,t.sla_resolution_due_at,t.first_response_at,t.created_at,t.updated_at,o.order_no,s.display_name assigned_agent,
+  CASE WHEN t.status NOT IN ('resolved','closed') AND t.first_response_at IS NULL AND t.sla_first_response_due_at<datetime('now') THEN 1 ELSE 0 END first_response_breached,
+  CASE WHEN t.status NOT IN ('resolved','closed') AND t.sla_resolution_due_at<datetime('now') THEN 1 ELSE 0 END resolution_breached,
+  CAST((julianday(t.sla_first_response_due_at)-julianday('now'))*1440 AS INTEGER) first_response_minutes_left,
+  CAST((julianday(t.sla_resolution_due_at)-julianday('now'))*1440 AS INTEGER) resolution_minutes_left,
+  (SELECT COUNT(*) FROM support_messages m WHERE m.ticket_id=t.id) message_count
+  FROM support_tickets t LEFT JOIN orders o ON o.id=t.order_id LEFT JOIN staff_users s ON s.id=t.assigned_staff_id`;if(where.length)sql+=` WHERE ${where.join(' AND ')}`;sql+=' ORDER BY CASE WHEN t.status NOT IN (\'resolved\',\'closed\') AND t.first_response_at IS NULL AND t.sla_first_response_due_at<datetime(\'now\') THEN 0 WHEN t.status NOT IN (\'resolved\',\'closed\') AND t.sla_resolution_due_at<datetime(\'now\') THEN 1 ELSE 2 END,CASE t.priority WHEN \'urgent\' THEN 0 WHEN \'high\' THEN 1 WHEN \'normal\' THEN 2 ELSE 3 END,t.updated_at DESC LIMIT ?';binds.push(limit);const [rows,stats,agentRows]=await Promise.all([env.DB.prepare(sql).bind(...binds).all(),supportStats(env),agents(env)]);return json({tickets:rows.results||[],stats,agents:agentRows});
 }
 
 export async function onRequestPost({request,env}){
@@ -30,7 +63,7 @@ export async function onRequestPost({request,env}){
   }
   if(action==='update'){
     const nextStatus=STATUSES.has(clean(b.status,30))?clean(b.status,30):ticket.status,nextPriority=PRIORITIES.has(clean(b.priority,30))?clean(b.priority,30):ticket.priority;let assigned=ticket.assigned_staff_id;if(b.assignedStaffId!==undefined){const x=Number(b.assignedStaffId);assigned=Number.isInteger(x)&&x>0?x:null}
-    if(assigned){const exists=await env.DB.prepare('SELECT id FROM staff_users WHERE id=? AND active=1 LIMIT 1').bind(assigned).first();if(!exists)return json({error:'staff_not_found'},404)}
+    if(assigned){const exists=await env.DB.prepare('SELECT id,role FROM staff_users WHERE id=? AND active=1 LIMIT 1').bind(assigned).first();if(!exists||!ASSIGNABLE_ROLES.has(String(exists.role)))return json({error:'support_agent_not_found'},404)}
     const resolved=['resolved','closed'].includes(nextStatus)?'COALESCE(resolved_at,datetime(\'now\'))':'NULL';await env.DB.prepare(`UPDATE support_tickets SET status=?,priority=?,assigned_staff_id=?,resolved_at=${resolved},updated_at=datetime('now') WHERE id=?`).bind(nextStatus,nextPriority,assigned,ticket.id).run();await addEvent(env,ticket.id,'ticket_updated',ticket.status,nextStatus,sid,{priorityFrom:ticket.priority,priorityTo:nextPriority,assignedStaffId:assigned});await audit(env,{action:'support.update',entityType:'support_ticket',entityId:ticketNo,metadata:{status:nextStatus,priority:nextPriority,assignedStaffId:assigned},actorId:sid||'legacy-admin'});return json({ok:true,status:nextStatus,priority:nextPriority,assignedStaffId:assigned});
   }
   return json({error:'invalid_action'},400);
