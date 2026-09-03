@@ -36,6 +36,7 @@ const CORE=[
   '/tshop-v133-readable-storefront.css?v=1.33.1',
   '/tshop-v134-structural-storefront.css?v=1.34.0',
   '/tshop-v1341-header-dedupe.css?v=1.34.1',
+  '/tshop-v135-lower-standard.css?v=1.35.0',
   '/app-core.js',
   '/app-shop.js',
   '/app-account.js',
