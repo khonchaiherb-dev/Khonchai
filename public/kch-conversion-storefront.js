@@ -1,8 +1,8 @@
-/* KHONCHAIHERB v1.32.0 — conversion storefront behavior */
+/* KHONCHAIHERB v1.32.1 — conversion storefront behavior */
 (()=>{
   'use strict';
   if(typeof document==='undefined')return;
-  const BUILD='1.32.0';
+  const BUILD='1.32.1';
   if(window.__KCH_CONVERSION_STOREFRONT__===BUILD)return;
   window.__KCH_CONVERSION_STOREFRONT__=BUILD;
 
@@ -26,10 +26,20 @@
     if(slug)location.hash=`product/${encodeURIComponent(slug)}`;
   }
 
-  function productFrom(el){
+  function productFromIdentity(el){
     const rows=catalog();
-    const slug=String(el?.dataset?.product||el?.dataset?.slug||el?.dataset?.v118Featured||el?.dataset?.kchProduct||'').trim();
-    if(slug){const p=rows.find(x=>String(x?.slug||'')===slug);if(p)return p}
+    const slug=String(el?.dataset?.product||el?.dataset?.slug||el?.dataset?.kchProduct||el?.dataset?.v118Featured||'').trim();
+    if(!slug)return null;
+    return rows.find(x=>String(x?.slug||'').trim()===slug)||null;
+  }
+
+  // Showcase tiles predate canonical data attributes, so visual fallback is
+  // retained only there. Product cards must never infer identity from UI text,
+  // image filenames or alt text because those are presentation, not commerce data.
+  function productFromShowcase(el){
+    const identified=productFromIdentity(el);
+    if(identified)return identified;
+    const rows=catalog();
     const img=$('img',el),src=basename(img?.currentSrc||img?.src||img?.getAttribute?.('src'));
     if(src){const p=rows.find(x=>basename(x?.image||x?.image_url)===src);if(p)return p}
     const alt=String(img?.alt||'').trim();
@@ -60,7 +70,7 @@
   function enhanceHero(){
     if(!isHome())return;
     $$('.kch-master-showcase').forEach(card=>{
-      const p=productFrom(card);
+      const p=productFromShowcase(card);
       if(!p)return;
       $('.kch-v131-showcase-meta',card)?.remove();
       let meta=$('.kch-v132-hero-meta',card);
@@ -85,10 +95,10 @@
       card.setAttribute('aria-label',ready(p)?`ดู ${String(p.name||'สินค้า')} ราคา ${money(p.price)}`:`ดูรายละเอียด ${String(p.name||'ผลิตภัณฑ์')}`);
       if(card.dataset.kchV132Open!=='1'){
         card.dataset.kchV132Open='1';
-        card.addEventListener('click',()=>openProduct(productFrom(card)));
+        card.addEventListener('click',()=>openProduct(productFromShowcase(card)));
         if(card.tagName!=='BUTTON'&&card.tagName!=='A'){
           card.tabIndex=0;
-          card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openProduct(productFrom(card))}});
+          card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openProduct(productFromShowcase(card))}});
         }
       }
     });
@@ -119,24 +129,36 @@
     finder.classList.toggle('kch-v132-has-filter',active||searched);
   }
 
+  function clearCardEnhancement(card){
+    $('.kch-v132-card-cta',card)?.remove();
+    $('.kch-v132-unready-note',card)?.remove();
+    card.removeAttribute('data-kch-v132-ready');
+    card.removeAttribute('data-kch-v132-product');
+  }
+
   function enhanceProductCards(){
     if(!isHome())return;
     const cards=$$('.kch-master-products .kch-master-product');
     cards.forEach(card=>{
-      const p=productFrom(card);if(!p)return;
+      const p=productFromIdentity(card);
+      if(!p){clearCardEnhancement(card);return}
       const canBuy=ready(p);
+      const slug=String(p.slug||'').trim();
       card.dataset.kchV132Ready=canBuy?'1':'0';
+      card.dataset.kchV132Product=slug;
       const copy=$('.kch-master-product-copy',card)||card;
       let cta=$('.kch-v132-card-cta',card);
-      const key=`${p.id}:${p.price}:${p.stock}:${p.sale_verified}:${p.comingSoon?1:0}`;
+      const key=`${p.id}:${slug}:${p.price}:${p.stock}:${p.sale_verified}:${p.comingSoon?1:0}`;
       if(cta?.dataset?.key!==key){cta?.remove();cta=null}
       if(!cta){
         cta=document.createElement('div');
         cta.className='kch-v132-card-cta';
         cta.dataset.key=key;
+        cta.dataset.product=slug;
         const button=document.createElement('button');
         button.type='button';
         button.className=canBuy?'kch-v132-buy':'kch-v132-detail';
+        button.dataset.product=slug;
         button.textContent=canBuy?'สั่งซื้อ':'ดูรายละเอียด';
         button.setAttribute('aria-label',canBuy?`สั่งซื้อ ${String(p.name||'สินค้า')}`:`ดูรายละเอียด ${String(p.name||'ผลิตภัณฑ์')}`);
         button.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openProduct(p)});
