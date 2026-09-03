@@ -79,8 +79,8 @@ test('master storefront discovery is readable, Thai-first and stable across view
 
   const grid=page.locator('.kch-master-products');
   await expect(grid).toBeVisible();
-  const rangJued=grid.locator('[data-product="rang-jued-tea-e2e"]');
-  const chiangDa=grid.locator('[data-product="chiang-da-tea-e2e"]');
+  const rangJued=grid.locator('article.kch-master-product[data-product="rang-jued-tea-e2e"]');
+  const chiangDa=grid.locator('article.kch-master-product[data-product="chiang-da-tea-e2e"]');
   await expect(rangJued).toContainText('ชารางจืด');
   await expect(rangJued).toHaveAttribute('data-kch-v132-ready','1');
   await expect(rangJued).toHaveAttribute('data-kch-v132-product','rang-jued-tea-e2e');
