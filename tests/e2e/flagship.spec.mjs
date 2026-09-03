@@ -35,6 +35,11 @@ async function loadV132(page){
   await expect.poll(()=>page.evaluate(()=>window.__KCH_CONVERSION_STOREFRONT__)).toBe('1.32.0');
 }
 
+async function loadSearchAuthority(page){
+  await page.addScriptTag({path:'public/kch-search-authority.js'});
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.0');
+}
+
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
 
 test('master storefront discovery is readable, Thai-first and stable across viewports',async({page})=>{
@@ -43,6 +48,7 @@ test('master storefront discovery is readable, Thai-first and stable across view
   await page.goto('/?flagship=master',{waitUntil:'domcontentloaded'});
   await loadV131(page);
   await loadV132(page);
+  await loadSearchAuthority(page);
 
   await expect(page.locator('.shell')).toHaveClass(/kch-master-shell/);
   await expect(page.locator('.shell')).toHaveClass(/kch-v131/);
@@ -91,8 +97,12 @@ test('master storefront discovery is readable, Thai-first and stable across view
   await expect(rangJued).toBeVisible();
   await expect(chiangDa).toBeHidden();
   await expect(chiangDa).toHaveAttribute('data-kch-v131-search-match','0');
+  await expect(chiangDa).toHaveAttribute('data-kch-search-match','0');
   await search.fill('');
+  await expect(chiangDa).toBeVisible();
   await expect(chiangDa).not.toHaveAttribute('data-kch-v131-search-match','0');
+  await expect(chiangDa).not.toHaveAttribute('data-kch-search-match','0');
+  await expect(chiangDa).not.toHaveClass(/kch-critical-search-hidden/);
 
   const bodyText=await page.locator('body').innerText();
   expect(bodyText).not.toContain('ขายแล้ว 0');
