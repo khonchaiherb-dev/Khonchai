@@ -1,0 +1,11 @@
+/* KHONCHAIHERB storefront stability fixes — touch/accessibility contract */
+@media (min-width:700px) and (max-width:860px){
+  #kch-v134-header .kch-v134-actions{
+    grid-template-columns:repeat(3,48px)!important;
+  }
+  #kch-v134-header .kch-v134-action{
+    min-width:48px!important;
+    min-height:48px!important;
+    height:48px!important;
+  }
+}
