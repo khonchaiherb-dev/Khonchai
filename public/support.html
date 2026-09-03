@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#143f31">
+  <meta name="description" content="ศูนย์ช่วยเหลือ KHONCHAIHERB ติดต่อทีมบริการลูกค้า ติดตามเคส และขอความช่วยเหลือเกี่ยวกับคำสั่งซื้อ การจัดส่ง การชำระเงิน และสินค้า">
+  <meta name="robots" content="index,follow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/support.css">
+  <title>ศูนย์ช่วยเหลือ | KHONCHAIHERB</title>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/" aria-label="กลับหน้าร้าน"><span>KHONCHAIHERB</span><small>คุณชายสมุนไพร</small></a><a class="back" href="/">กลับหน้าร้าน</a></header>
+  <main>
+    <section class="hero">
+      <div><span class="eyebrow">KHONCHAIHERB CARE</span><h1>ศูนย์ช่วยเหลือ</h1><p>แจ้งปัญหา ติดตามเคส และคุยกับทีมบริการลูกค้าในที่เดียว พร้อมเลขเคสและกรอบเวลาการตอบกลับที่ตรวจสอบได้</p></div>
+      <div class="hero-badges"><span>ผูกกับคำสั่งซื้อได้</span><span>ติดตามสถานะเคส</span><span>ประวัติข้อความครบ</span><span>ประเมินบริการหลังจบเคส</span></div>
+    </section>
+
+    <section class="quick-grid" aria-label="หัวข้อที่ช่วยเหลือ">
+      <button data-category="order"><b>คำสั่งซื้อ</b><small>แก้ไขหรือตรวจสถานะคำสั่งซื้อ</small></button>
+      <button data-category="shipping"><b>การจัดส่ง</b><small>เลขติดตาม พัสดุล่าช้า หรือส่งไม่สำเร็จ</small></button>
+      <button data-category="payment"><b>การชำระเงิน</b><small>COD การชำระเงิน และหลักฐานรับเงิน</small></button>
+      <button data-category="return"><b>คืนสินค้า / คืนเงิน</b><small>สินค้าเสียหาย ผิดรายการ หรือขอคืนเงิน</small></button>
+      <button data-category="product"><b>ข้อมูลสินค้า</b><small>วิธีใช้ รายละเอียด และข้อมูลก่อนสั่งซื้อ</small></button>
+      <button data-category="account"><b>บัญชีสมาชิก</b><small>เข้าสู่ระบบ ที่อยู่ คะแนน และประวัติคำสั่งซื้อ</small></button>
+    </section>
+
+    <div class="workspace">
+      <section class="panel">
+        <div class="panel-head"><div><span>สร้างเคสใหม่</span><h2>แจ้งเรื่องให้ทีมดูแล</h2></div><p>หากมีเลขคำสั่งซื้อ กรุณากรอกเพื่อให้ทีมตรวจสอบได้เร็วขึ้น</p></div>
+        <form id="ticket-form" novalidate>
+          <div class="two"><label>ชื่อผู้ติดต่อ<input name="name" autocomplete="name" required minlength="2"></label><label>เบอร์โทร<input name="phone" inputmode="tel" autocomplete="tel" placeholder="0xxxxxxxxx"></label></div>
+          <div class="two"><label>อีเมล<input name="email" type="email" autocomplete="email" placeholder="name@example.com"></label><label>เลขคำสั่งซื้อ<input name="orderNo" placeholder="เช่น KCH-..." autocomplete="off"></label></div>
+          <label>หัวข้อ<select name="category"><option value="order">คำสั่งซื้อ</option><option value="shipping">การจัดส่ง</option><option value="payment">การชำระเงิน</option><option value="return">คืนสินค้า / คืนเงิน</option><option value="product">ข้อมูลสินค้า</option><option value="account">บัญชีสมาชิก</option><option value="other">เรื่องอื่น</option></select></label>
+          <label>เรื่องที่ต้องการความช่วยเหลือ<input name="subject" required minlength="4" maxlength="180" placeholder="สรุปสั้น ๆ ว่าต้องการให้ช่วยเรื่องอะไร"></label>
+          <label>รายละเอียด<textarea name="message" required minlength="10" maxlength="5000" rows="6" placeholder="อธิบายเหตุการณ์ รายละเอียดสินค้า วันที่ หรือข้อมูลที่ช่วยให้ตรวจสอบได้"></textarea></label>
+          <p class="privacy-note">ข้อมูลที่ส่งจะใช้เพื่อให้บริการและตรวจสอบเคสตามนโยบายความเป็นส่วนตัวของ KHONCHAIHERB</p>
+          <button class="primary" type="submit">ส่งเรื่องให้ทีมดูแล</button>
+          <p class="form-status" id="create-status" role="status" aria-live="polite"></p>
+        </form>
+        <div id="ticket-created" class="created" hidden></div>
+      </section>
+
+      <section class="panel tracker-panel">
+        <div class="panel-head"><div><span>ติดตามเคส</span><h2>ดูสถานะและข้อความล่าสุด</h2></div><p>ใช้เลขเคสและรหัสเข้าถึงที่ได้รับหลังสร้างเคส หรือเข้าสู่ระบบสมาชิกเพื่อดูเคสของคุณ</p></div>
+        <form id="track-form" class="track-form"><label>เลขเคส<input name="ticketNo" required placeholder="KCH-YYYYMMDD-..."></label><label>รหัสเข้าถึง<input name="accessCode" placeholder="16 ตัวอักษร"></label><button class="secondary" type="submit">ตรวจสอบเคส</button></form>
+        <p class="form-status" id="track-status" role="status" aria-live="polite"></p>
+        <div id="ticket-view" hidden>
+          <div class="ticket-summary" id="ticket-summary"></div>
+          <div class="messages" id="messages"></div>
+          <form id="reply-form" class="reply-form"><label>ส่งข้อความเพิ่มเติม<textarea name="message" rows="3" maxlength="5000" required></textarea></label><button class="primary" type="submit">ส่งข้อความ</button></form>
+        </div>
+      </section>
+    </div>
+  </main>
+  <footer><a href="/shipping-returns.html">การจัดส่งและคืนสินค้า</a><a href="/privacy.html">ความเป็นส่วนตัว</a><a href="/terms.html">ข้อกำหนดการใช้งาน</a></footer>
+  <script src="/support.js"></script>
+</body>
+</html>
