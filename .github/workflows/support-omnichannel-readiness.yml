@@ -1,0 +1,159 @@
+name: KHONCHAIHERB Support Omnichannel Readiness
+
+on:
+  push:
+    branches: [storefront-social-commerce]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: khonchaiherb-support-omnichannel-readiness
+  cancel-in-progress: true
+
+jobs:
+  readiness:
+    name: Diagnose support D1 readiness (read only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      DATABASE_NAME: khonchaiherb-commerce
+      DATABASE_ID: de66c3d3-0082-47ac-b956-58f9c12d13b1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Confirm read-only contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('.github/workflows/support-omnichannel-readiness.yml').read_text()
+          assert '--file=' not in text, 'readiness workflow must never apply migrations'
+          assert 'INSERT INTO' not in text and 'UPDATE ' not in text and 'DELETE FROM' not in text
+          queries=[line.strip() for line in text.splitlines() if line.strip().startswith('QUERY=')]
+          assert queries and all(q.startswith('QUERY="SELECT ') for q in queries)
+          print('Support readiness contract is read-only')
+          PY
+
+      - name: Validate configured credentials
+        id: credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "state=TOKEN_MISSING" >> "$GITHUB_OUTPUT"
+            echo "### Support Production Readiness: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
+            echo "Reason: Cloudflare API token is missing." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if ! [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]]; then
+            echo "state=ACCOUNT_ID_INVALID" >> "$GITHUB_OUTPUT"
+            echo "### Support Production Readiness: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
+            echo "Reason: configured Cloudflare Account ID is missing or invalid." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "state=OK" >> "$GITHUB_OUTPUT"
+
+      - name: Check D1 list access on configured account
+        if: steps.credentials.outputs.state == 'OK'
+        id: access
+        shell: bash
+        run: |
+          set -uo pipefail
+          set +e
+          npx --yes wrangler@latest d1 list --json > d1-list.json 2>d1-list.err
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ]; then
+            echo "state=D1_PERMISSION_OR_ACCOUNT_MISMATCH" >> "$GITHUB_OUTPUT"
+            echo "### Support Production Readiness: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
+            echo "Reason: token cannot list D1 databases for the configured account. Check D1 Read permission and Cloudflare Account ID." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if DATABASE_ID="$DATABASE_ID" DATABASE_NAME="$DATABASE_NAME" python3 - <<'PY'
+          import json,os,sys
+          from pathlib import Path
+          data=json.loads(Path('d1-list.json').read_text())
+          rows=data if isinstance(data,list) else data.get('result',[]) if isinstance(data,dict) else []
+          target_id=os.environ['DATABASE_ID'].lower(); target_name=os.environ['DATABASE_NAME']
+          for row in rows:
+              rid=str(row.get('uuid') or row.get('id') or row.get('database_id') or '').lower()
+              name=str(row.get('name') or row.get('database_name') or '')
+              if rid==target_id or name==target_name: sys.exit(0)
+          sys.exit(1)
+          PY
+          then
+            echo "state=READY_TO_QUERY" >> "$GITHUB_OUTPUT"
+          else
+            echo "state=DATABASE_NOT_FOUND" >> "$GITHUB_OUTPUT"
+            echo "### Support Production Readiness: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
+            echo "Reason: D1 access works, but the configured KHONCHAIHERB database was not found in this account." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Check Support Platform schema 0023
+        if: steps.access.outputs.state == 'READY_TO_QUERY'
+        id: support23
+        shell: bash
+        run: |
+          set -uo pipefail
+          QUERY="SELECT name FROM sqlite_master WHERE type='table' AND name IN ('support_tickets','support_messages','support_ticket_events','support_satisfaction') ORDER BY name;"
+          set +e
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="$QUERY" > support-0023.txt 2>&1
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ]; then
+            echo "state=QUERY_UNAVAILABLE" >> "$GITHUB_OUTPUT"
+            echo "### Support schema 0023: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
+            echo "D1 list access succeeded but the read-only schema query failed." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          missing=0
+          for table in support_tickets support_messages support_ticket_events support_satisfaction; do grep -q "$table" support-0023.txt || missing=1; done
+          if [ "$missing" -eq 0 ]; then
+            echo "state=READY" >> "$GITHUB_OUTPUT"
+            echo "### Support schema 0023: READY" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "state=NOT_READY" >> "$GITHUB_OUTPUT"
+            echo "### Support schema 0023: NOT READY" >> "$GITHUB_STEP_SUMMARY"
+            echo "Migration 0023 is not fully present on production D1." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Check Omnichannel schema 0024
+        if: steps.access.outputs.state == 'READY_TO_QUERY' && steps.support23.outputs.state == 'READY'
+        id: support24
+        shell: bash
+        run: |
+          set -uo pipefail
+          QUERY="SELECT name FROM sqlite_master WHERE type='table' AND name IN ('support_channel_contacts','support_external_events','support_outbox') ORDER BY name;"
+          set +e
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="$QUERY" > support-0024.txt 2>&1
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ]; then
+            echo "state=QUERY_UNAVAILABLE" >> "$GITHUB_OUTPUT"
+            echo "### Omnichannel schema 0024: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          missing=0
+          for table in support_channel_contacts support_external_events support_outbox; do grep -q "$table" support-0024.txt || missing=1; done
+          if [ "$missing" -eq 0 ]; then
+            echo "state=READY" >> "$GITHUB_OUTPUT"
+            echo "### Omnichannel schema 0024: READY" >> "$GITHUB_STEP_SUMMARY"
+            echo "The data foundation is present. External channels still remain disconnected until credentials/adapters are configured." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "state=NOT_READY" >> "$GITHUB_OUTPUT"
+            echo "### Omnichannel schema 0024: NOT READY" >> "$GITHUB_STEP_SUMMARY"
+            echo "Migration 0024 is not fully present on production D1." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Final readiness interpretation
+        if: always()
+        shell: bash
+        run: |
+          echo "### Interpretation" >> "$GITHUB_STEP_SUMMARY"
+          echo "This workflow is diagnostic only. A green GitHub job means the diagnostics ran safely; it does not by itself mean Support or Omnichannel is production-ready. Read the READY / NOT READY / UNKNOWN sections above." >> "$GITHUB_STEP_SUMMARY"
