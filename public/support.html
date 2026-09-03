@@ -4,20 +4,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#143f31">
-  <meta name="description" content="ศูนย์ช่วยเหลือ KHONCHAIHERB ติดต่อทีมบริการลูกค้า ติดตามเคส และขอความช่วยเหลือเกี่ยวกับคำสั่งซื้อ การจัดส่ง การชำระเงิน และสินค้า">
+  <meta name="description" content="ศูนย์ช่วยเหลือ KHONCHAIHERB ค้นหาคำตอบ ติดต่อทีมบริการลูกค้า ติดตามเคส และขอความช่วยเหลือเกี่ยวกับคำสั่งซื้อ การจัดส่ง การชำระเงิน และสินค้า">
   <meta name="robots" content="index,follow">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/support.css">
+  <link rel="stylesheet" href="/support-self-service.css">
   <title>ศูนย์ช่วยเหลือ | KHONCHAIHERB</title>
 </head>
 <body>
   <header class="topbar"><a class="brand" href="/" aria-label="กลับหน้าร้าน"><span>KHONCHAIHERB</span><small>คุณชายสมุนไพร</small></a><a class="back" href="/">กลับหน้าร้าน</a></header>
   <main>
     <section class="hero">
-      <div><span class="eyebrow">KHONCHAIHERB CARE</span><h1>ศูนย์ช่วยเหลือ</h1><p>แจ้งปัญหา ติดตามเคส และคุยกับทีมบริการลูกค้าในที่เดียว พร้อมเลขเคสและกรอบเวลาการตอบกลับที่ตรวจสอบได้</p></div>
-      <div class="hero-badges"><span>ผูกกับคำสั่งซื้อได้</span><span>ติดตามสถานะเคส</span><span>ประวัติข้อความครบ</span><span>ประเมินบริการหลังจบเคส</span></div>
+      <div><span class="eyebrow">KHONCHAIHERB CARE</span><h1>ศูนย์ช่วยเหลือ</h1><p>ค้นหาคำตอบ แจ้งปัญหา ติดตามเคส และคุยกับทีมบริการลูกค้าในที่เดียว พร้อมเลขเคสและกรอบเวลาการตอบกลับที่ตรวจสอบได้</p></div>
+      <div class="hero-badges"><span>ค้นหาคำตอบได้ทันที</span><span>ผูกกับคำสั่งซื้อได้</span><span>ติดตามสถานะเคส</span><span>ประเมินบริการหลังจบเคส</span></div>
     </section>
 
     <section class="quick-grid" aria-label="หัวข้อที่ช่วยเหลือ">
@@ -25,13 +26,20 @@
       <button data-category="shipping"><b>การจัดส่ง</b><small>เลขติดตาม พัสดุล่าช้า หรือส่งไม่สำเร็จ</small></button>
       <button data-category="payment"><b>การชำระเงิน</b><small>COD การชำระเงิน และหลักฐานรับเงิน</small></button>
       <button data-category="return"><b>คืนสินค้า / คืนเงิน</b><small>สินค้าเสียหาย ผิดรายการ หรือขอคืนเงิน</small></button>
-      <button data-category="product"><b>ข้อมูลสินค้า</b><small>วิธีใช้ รายละเอียด และข้อมูลก่อนสั่งซื้อ</small></button>
-      <button data-category="account"><b>บัญชีสมาชิก</b><small>เข้าสู่ระบบ ที่อยู่ คะแนน และประวัติคำสั่งซื้อ</small></button>
+      <button data-category="product"><b>ข้อมูลสินค้า</b><small>รายละเอียด ราคา และข้อมูลก่อนสั่งซื้อ</small></button>
+      <button data-category="account"><b>บัญชีสมาชิก</b><small>เข้าสู่ระบบ ที่อยู่ และประวัติคำสั่งซื้อ</small></button>
+    </section>
+
+    <section class="kch-kb" id="knowledge" aria-labelledby="kch-kb-title">
+      <div class="kch-kb-head"><div><span>SELF-SERVICE KNOWLEDGE BASE</span><h2 id="kch-kb-title">ค้นหาคำตอบก่อนเปิดเคส</h2><p>รวมคำตอบที่อ้างอิงขั้นตอนและนโยบายของระบบ KHONCHAIHERB เพื่อแก้ปัญหาที่พบบ่อยได้ทันที หากยังไม่จบ สามารถส่งต่อให้เจ้าหน้าที่จากบทความเดียวกันได้</p></div><label class="kch-kb-search"><input id="kch-kb-search" type="search" autocomplete="off" placeholder="ค้นหา เช่น COD, ใบเสร็จ, คืนสินค้า, เลขพัสดุ" aria-label="ค้นหาคำตอบในศูนย์ช่วยเหลือ"></label></div>
+      <div class="kch-kb-filters" id="kch-kb-filters" aria-label="หมวดคำตอบ"></div>
+      <div class="kch-kb-grid" id="kch-kb-results" aria-live="polite"></div>
+      <article class="kch-kb-article" id="kch-kb-article" hidden></article>
     </section>
 
     <div class="workspace">
       <section class="panel">
-        <div class="panel-head"><div><span>สร้างเคสใหม่</span><h2>แจ้งเรื่องให้ทีมดูแล</h2></div><p>หากมีเลขคำสั่งซื้อ กรุณากรอกเพื่อให้ทีมตรวจสอบได้เร็วขึ้น</p></div>
+        <div class="panel-head"><div><span>สร้างเคสใหม่</span><h2>แจ้งเรื่องให้ทีมดูแล</h2></div><p>หากค้นหาคำตอบแล้วแต่ยังต้องการให้ตรวจสอบ กรุณาระบุเลขคำสั่งซื้อเพื่อให้ทีมทำงานได้เร็วขึ้น</p></div>
         <form id="ticket-form" novalidate>
           <div class="two"><label>ชื่อผู้ติดต่อ<input name="name" autocomplete="name" required minlength="2"></label><label>เบอร์โทร<input name="phone" inputmode="tel" autocomplete="tel" placeholder="0xxxxxxxxx"></label></div>
           <div class="two"><label>อีเมล<input name="email" type="email" autocomplete="email" placeholder="name@example.com"></label><label>เลขคำสั่งซื้อ<input name="orderNo" placeholder="เช่น KCH-..." autocomplete="off"></label></div>
@@ -57,7 +65,8 @@
       </section>
     </div>
   </main>
-  <footer><a href="/shipping-returns.html">การจัดส่งและคืนสินค้า</a><a href="/privacy.html">ความเป็นส่วนตัว</a><a href="/terms.html">ข้อกำหนดการใช้งาน</a></footer>
+  <footer><a href="#knowledge">ค้นหาคำตอบ</a><a href="/shipping-returns.html">การจัดส่งและคืนสินค้า</a><a href="/privacy.html">ความเป็นส่วนตัว</a><a href="/terms.html">ข้อกำหนดการใช้งาน</a></footer>
   <script src="/support.js"></script>
+  <script src="/support-self-service.js"></script>
 </body>
 </html>
