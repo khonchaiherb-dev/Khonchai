@@ -7,7 +7,9 @@
   window.__KCH_SEARCH_AUTHORITY__=BUILD;
 
   const SEARCH_SELECTOR='.tshop-searchbox input,#kch-v134-search';
+  const PRIMARY_SEARCH_SELECTOR='.tshop-topbar .tshop-searchbox input';
   const CARD_SELECTOR='.kch-master-product';
+  const IDENTITY_ATTRIBUTES=new Set(['data-kch-name','data-product','data-kch-cat']);
   let activeQuery='';
   let activeInput=null;
   let seq=0;
@@ -61,11 +63,13 @@
   }
 
   function inputs(){return [...document.querySelectorAll(SEARCH_SELECTOR)]}
+  function primaryInput(){return document.querySelector(PRIMARY_SEARCH_SELECTOR)||inputs()[0]||null}
 
   function syncReplacementInputs(q){
     if(!q)return;
+    const primary=primaryInput();
     inputs().forEach(input=>{
-      if(input===document.activeElement)return;
+      if(input===primary||input===document.activeElement)return;
       if(!normalize(input.value))input.value=q;
     });
   }
@@ -88,8 +92,8 @@
     const run=++seq;
     const pass=()=>{if(run===seq)apply(query)};
 
-    // Apply once synchronously so competing legacy listeners cannot leave a
-    // transiently stale product grid after an input event.
+    // Apply repeatedly across the legacy render window so the canonical query
+    // remains authoritative even while old storefront layers are settling.
     pass();
     queueMicrotask(pass);
     if(typeof requestAnimationFrame==='function')requestAnimationFrame(pass);
@@ -101,7 +105,9 @@
   }
 
   function queryFromTarget(target){
-    if(target?.matches?.(SEARCH_SELECTOR))return target.value||'';
+    if(target?.matches?.(PRIMARY_SEARCH_SELECTOR))return target.value||'';
+    const primary=primaryInput();
+    if(primary)return primary.value||'';
     if(activeInput?.isConnected&&activeInput.matches?.(SEARCH_SELECTOR))return activeInput.value||'';
     const focused=document.activeElement;
     if(focused?.matches?.(SEARCH_SELECTOR))return focused.value||'';
@@ -113,14 +119,25 @@
   function onSearchInput(event){
     const target=event.target;
     if(!target?.matches?.(SEARCH_SELECTOR))return;
+
+    // Only the storefront's visible topbar search is allowed to own query
+    // state when it exists. Legacy/duplicate search nodes may mirror the query
+    // but cannot overwrite it with stale or partial values.
+    const primary=primaryInput();
+    if(primary&&target!==primary){
+      if(activeQuery&&!normalize(primary.value))primary.value=activeQuery;
+      return;
+    }
+
     const next=target.value||'';
     const q=normalize(next);
 
-    // Legacy layers may replace the header and dispatch an empty synthetic
-    // input/search event. Preserve a real query only for those untrusted
-    // programmatic events. A genuine customer clear is a trusted browser event
-    // even if the edited search node is replaced before focus can be inspected.
-    if(!q&&activeQuery&&event.isTrusted===false){
+    // If the header was replaced, an empty event from the new node is a render
+    // artifact unless the customer is actively editing that node. Preserve the
+    // last query in that case; a real clear on the active input still clears.
+    if(!q&&activeQuery&&activeInput&&activeInput!==target&&!activeInput.isConnected&&document.activeElement!==target){
+      target.value=activeQuery;
+      activeInput=target;
       schedule(activeQuery);
       return;
     }
@@ -143,10 +160,24 @@
 
   if(typeof MutationObserver!=='undefined'){
     new MutationObserver(records=>{
-      if(!records.some(record=>record.addedNodes?.length||record.removedNodes?.length))return;
-      if(activeInput&&!activeInput.isConnected)activeInput=null;
+      const relevant=records.some(record=>
+        (record.type==='childList'&&(record.addedNodes?.length||record.removedNodes?.length))||
+        (record.type==='attributes'&&IDENTITY_ATTRIBUTES.has(record.attributeName))
+      );
+      if(!relevant)return;
+
+      if(activeInput&&!activeInput.isConnected){
+        const replacement=primaryInput();
+        if(replacement&&activeQuery&&!normalize(replacement.value))replacement.value=activeQuery;
+        activeInput=replacement;
+      }
       if(activeQuery)schedule(activeQuery);
-    }).observe(document.documentElement,{childList:true,subtree:true});
+    }).observe(document.documentElement,{
+      childList:true,
+      subtree:true,
+      attributes:true,
+      attributeFilter:[...IDENTITY_ATTRIBUTES]
+    });
   }
 
   const boot=()=>{
