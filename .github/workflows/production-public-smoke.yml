@@ -24,7 +24,7 @@ jobs:
     env:
       SITE_ORIGIN: https://khonchaiherb-commerce.pages.dev
     steps:
-      - name: Check deployed storefront v1.34.1 HTML
+      - name: Check deployed storefront v1.35 HTML
         shell: bash
         run: |
           set -euo pipefail
@@ -33,9 +33,12 @@ jobs:
             if curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/" > storefront.html; then
               if grep -Fq '/tshop-v132-conversion-storefront.css?v=1.32.0' storefront.html \
                 && grep -Fq '/tshop-v1321-search-visibility-fix.css?v=1.32.1' storefront.html \
+                && grep -Fq '/tshop-v133-readable-storefront.css?v=1.33.1' storefront.html \
                 && grep -Fq '/tshop-v134-structural-storefront.css?v=1.34.0' storefront.html \
                 && grep -Fq '/tshop-v1341-header-dedupe.css?v=1.34.1' storefront.html \
+                && grep -Fq '/tshop-v135-lower-standard.css?v=1.35.0' storefront.html \
                 && grep -Fq '/kch-conversion-storefront.js?v=1.32.0' storefront.html \
+                && grep -Fq '/kch-readable-storefront.js?v=1.33.1' storefront.html \
                 && grep -Fq '/kch-v134-structural-storefront.js?v=1.34.0' storefront.html \
                 && grep -Fq '/kch-v1341-header-dedupe.js?v=1.34.1' storefront.html \
                 && grep -Fq 'KHONCHAIHERB' storefront.html; then
@@ -43,14 +46,14 @@ jobs:
                 break
               fi
             fi
-            echo "Storefront v1.34.1 not visible yet (attempt $attempt/30); waiting for Pages deploy..."
+            echo "Storefront v1.35 not visible yet (attempt $attempt/30); waiting for Pages deploy..."
             sleep 3
           done
           if [ "$ok" != "1" ]; then
-            echo 'Latest storefront v1.34.1 assets were not observed on Production.' >&2
+            echo 'Latest storefront v1.35 assets were not observed on Production.' >&2
             exit 1
           fi
-          echo 'Deployed storefront v1.34.1 HTML: OK'
+          echo 'Deployed storefront v1.35 HTML: OK'
 
       - name: Verify deployed Seller Manager readiness guard
         shell: bash
@@ -131,16 +134,21 @@ jobs:
           fetch_asset 'tshop-v130-koonchaishop.css?v=1.30.0' source-styles.css
           fetch_asset 'kch-conversion-storefront.js?v=1.32.0' conversion-runtime.js
           fetch_asset 'tshop-v132-conversion-storefront.css?v=1.32.0' conversion-styles.css
+          fetch_asset 'kch-readable-storefront.js?v=1.33.1' readable-runtime.js
+          fetch_asset 'tshop-v133-readable-storefront.css?v=1.33.1' readable-styles.css
           fetch_asset 'kch-v134-structural-storefront.js?v=1.34.0' structural-runtime.js
           fetch_asset 'tshop-v134-structural-storefront.css?v=1.34.0' structural-styles.css
           fetch_asset 'kch-v1341-header-dedupe.js?v=1.34.1' header-dedupe-runtime.js
           fetch_asset 'tshop-v1341-header-dedupe.css?v=1.34.1' header-dedupe-styles.css
-          fetch_asset 'sw.js?v=1.34.1' service-worker.js
+          fetch_asset 'tshop-v135-lower-standard.css?v=1.35.0' lower-standard.css
+          fetch_asset 'sw.js?v=1.35.0' service-worker.js
 
           require_text source-runtime.js "const BUILD='1.30.1'" 'Koonchaishop runtime build'
           require_text source-styles.css 'KHONCHAIHERB Commerce v1.30' 'Koonchaishop style build'
           require_text conversion-runtime.js "const BUILD='1.32.0'" 'conversion runtime build'
           require_text conversion-styles.css 'KHONCHAIHERB v1.32.0' 'conversion style build'
+          require_text readable-runtime.js "const BUILD='1.33.1'" 'readable storefront runtime build'
+          require_text readable-styles.css 'KHONCHAIHERB v1.33.1' 'readable storefront style build'
           require_text structural-runtime.js "const BUILD='1.34.0'" 'structural runtime build'
           require_text structural-styles.css 'KHONCHAIHERB v1.34.0' 'structural style build'
           require_text structural-styles.css '#kch-v134-header.kch-v134-header' 'structural header selector'
@@ -152,9 +160,16 @@ jobs:
           require_text header-dedupe-runtime.js "const BUILD='1.34.1'" 'header de-duplication runtime build'
           require_text header-dedupe-runtime.js '__KCH_V1341_HEADER_DEDUPE__' 'header de-duplication boot guard'
           require_text header-dedupe-styles.css 'KHONCHAIHERB v1.34.1' 'header de-duplication style build'
+          require_text lower-standard.css 'KHONCHAIHERB v1.35.0' 'lower storefront standard build'
+          require_text lower-standard.css '.kch-footer-v2 .kch-footer-confidence' 'footer confidence rail standard'
+          require_text lower-standard.css '.kch-footer-v2 .kch-master-footer-inner' 'footer information architecture standard'
+          require_text lower-standard.css '.kch-master-home .kch-master-trust' 'pre-footer service standard'
           require_text service-worker.js "const CACHE='khonchaiherb-v" 'versioned service worker cache'
+          require_text service-worker.js '/tshop-v133-readable-storefront.css?v=1.33.1' 'service worker v1.33 CSS cache'
+          require_text service-worker.js '/kch-readable-storefront.js?v=1.33.1' 'service worker v1.33 JS cache'
           require_text service-worker.js '/tshop-v134-structural-storefront.css?v=1.34.0' 'service worker v1.34 CSS cache'
           require_text service-worker.js '/kch-v134-structural-storefront.js?v=1.34.0' 'service worker v1.34 JS cache'
           require_text service-worker.js '/tshop-v1341-header-dedupe.css?v=1.34.1' 'service worker v1.34.1 CSS cache'
           require_text service-worker.js '/kch-v1341-header-dedupe.js?v=1.34.1' 'service worker v1.34.1 JS cache'
-          echo 'Production v1.34.1 structural storefront assets: OK'
+          require_text service-worker.js '/tshop-v135-lower-standard.css?v=1.35.0' 'service worker v1.35 lower standard cache'
+          echo 'Production v1.35 storefront assets: OK'
