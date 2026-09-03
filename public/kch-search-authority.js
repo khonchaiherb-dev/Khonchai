@@ -2,7 +2,7 @@
 (()=>{
   'use strict';
   if(typeof document==='undefined')return;
-  const BUILD='1.0.0';
+  const BUILD='1.0.2';
   if(window.__KCH_SEARCH_AUTHORITY__===BUILD)return;
   window.__KCH_SEARCH_AUTHORITY__=BUILD;
 
@@ -13,13 +13,23 @@
   let seq=0;
 
   const normalize=value=>String(value??'').normalize('NFKC').toLocaleLowerCase('th-TH').replace(/\s+/g,' ').trim();
-  const cardText=card=>normalize([
-    card?.dataset?.kchName,
-    card?.dataset?.product,
-    card?.dataset?.kchCat,
-    card?.getAttribute?.('aria-label'),
-    card?.textContent
-  ].filter(Boolean).join(' '));
+  const cardText=card=>{
+    const authoritative=[
+      card?.dataset?.kchName,
+      card?.dataset?.product,
+      card?.dataset?.kchCat
+    ].filter(value=>normalize(value));
+    if(authoritative.length)return normalize(authoritative.join(' '));
+
+    // Fallback only to product-identifying elements. Never index the entire
+    // card text because buttons/badges injected by legacy layers can contain
+    // stale product names and create false-positive search matches.
+    const heading=card?.querySelector?.('h1,h2,h3,h4,.kch-master-product-name,[data-product-name]');
+    return normalize([
+      heading?.textContent,
+      card?.getAttribute?.('aria-label')
+    ].filter(Boolean).join(' '));
+  };
 
   function ensureRule(){
     if(document.getElementById('kch-search-authority-style'))return;
