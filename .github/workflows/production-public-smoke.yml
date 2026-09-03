@@ -32,6 +32,8 @@ jobs:
           for attempt in $(seq 1 35); do
             if curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/" > storefront.html; then
               if grep -Fq 'KHONCHAIHERB' storefront.html \
+                && grep -Fq 'kch-koonchaishop-commerce.js?v=1.30.1' storefront.html \
+                && grep -Fq 'tshop-v130-koonchaishop.css?v=1.30.0' storefront.html \
                 && grep -Fq 'tshop-v133-readable-storefront.css' storefront.html \
                 && grep -Fq 'kch-readable-storefront.js' storefront.html \
                 && grep -Fq 'tshop-v134-structural-storefront.css' storefront.html \
@@ -95,7 +97,7 @@ jobs:
           data=json.loads(Path('koonchaishop-feed.json').read_text())
           source=data.get('source') or {}
           assert source.get('shopName')=='Koonchaishop', source
-          assert source.get('shopCode')=='THLCRLWLHR', source
+          assert source.get('shopCode')== 'THLCRLWLHR', source
           assert source.get('platformKey')=='tiktok_shop', source
           assets=data.get('assets') or []
           reviews=data.get('reviews') or []
@@ -123,6 +125,8 @@ jobs:
           fetch_asset(){ curl --fail --silent --show-error --location --retry 8 --retry-all-errors --retry-delay 2 --max-time 20 "$SITE_ORIGIN/$1" > "$2"; echo "fetched $1"; }
           require_text(){ if grep -Fq "$2" "$1"; then echo "OK $3"; else echo "MISSING $3 :: expected [$2] in $1" >&2; exit 1; fi; }
 
+          fetch_asset 'kch-koonchaishop-commerce.js?v=1.30.1' source-runtime.js
+          fetch_asset 'tshop-v130-koonchaishop.css?v=1.30.0' source-styles.css
           fetch_asset 'kch-readable-storefront.js?v=1.33.1' readable-runtime.js
           fetch_asset 'tshop-v134-structural-storefront.css?v=1.34.0' structural-styles.css
           fetch_asset 'kch-v134-structural-storefront.js?v=1.34.0' structural-runtime.js
@@ -131,6 +135,10 @@ jobs:
           fetch_asset 'tshop-v135-lower-standard.css?v=1.35.0' lower-standard.css
           fetch_asset 'kch-revenue-core.js?v=1.0.0' revenue-core.js
           fetch_asset 'sw.js?v=1.35.0' service-worker.js
+
+          require_text source-runtime.js "const BUILD='1.30.1'" 'Koonchaishop source runtime'
+          require_text source-runtime.js '/api/koonchaishop-feed' 'Koonchaishop source API contract'
+          require_text source-styles.css 'KHONCHAIHERB Commerce v1.30' 'Koonchaishop source style contract'
 
           require_text readable-runtime.js "const BUILD='1.33.1'" 'readable storefront runtime'
           require_text readable-runtime.js 'window.__KCH_MASTER_SEARCH__' 'canonical search owner bridge'
@@ -161,7 +169,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "### KHONCHAIHERB Production Public Smoke" >> "$GITHUB_STEP_SUMMARY"
-          echo "Storefront structure, canonical search bridge, tablet touch target, revenue core, Seller Manager and public Koonchaishop feed contracts were verified." >> "$GITHUB_STEP_SUMMARY"
+          echo "Storefront structure, canonical search bridge, tablet touch target, revenue core, Seller Manager and Koonchaishop provenance contracts were verified." >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ steps.source.outputs.database_ready }}" = "true" ]; then
             echo "Koonchaishop source database: READY" >> "$GITHUB_STEP_SUMMARY"
           else
