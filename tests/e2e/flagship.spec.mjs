@@ -37,7 +37,7 @@ async function loadV132(page){
 
 async function loadSearchAuthority(page){
   await page.addScriptTag({path:'public/kch-search-authority.js'});
-  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.2');
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.3');
 }
 
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
