@@ -11,6 +11,7 @@ on:
           - 0019_inventory_fefo.sql
           - 0020_operational_alert_state.sql
           - 0021_koonchaishop_source_library.sql
+          - 0022_revenue_payment_recovery.sql
       confirmation:
         description: Type APPLY-PRODUCTION-D1 to confirm
         required: true
@@ -101,6 +102,22 @@ jobs:
               raise AssertionError('verified_on_site guard must reject imported reviews')
             except sqlite3.IntegrityError:
               pass
+          if target=='0022_revenue_payment_recovery.sql':
+            tables={r[0] for r in db.execute("select name from sqlite_master where type='table'")}
+            assert {'payment_attempts','payment_provider_events','checkout_sessions','checkout_recovery_events','cod_risk_assessments'} <= tables
+            checkout_cols={r[1] for r in db.execute("pragma table_info('checkout_sessions')")}
+            assert {'session_key','cart_fingerprint','cart_json','last_step','status','recovery_allowed','last_activity_at','expires_at'} <= checkout_cols
+            payment_cols={r[1] for r in db.execute("pragma table_info('payment_attempts')")}
+            assert {'method','provider','provider_intent_ref','amount','currency','status','expires_at','paid_at'} <= payment_cols
+            risk_cols={r[1] for r in db.execute("pragma table_info('cod_risk_assessments')")}
+            assert {'score','risk_level','decision','reasons_json','policy_version','reviewed_by'} <= risk_cols
+            indexes={r[1] for r in db.execute("pragma index_list('payment_provider_events')")}
+            assert any(r[2] for r in db.execute("pragma index_list('payment_provider_events')")), 'provider event dedupe must be unique'
+            try:
+              db.execute("insert into payment_attempts(order_id,method,amount) values(1,'UNSAFE',100)")
+              raise AssertionError('payment method guard must reject unknown method')
+            except (sqlite3.IntegrityError, sqlite3.OperationalError):
+              pass
           print('Migration validation passed:',target)
           PY
 
@@ -138,3 +155,14 @@ jobs:
           npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA index_list('source_assets');"
           npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA index_list('source_reviews');"
           npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA index_list('source_product_links');"
+
+      - name: Verify production revenue payment recovery schema
+        if: ${{ inputs.migration == '0022_revenue_payment_recovery.sql' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="SELECT name FROM sqlite_master WHERE type='table' AND name IN ('payment_attempts','payment_provider_events','checkout_sessions','checkout_recovery_events','cod_risk_assessments') ORDER BY name;"
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA table_info('payment_attempts');"
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA table_info('checkout_sessions');"
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA table_info('cod_risk_assessments');"
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA index_list('payment_provider_events');"
