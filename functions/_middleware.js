@@ -47,7 +47,7 @@ const withCanonicalMetadata=(response,env,pathname='')=>{
     head.append('<script defer src="/kch-koonchaishop-commerce.js?v=1.30.1"></script>',{html:true});
     head.append('<script defer src="/kch-top-conversion.js?v=1.31.2"></script>',{html:true});
     head.append('<script defer src="/kch-conversion-storefront.js?v=1.32.0"></script>',{html:true});
-    head.append('<script defer src="/kch-search-authority.js?v=1.0.2"></script>',{html:true});
+    head.append('<script defer src="/kch-search-authority.js?v=1.0.3"></script>',{html:true});
     head.append('<script defer src="/kch-readable-storefront.js?v=1.33.1"></script>',{html:true});
     head.append('<script defer src="/kch-v134-structural-storefront.js?v=1.34.0"></script>',{html:true});
     head.append('<script defer src="/kch-v1341-header-dedupe.js?v=1.34.1"></script>',{html:true});
