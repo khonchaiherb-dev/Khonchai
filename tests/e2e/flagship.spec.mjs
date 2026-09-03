@@ -32,7 +32,7 @@ async function loadV132(page){
   await page.addStyleTag({path:'public/tshop-v132-conversion-storefront.css'});
   await page.addStyleTag({path:'public/tshop-v1321-search-visibility-fix.css'});
   await page.addScriptTag({path:'public/kch-conversion-storefront.js'});
-  await expect.poll(()=>page.evaluate(()=>window.__KCH_CONVERSION_STOREFRONT__)).toBe('1.32.0');
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_CONVERSION_STOREFRONT__)).toBe('1.32.1');
 }
 
 async function loadSearchAuthority(page){
@@ -83,8 +83,15 @@ test('master storefront discovery is readable, Thai-first and stable across view
   const chiangDa=grid.locator('[data-product="chiang-da-tea-e2e"]');
   await expect(rangJued).toContainText('ชารางจืด');
   await expect(rangJued).toHaveAttribute('data-kch-v132-ready','1');
-  await expect(rangJued.getByRole('button',{name:/สั่งซื้อ ชารางจืด/})).toBeVisible();
+  await expect(rangJued).toHaveAttribute('data-kch-v132-product','rang-jued-tea-e2e');
+  const rangJuedCta=rangJued.getByRole('button',{name:/สั่งซื้อ ชารางจืด/});
+  await expect(rangJuedCta).toBeVisible();
+  await expect(rangJuedCta).toHaveAttribute('data-product','rang-jued-tea-e2e');
   await expect(rangJued).toContainText('฿190');
+
+  const legacyRangJued=grid.getByRole('heading',{level:3,name:'ชารางจืด',exact:true}).locator('xpath=ancestor::article[contains(@class,"kch-master-product")][1]');
+  await expect(legacyRangJued).toHaveCount(1);
+  await expect(legacyRangJued.locator('.kch-v132-card-cta')).toHaveCount(0);
 
   const mediaHeight=await rangJued.locator('.kch-master-product-media').evaluate(el=>Math.round(el.getBoundingClientRect().height));
   const viewportWidth=page.viewportSize()?.width||0;
