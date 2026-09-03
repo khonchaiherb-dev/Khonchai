@@ -1,0 +1,10 @@
+/* KHONCHAIHERB v1.36.0 — fast purchase conversion layer */
+.kch-v136-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:8px;margin-top:10px}
+.kch-v136-actions>button{min-width:0;min-height:44px;border-radius:12px;padding:0 12px;font:800 12px/1.2 'Noto Sans Thai',sans-serif;cursor:pointer;touch-action:manipulation}
+.kch-v136-detail{border:1px solid #d8e1da;background:#fff;color:#244d3b}
+.kch-v136-buy-now{border:1px solid #173f31;background:#173f31;color:#fff;box-shadow:0 8px 20px rgba(23,63,49,.12)}
+.kch-v136-buy-now:active{transform:translateY(1px)}
+.kch-v136-buy-now:focus-visible,.kch-v136-detail:focus-visible{outline:3px solid rgba(16,63,49,.30);outline-offset:2px}
+.kch-master-product[data-kch-v132-ready="1"] .kch-v132-card-cta{display:none!important}
+@media(max-width:520px){.kch-v136-actions{gap:6px}.kch-v136-actions>button{min-height:46px;font-size:11.5px;padding:0 9px}}
+@media(prefers-reduced-motion:reduce){.kch-v136-actions>button{transition:none!important}}
