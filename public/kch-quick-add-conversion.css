@@ -1,0 +1,53 @@
+/* KHONCHAIHERB Quick Add Conversion — consolidated storefront module */
+html body .kch-master-product-bottom{
+  gap:10px!important;
+  align-items:center!important;
+}
+html body .kch-master-product-bottom .kch-master-price{
+  min-width:0;
+  flex:1 1 auto;
+}
+html body .kch-master-product-bottom button[data-add]{
+  width:auto!important;
+  min-width:70px!important;
+  height:44px!important;
+  min-height:44px!important;
+  padding:0 12px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:5px!important;
+  flex:0 0 auto!important;
+  border-radius:12px!important;
+  font:800 10px/1 'Noto Sans Thai',system-ui,sans-serif!important;
+  white-space:nowrap!important;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+html body .kch-master-product-bottom button[data-add]::after{
+  content:'เพิ่ม';
+  display:inline-block;
+}
+html body .kch-master-product-bottom button[data-add] .material-symbols-rounded{
+  font-size:18px!important;
+}
+html body .kch-master-product-bottom button[data-add]:focus-visible{
+  outline:3px solid rgba(23,95,67,.28)!important;
+  outline-offset:2px!important;
+}
+@media(max-width:699px){
+  html body .kch-master-product-bottom button[data-add]{
+    min-width:76px!important;
+    padding-inline:11px!important;
+    font-size:10.5px!important;
+  }
+}
+@media(max-width:390px){
+  html body .kch-master-product-bottom{
+    gap:7px!important;
+  }
+  html body .kch-master-product-bottom button[data-add]{
+    min-width:68px!important;
+    padding-inline:9px!important;
+  }
+}
