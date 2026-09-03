@@ -1,2 +1,10 @@
-/* KHONCHAIHERB v1.32.1 — preserve native hidden state on flex product cards. */
-.kch-master-home.kch-v132-home .kch-master-products .kch-master-product[hidden]{display:none!important}
+/* KHONCHAIHERB v1.32.2 — authoritative search visibility contract.
+   Search/filter state must beat legacy flex/grid display rules with !important. */
+html body .kch-master-home.kch-v132-home .kch-master-products .kch-master-product[hidden],
+html body .kch-master-home.kch-v132-home .kch-master-products .kch-master-product[aria-hidden="true"],
+html body .kch-master-home.kch-v132-home .kch-master-products .kch-master-product[data-kch-v131-search-match="0"],
+html body .kch-master-home.kch-v132-home .kch-master-products .kch-master-product.kch-critical-search-hidden{
+  display:none!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
