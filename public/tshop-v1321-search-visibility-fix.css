@@ -1,5 +1,7 @@
 /* KHONCHAIHERB v1.32.2 — authoritative search visibility contract.
    Search/filter state must beat legacy flex/grid display rules with !important. */
+/* Compatibility invariant retained for v1.32 smoke contracts. */
+.kch-master-product[hidden]{display:none!important}
 html body .kch-master-home.kch-v132-home .kch-master-products .kch-master-product[hidden],
 html body .kch-master-home.kch-v132-home .kch-master-products .kch-master-product[aria-hidden="true"],
 html body .kch-master-home.kch-v132-home .kch-master-products .kch-master-product[data-kch-v131-search-match="0"],
