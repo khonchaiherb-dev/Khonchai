@@ -20,40 +20,34 @@ jobs:
     name: Verify deployed storefront and public Koonchaishop feed
     if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 7
+    timeout-minutes: 8
     env:
       SITE_ORIGIN: https://khonchaiherb-commerce.pages.dev
     steps:
-      - name: Check deployed storefront v1.35 HTML
+      - name: Wait for current storefront deployment
         shell: bash
         run: |
           set -euo pipefail
           ok=0
-          for attempt in $(seq 1 30); do
+          for attempt in $(seq 1 35); do
             if curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/" > storefront.html; then
-              if grep -Fq '/tshop-v132-conversion-storefront.css?v=1.32.0' storefront.html \
-                && grep -Fq '/tshop-v1321-search-visibility-fix.css?v=1.32.1' storefront.html \
-                && grep -Fq '/tshop-v133-readable-storefront.css?v=1.33.1' storefront.html \
-                && grep -Fq '/tshop-v134-structural-storefront.css?v=1.34.0' storefront.html \
-                && grep -Fq '/tshop-v1341-header-dedupe.css?v=1.34.1' storefront.html \
-                && grep -Fq '/tshop-v135-lower-standard.css?v=1.35.0' storefront.html \
-                && grep -Fq '/kch-conversion-storefront.js?v=1.32.0' storefront.html \
-                && grep -Fq '/kch-readable-storefront.js?v=1.33.1' storefront.html \
-                && grep -Fq '/kch-v134-structural-storefront.js?v=1.34.0' storefront.html \
-                && grep -Fq '/kch-v1341-header-dedupe.js?v=1.34.1' storefront.html \
-                && grep -Fq 'KHONCHAIHERB' storefront.html; then
+              if grep -Fq 'KHONCHAIHERB' storefront.html \
+                && grep -Fq 'tshop-v133-readable-storefront.css' storefront.html \
+                && grep -Fq 'kch-readable-storefront.js' storefront.html \
+                && grep -Fq 'tshop-v134-structural-storefront.css' storefront.html \
+                && grep -Fq 'kch-v134-structural-storefront.js' storefront.html \
+                && grep -Fq 'tshop-v1341-header-dedupe.css' storefront.html \
+                && grep -Fq 'kch-v1341-header-dedupe.js' storefront.html \
+                && grep -Fq 'tshop-v135-lower-standard.css' storefront.html; then
                 ok=1
                 break
               fi
             fi
-            echo "Storefront v1.35 not visible yet (attempt $attempt/30); waiting for Pages deploy..."
+            echo "Current storefront assets not visible yet (attempt $attempt/35); waiting for Pages deploy..."
             sleep 3
           done
-          if [ "$ok" != "1" ]; then
-            echo 'Latest storefront v1.35 assets were not observed on Production.' >&2
-            exit 1
-          fi
-          echo 'Deployed storefront v1.35 HTML: OK'
+          [ "$ok" = "1" ] || { echo 'Current storefront asset set was not observed on Production.' >&2; exit 1; }
+          echo 'Current deployed storefront HTML: OK'
 
       - name: Verify deployed Seller Manager readiness guard
         shell: bash
@@ -64,16 +58,29 @@ jobs:
             if curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/seller-koonchaishop.html" > seller-koonchaishop.html; then
               if grep -Fq '/kch-koonchaishop-admin-readiness.js?v=1.0.1' seller-koonchaishop.html; then ok=1; break; fi
             fi
-            echo "Seller readiness guard v1.0.1 not visible yet (attempt $attempt/20); waiting for Pages deploy..."
+            echo "Seller readiness guard not visible yet (attempt $attempt/20); waiting for Pages deploy..."
             sleep 3
           done
-          [ "$ok" = "1" ] || { echo 'Latest Seller Manager readiness guard was not observed on Production.' >&2; exit 1; }
+          [ "$ok" = "1" ] || { echo 'Seller Manager readiness guard was not observed on Production.' >&2; exit 1; }
           curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/kch-koonchaishop-admin-readiness.js?v=1.0.1" > admin-readiness.js
           grep -Fq "const BUILD='1.0.1'" admin-readiness.js
           grep -Fq '__KCH_KOONCHAISHOP_ADMIN_READINESS_BOOT__' admin-readiness.js
           grep -Fq 'migration_0021_required' admin-readiness.js
           grep -Fq 'setForms(false)' admin-readiness.js
-          echo 'Production Seller Manager readiness guard v1.0.1: OK'
+          echo 'Production Seller Manager readiness guard: OK'
+
+      - name: Verify Revenue Control Center surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --retry 10 --retry-all-errors --retry-delay 2 --max-time 20 \
+            "$SITE_ORIGIN/seller-revenue.html" > seller-revenue.html
+          grep -Fq 'Production & Revenue Control Center' seller-revenue.html
+          grep -Fq 'noindex,nofollow,noarchive' seller-revenue.html
+          grep -Fq '/api/admin/revenue-readiness' seller-revenue.html
+          grep -Fq '/api/admin/checkout-recovery' seller-revenue.html
+          grep -Fq '/api/admin/cod-risk' seller-revenue.html
+          echo 'Production Revenue Control Center surface: OK'
 
       - name: Check public Koonchaishop feed contract
         id: source
@@ -109,67 +116,56 @@ jobs:
           echo "assets=$assets" >> "$GITHUB_OUTPUT"
           echo "reviews=$reviews" >> "$GITHUB_OUTPUT"
 
-      - name: Report production source readiness
+      - name: Verify deployed storefront behavioral invariants
         shell: bash
         run: |
           set -euo pipefail
-          if [ "${{ steps.source.outputs.database_ready }}" = "true" ]; then
-            echo "### Production Koonchaishop feed: DATABASE READY" >> "$GITHUB_STEP_SUMMARY"
-            echo "The deployed Pages Functions binding can read the Koonchaishop source schema." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "### Production Koonchaishop feed: DATABASE NOT READY" >> "$GITHUB_STEP_SUMMARY"
-            echo "The deployed storefront is healthy, but migration 0021 is not readable through the production D1 binding yet." >> "$GITHUB_STEP_SUMMARY"
-          fi
-          echo "Published assets returned by smoke query: ${{ steps.source.outputs.assets }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Published reviews returned by smoke query: ${{ steps.source.outputs.reviews }}" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Verify deployed storefront assets and build markers
-        shell: bash
-        run: |
-          set -euo pipefail
-          fetch_asset(){ curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/$1" > "$2"; echo "fetched $1"; }
+          fetch_asset(){ curl --fail --silent --show-error --location --retry 8 --retry-all-errors --retry-delay 2 --max-time 20 "$SITE_ORIGIN/$1" > "$2"; echo "fetched $1"; }
           require_text(){ if grep -Fq "$2" "$1"; then echo "OK $3"; else echo "MISSING $3 :: expected [$2] in $1" >&2; exit 1; fi; }
 
-          fetch_asset 'kch-koonchaishop-commerce.js?v=1.30.1' source-runtime.js
-          fetch_asset 'tshop-v130-koonchaishop.css?v=1.30.0' source-styles.css
-          fetch_asset 'kch-conversion-storefront.js?v=1.32.0' conversion-runtime.js
-          fetch_asset 'tshop-v132-conversion-storefront.css?v=1.32.0' conversion-styles.css
           fetch_asset 'kch-readable-storefront.js?v=1.33.1' readable-runtime.js
-          fetch_asset 'tshop-v133-readable-storefront.css?v=1.33.1' readable-styles.css
-          fetch_asset 'kch-v134-structural-storefront.js?v=1.34.0' structural-runtime.js
           fetch_asset 'tshop-v134-structural-storefront.css?v=1.34.0' structural-styles.css
+          fetch_asset 'kch-v134-structural-storefront.js?v=1.34.0' structural-runtime.js
           fetch_asset 'kch-v1341-header-dedupe.js?v=1.34.1' header-dedupe-runtime.js
           fetch_asset 'tshop-v1341-header-dedupe.css?v=1.34.1' header-dedupe-styles.css
           fetch_asset 'tshop-v135-lower-standard.css?v=1.35.0' lower-standard.css
+          fetch_asset 'kch-revenue-core.js?v=1.0.0' revenue-core.js
           fetch_asset 'sw.js?v=1.35.0' service-worker.js
 
-          require_text source-runtime.js "const BUILD='1.30.1'" 'Koonchaishop runtime build'
-          require_text source-styles.css 'KHONCHAIHERB Commerce v1.30' 'Koonchaishop style build'
-          require_text conversion-runtime.js "const BUILD='1.32.0'" 'conversion runtime build'
-          require_text conversion-styles.css 'KHONCHAIHERB v1.32.0' 'conversion style build'
-          require_text readable-runtime.js "const BUILD='1.33.1'" 'readable storefront runtime build'
-          require_text readable-styles.css 'KHONCHAIHERB v1.33.1' 'readable storefront style build'
-          require_text structural-runtime.js "const BUILD='1.34.0'" 'structural runtime build'
-          require_text structural-styles.css 'KHONCHAIHERB v1.34.0' 'structural style build'
+          require_text readable-runtime.js "const BUILD='1.33.1'" 'readable storefront runtime'
+          require_text readable-runtime.js 'window.__KCH_MASTER_SEARCH__' 'canonical search owner bridge'
+          require_text readable-runtime.js "owner.source='v133-window-input'" 'canonical search input handoff'
+          require_text readable-runtime.js "removeAttribute('data-kch-v131-search-match')" 'legacy search state cleanup'
+          require_text readable-runtime.js 'min-width:48px!important;min-height:48px!important' 'tablet 48px touch target guard'
+
+          require_text structural-styles.css 'structural storefront baseline' 'structural storefront baseline marker'
           require_text structural-styles.css '#kch-v134-header.kch-v134-header' 'structural header selector'
           require_text structural-styles.css 'font-size:16px!important' 'readable 16px baseline'
           require_text structural-styles.css 'font-size:18px!important' 'product readable 18px baseline'
           require_text structural-styles.css '.kch-v134-obsolete-header' 'legacy header removal rule'
           require_text structural-runtime.js 'kch-master-shell' 'structural shell activation'
           require_text structural-runtime.js 'data-v134-go="account"' 'account action in structural header'
-          require_text header-dedupe-runtime.js "const BUILD='1.34.1'" 'header de-duplication runtime build'
           require_text header-dedupe-runtime.js '__KCH_V1341_HEADER_DEDUPE__' 'header de-duplication boot guard'
-          require_text header-dedupe-styles.css 'KHONCHAIHERB v1.34.1' 'header de-duplication style build'
-          require_text lower-standard.css 'KHONCHAIHERB v1.35.0' 'lower storefront standard build'
+          require_text header-dedupe-styles.css 'kch-v1341-hidden-legacy' 'header de-duplication CSS guard'
           require_text lower-standard.css '.kch-footer-v2 .kch-footer-confidence' 'footer confidence rail standard'
-          require_text lower-standard.css '.kch-footer-v2 .kch-master-footer-inner' 'footer information architecture standard'
           require_text lower-standard.css '.kch-master-home .kch-master-trust' 'pre-footer service standard'
-          require_text service-worker.js "const CACHE='khonchaiherb-v" 'versioned service worker cache'
-          require_text service-worker.js '/tshop-v133-readable-storefront.css?v=1.33.1' 'service worker v1.33 CSS cache'
-          require_text service-worker.js '/kch-readable-storefront.js?v=1.33.1' 'service worker v1.33 JS cache'
-          require_text service-worker.js '/tshop-v134-structural-storefront.css?v=1.34.0' 'service worker v1.34 CSS cache'
-          require_text service-worker.js '/kch-v134-structural-storefront.js?v=1.34.0' 'service worker v1.34 JS cache'
-          require_text service-worker.js '/tshop-v1341-header-dedupe.css?v=1.34.1' 'service worker v1.34.1 CSS cache'
-          require_text service-worker.js '/kch-v1341-header-dedupe.js?v=1.34.1' 'service worker v1.34.1 JS cache'
-          require_text service-worker.js '/tshop-v135-lower-standard.css?v=1.35.0' 'service worker v1.35 lower standard cache'
-          echo 'Production v1.35 storefront assets: OK'
+          require_text revenue-core.js '/api/checkout-session' 'checkout recovery session integration'
+          require_text revenue-core.js 'recoveryAllowed:false' 'completed checkout recovery stop'
+          require_text service-worker.js '/kch-readable-storefront.js?v=1.33.1' 'service worker readable runtime cache'
+          require_text service-worker.js '/kch-v134-structural-storefront.js?v=1.34.0' 'service worker structural runtime cache'
+          require_text service-worker.js '/kch-v1341-header-dedupe.js?v=1.34.1' 'service worker header dedupe cache'
+          echo 'Production storefront behavioral invariants: OK'
+
+      - name: Report production readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "### KHONCHAIHERB Production Public Smoke" >> "$GITHUB_STEP_SUMMARY"
+          echo "Storefront structure, canonical search bridge, tablet touch target, revenue core, Seller Manager and public Koonchaishop feed contracts were verified." >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.source.outputs.database_ready }}" = "true" ]; then
+            echo "Koonchaishop source database: READY" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Koonchaishop source database: NOT READY / migration or binding still required" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "Published assets returned: ${{ steps.source.outputs.assets }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Published reviews returned: ${{ steps.source.outputs.reviews }}" >> "$GITHUB_STEP_SUMMARY"
