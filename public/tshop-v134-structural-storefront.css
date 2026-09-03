@@ -1,4 +1,4 @@
-/* KHONCHAIHERB v1.34.0 — structural storefront baseline
+/* KHONCHAIHERB v1.34.2 — structural storefront baseline
    One stable, readable storefront layer for real 100% zoom usage. */
 :root{
   --kch-v134-shell:1760px;
@@ -20,9 +20,25 @@ body .shell.kch-master-shell{
   margin-left:auto!important;
   margin-right:auto!important;
 }
-.kch-v134-obsolete-header,
-.kch-v134-obsolete-menu,
-.kch-v134-obsolete-account-strip{display:none!important}
+/* Structural invariant: once v1.34 marks a legacy row obsolete it must stay out of layout,
+   even when earlier storefront layers use more-specific display:* !important rules. */
+html body #app .kch-v134-obsolete-header,
+html body #app .kch-v134-obsolete-menu,
+html body #app .kch-v134-obsolete-account-strip,
+html body .kch-v134-obsolete-header,
+html body .kch-v134-obsolete-menu,
+html body .kch-v134-obsolete-account-strip{
+  display:none!important;
+  visibility:hidden!important;
+  height:0!important;
+  min-height:0!important;
+  max-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  overflow:hidden!important;
+  pointer-events:none!important;
+}
 
 /* Structural header: no dependence on legacy header dimensions. */
 #kch-v134-header.kch-v134-header{
