@@ -7,17 +7,16 @@ const ASSIGNABLE_ROLES=new Set(['owner','admin','operations','support']);
 const staffId=request=>{const v=Number(request.headers.get('X-KCH-Staff-Id'));return Number.isInteger(v)&&v>0?v:null};
 async function ticketByNo(env,ticketNo){return env.DB.prepare(`SELECT t.*,o.order_no,o.total order_total,o.payment_method,o.payment_status,o.fulfillment_status,o.status order_status,o.created_at order_created_at,c.full_name customer_name,c.phone customer_phone,c.email customer_email,s.display_name assigned_agent FROM support_tickets t LEFT JOIN orders o ON o.id=t.order_id LEFT JOIN customers c ON c.id=t.customer_id LEFT JOIN staff_users s ON s.id=t.assigned_staff_id WHERE t.ticket_no=? LIMIT 1`).bind(ticketNo).first()}
 async function addEvent(env,ticketId,type,fromStatus,toStatus,staff,detail=null){await env.DB.prepare(`INSERT INTO support_ticket_events(ticket_id,event_type,from_status,to_status,staff_user_id,detail_json) VALUES(?,?,?,?,?,?)`).bind(ticketId,type,fromStatus||null,toStatus||null,staff||null,detail==null?null:JSON.stringify(detail).slice(0,4000)).run()}
-async function customerSnapshot(env,ticket){if(!ticket?.customer_id)return null;const c=await env.DB.prepare(`SELECT c.id,c.full_name,c.phone,c.email,c.created_at,c.last_login_at,
-  COUNT(DISTINCT o.id) order_count,
-  COALESCE(SUM(CASE WHEN o.payment_status IN ('paid','cod_collected') THEN o.total ELSE 0 END),0) lifetime_value,
-  MAX(o.created_at) last_order_at,
-  COUNT(DISTINCT CASE WHEN rr.status IN ('requested','reviewing','approved') THEN rr.id END) open_returns,
-  COUNT(DISTINCT CASE WHEN st.status NOT IN ('resolved','closed') THEN st.id END) open_support_tickets
-  FROM customers c
-  LEFT JOIN orders o ON o.customer_id=c.id
-  LEFT JOIN return_requests rr ON rr.customer_id=c.id
-  LEFT JOIN support_tickets st ON st.customer_id=c.id
-  WHERE c.id=? GROUP BY c.id`).bind(ticket.customer_id).first();if(!c)return null;
+async function customerSnapshot(env,ticket){
+  if(!ticket?.customer_id)return null;
+  const c=await env.DB.prepare(`SELECT c.id,c.full_name,c.phone,c.email,c.created_at,c.last_login_at,
+    (SELECT COUNT(*) FROM orders o WHERE o.customer_id=c.id) order_count,
+    (SELECT COALESCE(SUM(o.total),0) FROM orders o WHERE o.customer_id=c.id AND o.payment_status IN ('paid','cod_collected')) lifetime_value,
+    (SELECT MAX(o.created_at) FROM orders o WHERE o.customer_id=c.id) last_order_at,
+    (SELECT COUNT(*) FROM return_requests rr WHERE rr.customer_id=c.id AND rr.status IN ('requested','reviewing','approved')) open_returns,
+    (SELECT COUNT(*) FROM support_tickets st WHERE st.customer_id=c.id AND st.status NOT IN ('resolved','closed')) open_support_tickets
+    FROM customers c WHERE c.id=? LIMIT 1`).bind(ticket.customer_id).first();
+  if(!c)return null;
   const recent=await env.DB.prepare(`SELECT order_no,total,payment_method,payment_status,fulfillment_status,status,created_at FROM orders WHERE customer_id=? ORDER BY id DESC LIMIT 6`).bind(ticket.customer_id).all();
   const orderCount=Number(c.order_count||0),ltv=Math.round(Number(c.lifetime_value||0)*100)/100;let segment='new';if(orderCount>=5||ltv>=5000)segment='vip';else if(orderCount>=2)segment='repeat';else if(orderCount===1)segment='first_order';
   return {id:Number(c.id),name:c.full_name||'',phone:c.phone||'',email:c.email||'',createdAt:c.created_at||null,lastLoginAt:c.last_login_at||null,orderCount,lifetimeValue:ltv,lastOrderAt:c.last_order_at||null,openReturns:Number(c.open_returns||0),openSupportTickets:Number(c.open_support_tickets||0),segment,recentOrders:recent.results||[]};
