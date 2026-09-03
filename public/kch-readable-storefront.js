@@ -8,6 +8,52 @@
   const qsa=(s,r=document)=>Array.from(r.querySelectorAll(s));
   const clean=s=>String(s||'').replace(/\s+/g,' ').trim();
 
+  function ensureBaselineFixStyle(){
+    if(document.getElementById('kch-v133-baseline-fixes'))return;
+    const style=document.createElement('style');
+    style.id='kch-v133-baseline-fixes';
+    style.textContent=`
+      @media(max-width:860px) and (min-width:561px){
+        html body #kch-v134-header .kch-v134-actions{grid-template-columns:repeat(3,48px)!important}
+        html body #kch-v134-header .kch-v134-action{min-width:48px!important;min-height:48px!important}
+      }
+    `;
+    (document.head||document.documentElement).appendChild(style);
+  }
+
+  function masterSearchOwner(){return window.__KCH_MASTER_SEARCH__||null}
+  function mirrorCanonicalSearch(){
+    const owner=masterSearchOwner();
+    if(!owner)return;
+    owner.apply?.();
+    const q=clean(owner.get?.()??owner.query??'');
+    qsa('.kch-master-product').forEach(card=>{
+      const state=card.dataset.kchSearchMatch;
+      if(q&&(state==='0'||state==='1'))card.dataset.kchV131SearchMatch=state;
+      else card.removeAttribute('data-kch-v131-search-match');
+    });
+  }
+  function acceptCanonicalSearchInput(event){
+    const input=event.target;
+    if(!input?.matches?.('.tshop-searchbox input,#kch-v134-search'))return;
+    const owner=masterSearchOwner();
+    if(!owner)return;
+    const next=String(input.value||'');
+    if(next!==String(owner.query||'')){
+      owner.query=next;
+      owner.revision=Number(owner.revision||0)+1;
+      owner.source='v133-window-input';
+    }
+    owner.apply?.();
+    mirrorCanonicalSearch();
+  }
+
+  /* Window capture runs before document-level compatibility listeners. This makes
+     window.__KCH_MASTER_SEARCH__ the single source of truth even when legacy
+     storefront layers still observe the old search input. */
+  window.addEventListener('input',acceptCanonicalSearchInput,true);
+  window.addEventListener('search',acceptCanonicalSearchInput,true);
+
   function memberState(){
     try{if(typeof V118_STATE!=='undefined'&&V118_STATE?.authenticated)return true}catch{}
     return false;
@@ -89,9 +135,10 @@
     if(search&&!search.getAttribute('aria-label'))search.setAttribute('aria-label','ค้นหาสินค้าและสมุนไพร');
   }
   function apply(){
+    ensureBaselineFixStyle();
     const shell=qs('.shell.kch-master-shell')||qs('.kch-master-shell')||qs('.shell');if(!shell)return;
     shell.classList.add('kch-v133-readable-storefront');shell.dataset.kchV133=BUILD;
-    enhanceHeader(shell);annotate(shell);
+    enhanceHeader(shell);annotate(shell);mirrorCanonicalSearch();
   }
   let raf=0;
   function schedule(){cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>{apply();setTimeout(apply,80);setTimeout(apply,260)})}
