@@ -2,7 +2,7 @@
 (()=>{
   'use strict';
   if(typeof document==='undefined')return;
-  const BUILD='1.0.2';
+  const BUILD='1.0.3';
   if(window.__KCH_SEARCH_AUTHORITY__===BUILD)return;
   window.__KCH_SEARCH_AUTHORITY__=BUILD;
 
@@ -12,6 +12,7 @@
   const IDENTITY_ATTRIBUTES=new Set(['data-kch-name','data-product','data-kch-cat']);
   let activeQuery='';
   let activeInput=null;
+  let editingInput=null;
   let seq=0;
 
   const normalize=value=>String(value??'').normalize('NFKC').toLocaleLowerCase('th-TH').replace(/\s+/g,' ').trim();
@@ -69,7 +70,7 @@
     if(!q)return;
     const primary=primaryInput();
     inputs().forEach(input=>{
-      if(input===primary||input===document.activeElement)return;
+      if(input===primary||input===editingInput)return;
       if(!normalize(input.value))input.value=q;
     });
   }
@@ -116,6 +117,22 @@
     return populated?.value??all[0]?.value??activeQuery;
   }
 
+  function onSearchFocus(event){
+    const target=event.target;
+    if(!target?.matches?.(SEARCH_SELECTOR))return;
+    const primary=primaryInput();
+    if(primary&&target!==primary)return;
+    editingInput=target;
+  }
+
+  function onSearchBlur(event){
+    const target=event.target;
+    if(target!==editingInput)return;
+    queueMicrotask(()=>{
+      if(document.activeElement!==target)editingInput=null;
+    });
+  }
+
   function onSearchInput(event){
     const target=event.target;
     if(!target?.matches?.(SEARCH_SELECTOR))return;
@@ -132,10 +149,12 @@
     const next=target.value||'';
     const q=normalize(next);
 
-    // If the header was replaced, an empty event from the new node is a render
-    // artifact unless the customer is actively editing that node. Preserve the
-    // last query in that case; a real clear on the active input still clears.
-    if(!q&&activeQuery&&activeInput&&activeInput!==target&&!activeInput.isConnected&&document.activeElement!==target){
+    // Header layers may replace the search node and dispatch an empty input
+    // event from the replacement. Only an input that the customer actually
+    // focused for editing may clear a live query. This preserves a real query
+    // across mobile/tablet header rerenders while still allowing an intentional
+    // clear in the active search field.
+    if(!q&&activeQuery&&editingInput!==target){
       target.value=activeQuery;
       activeInput=target;
       schedule(activeQuery);
@@ -150,10 +169,13 @@
     if(!event.target?.closest?.('.kch-master-reset'))return;
     activeQuery='';
     activeInput=null;
+    editingInput=null;
     inputs().forEach(input=>{input.value=''});
     schedule('');
   }
 
+  document.addEventListener('focusin',onSearchFocus,true);
+  document.addEventListener('focusout',onSearchBlur,true);
   document.addEventListener('input',onSearchInput,true);
   document.addEventListener('search',onSearchInput,true);
   document.addEventListener('click',clearFromReset,true);
@@ -166,6 +188,7 @@
       );
       if(!relevant)return;
 
+      if(editingInput&&!editingInput.isConnected)editingInput=null;
       if(activeInput&&!activeInput.isConnected){
         const replacement=primaryInput();
         if(replacement&&activeQuery&&!normalize(replacement.value))replacement.value=activeQuery;
