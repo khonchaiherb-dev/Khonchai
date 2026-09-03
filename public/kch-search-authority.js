@@ -9,6 +9,7 @@
   const SEARCH_SELECTOR='.tshop-searchbox input,#kch-v134-search';
   const CARD_SELECTOR='.kch-master-product';
   let activeQuery='';
+  let activeInput=null;
   let seq=0;
 
   const normalize=value=>String(value??'').normalize('NFKC').toLocaleLowerCase('th-TH').replace(/\s+/g,' ').trim();
@@ -61,37 +62,55 @@
   }
 
   function schedule(query){
-    activeQuery=normalize(query);
+    const q=normalize(query);
+    activeQuery=q;
     const run=++seq;
-    const pass=()=>{if(run===seq)apply(activeQuery)};
+    const pass=()=>{if(run===seq)apply(q)};
+
+    // Apply once synchronously so competing legacy listeners cannot leave a
+    // transiently stale product grid after an input event.
+    pass();
     queueMicrotask(pass);
     if(typeof requestAnimationFrame==='function')requestAnimationFrame(pass);
     setTimeout(pass,24);
     setTimeout(pass,96);
     setTimeout(pass,220);
+    setTimeout(pass,420);
   }
+
+  function inputs(){return [...document.querySelectorAll(SEARCH_SELECTOR)]}
 
   function queryFromTarget(target){
     if(target?.matches?.(SEARCH_SELECTOR))return target.value||'';
+    if(activeInput?.isConnected&&activeInput.matches?.(SEARCH_SELECTOR))return activeInput.value||'';
     const focused=document.activeElement;
     if(focused?.matches?.(SEARCH_SELECTOR))return focused.value||'';
-    return document.querySelector(SEARCH_SELECTOR)?.value||'';
+    const all=inputs();
+    const populated=all.find(input=>normalize(input.value));
+    return populated?.value??all[0]?.value??activeQuery;
   }
 
-  document.addEventListener('input',event=>{
+  function onSearchInput(event){
     if(!event.target?.matches?.(SEARCH_SELECTOR))return;
-    schedule(queryFromTarget(event.target));
-  },true);
-  document.addEventListener('search',event=>{
-    if(!event.target?.matches?.(SEARCH_SELECTOR))return;
-    schedule(queryFromTarget(event.target));
-  },true);
+    activeInput=event.target;
+    schedule(event.target.value||'');
+  }
+
+  document.addEventListener('input',onSearchInput,true);
+  document.addEventListener('search',onSearchInput,true);
 
   if(typeof MutationObserver!=='undefined'){
-    new MutationObserver(()=>{if(activeQuery)schedule(activeQuery)}).observe(document.documentElement,{childList:true,subtree:true});
+    new MutationObserver(records=>{
+      if(!records.some(record=>record.addedNodes?.length||record.removedNodes?.length))return;
+      if(activeInput&&!activeInput.isConnected)activeInput=null;
+      if(activeQuery)schedule(activeQuery);
+    }).observe(document.documentElement,{childList:true,subtree:true});
   }
 
-  const boot=()=>schedule(queryFromTarget());
+  const boot=()=>{
+    const live=normalize(queryFromTarget());
+    schedule(live||activeQuery);
+  };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
   window.addEventListener('pageshow',boot,{passive:true});
 })();
