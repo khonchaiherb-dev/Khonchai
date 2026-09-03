@@ -21,22 +21,29 @@ async function customerSnapshot(env,ticket){
   const orderCount=Number(c.order_count||0),ltv=Math.round(Number(c.lifetime_value||0)*100)/100;let segment='new';if(orderCount>=5||ltv>=5000)segment='vip';else if(orderCount>=2)segment='repeat';else if(orderCount===1)segment='first_order';
   return {id:Number(c.id),name:c.full_name||'',phone:c.phone||'',email:c.email||'',createdAt:c.created_at||null,lastLoginAt:c.last_login_at||null,orderCount,lifetimeValue:ltv,lastOrderAt:c.last_order_at||null,openReturns:Number(c.open_returns||0),openSupportTickets:Number(c.open_support_tickets||0),segment,recentOrders:recent.results||[]};
 }
-async function supportStats(env){const r=await env.DB.prepare(`SELECT
-  COUNT(*) total,
-  SUM(CASE WHEN status NOT IN ('resolved','closed') THEN 1 ELSE 0 END) open_count,
-  SUM(CASE WHEN status NOT IN ('resolved','closed') AND priority='urgent' THEN 1 ELSE 0 END) urgent_open,
-  SUM(CASE WHEN status NOT IN ('resolved','closed') AND assigned_staff_id IS NULL THEN 1 ELSE 0 END) unassigned,
-  SUM(CASE WHEN status='pending_team' THEN 1 ELSE 0 END) pending_team,
-  SUM(CASE WHEN status NOT IN ('resolved','closed') AND first_response_at IS NULL AND sla_first_response_due_at<datetime('now') THEN 1 ELSE 0 END) first_response_breached,
-  SUM(CASE WHEN status NOT IN ('resolved','closed') AND sla_resolution_due_at<datetime('now') THEN 1 ELSE 0 END) resolution_breached,
-  AVG(CASE WHEN first_response_at IS NOT NULL THEN (julianday(first_response_at)-julianday(created_at))*1440 END) avg_first_response_minutes
-  FROM support_tickets`).first();return {total:Number(r?.total||0),open:Number(r?.open_count||0),urgentOpen:Number(r?.urgent_open||0),unassigned:Number(r?.unassigned||0),pendingTeam:Number(r?.pending_team||0),firstResponseBreached:Number(r?.first_response_breached||0),resolutionBreached:Number(r?.resolution_breached||0),avgFirstResponseMinutes:r?.avg_first_response_minutes==null?null:Math.max(0,Math.round(Number(r.avg_first_response_minutes)))} }
+async function supportStats(env){
+  const [r,s]=await Promise.all([
+    env.DB.prepare(`SELECT
+      COUNT(*) total,
+      SUM(CASE WHEN status NOT IN ('resolved','closed') THEN 1 ELSE 0 END) open_count,
+      SUM(CASE WHEN status NOT IN ('resolved','closed') AND priority='urgent' THEN 1 ELSE 0 END) urgent_open,
+      SUM(CASE WHEN status NOT IN ('resolved','closed') AND assigned_staff_id IS NULL THEN 1 ELSE 0 END) unassigned,
+      SUM(CASE WHEN status='pending_team' THEN 1 ELSE 0 END) pending_team,
+      SUM(CASE WHEN status NOT IN ('resolved','closed') AND first_response_at IS NULL AND sla_first_response_due_at<datetime('now') THEN 1 ELSE 0 END) first_response_breached,
+      SUM(CASE WHEN status NOT IN ('resolved','closed') AND sla_resolution_due_at<datetime('now') THEN 1 ELSE 0 END) resolution_breached,
+      AVG(CASE WHEN first_response_at IS NOT NULL THEN (julianday(first_response_at)-julianday(created_at))*1440 END) avg_first_response_minutes
+      FROM support_tickets`).first(),
+    env.DB.prepare(`SELECT COUNT(*) response_count,AVG(score) avg_score,SUM(CASE WHEN score>=4 THEN 1 ELSE 0 END) positive_count,SUM(CASE WHEN score<=2 THEN 1 ELSE 0 END) detractor_count FROM support_satisfaction`).first()
+  ]);
+  const responses=Number(s?.response_count||0),positive=Number(s?.positive_count||0),detractors=Number(s?.detractor_count||0);
+  return {total:Number(r?.total||0),open:Number(r?.open_count||0),urgentOpen:Number(r?.urgent_open||0),unassigned:Number(r?.unassigned||0),pendingTeam:Number(r?.pending_team||0),firstResponseBreached:Number(r?.first_response_breached||0),resolutionBreached:Number(r?.resolution_breached||0),avgFirstResponseMinutes:r?.avg_first_response_minutes==null?null:Math.max(0,Math.round(Number(r.avg_first_response_minutes))),csatAverage:s?.avg_score==null?null:Math.round(Number(s.avg_score)*100)/100,csatResponses:responses,csatPositivePct:responses?Math.round((positive/responses)*1000)/10:null,csatDetractorPct:responses?Math.round((detractors/responses)*1000)/10:null};
+}
 async function agents(env){const r=await env.DB.prepare("SELECT id,display_name,username,role FROM staff_users WHERE active=1 AND role IN ('owner','admin','operations','support') ORDER BY CASE role WHEN 'support' THEN 0 WHEN 'operations' THEN 1 WHEN 'admin' THEN 2 ELSE 3 END,display_name").all();return (r.results||[]).map(x=>({id:Number(x.id),name:x.display_name||x.username,username:x.username,role:x.role}))}
 
 export async function onRequestGet({request,env}){
   if(!adminAuthorized(request,env))return json({error:'unauthorized'},401);if(!env.DB)return json({error:'database_not_bound'},503);
   const url=new URL(request.url),ticketNo=clean(url.searchParams.get('ticketNo'),80);
-  if(ticketNo){const ticket=await ticketByNo(env,ticketNo);if(!ticket)return json({error:'ticket_not_found'},404);const [messages,events,customer]=await Promise.all([env.DB.prepare(`SELECT m.id,m.author_type,m.body,m.visibility,m.channel,m.created_at,COALESCE(s.display_name,c.full_name,m.author_type) author_name FROM support_messages m LEFT JOIN staff_users s ON s.id=m.staff_user_id LEFT JOIN customers c ON c.id=m.customer_id WHERE m.ticket_id=? ORDER BY m.id`).bind(ticket.id).all(),env.DB.prepare(`SELECT e.event_type,e.from_status,e.to_status,e.detail_json,e.created_at,s.display_name staff_name FROM support_ticket_events e LEFT JOIN staff_users s ON s.id=e.staff_user_id WHERE e.ticket_id=? ORDER BY e.id`).bind(ticket.id).all(),customerSnapshot(env,ticket)]);return json({ticket,messages:messages.results||[],events:events.results||[],customer});}
+  if(ticketNo){const ticket=await ticketByNo(env,ticketNo);if(!ticket)return json({error:'ticket_not_found'},404);const [messages,events,customer,satisfaction]=await Promise.all([env.DB.prepare(`SELECT m.id,m.author_type,m.body,m.visibility,m.channel,m.created_at,COALESCE(s.display_name,c.full_name,m.author_type) author_name FROM support_messages m LEFT JOIN staff_users s ON s.id=m.staff_user_id LEFT JOIN customers c ON c.id=m.customer_id WHERE m.ticket_id=? ORDER BY m.id`).bind(ticket.id).all(),env.DB.prepare(`SELECT e.event_type,e.from_status,e.to_status,e.detail_json,e.created_at,s.display_name staff_name FROM support_ticket_events e LEFT JOIN staff_users s ON s.id=e.staff_user_id WHERE e.ticket_id=? ORDER BY e.id`).bind(ticket.id).all(),customerSnapshot(env,ticket),env.DB.prepare(`SELECT score,comment,created_at,updated_at FROM support_satisfaction WHERE ticket_id=? LIMIT 1`).bind(ticket.id).first()]);return json({ticket,messages:messages.results||[],events:events.results||[],customer,satisfaction:satisfaction||null});}
   const status=clean(url.searchParams.get('status'),30),priority=clean(url.searchParams.get('priority'),30),q=clean(url.searchParams.get('q'),120),mine=clean(url.searchParams.get('mine'),10),limit=Math.max(1,Math.min(200,Number(url.searchParams.get('limit'))||80)),where=[],binds=[],sid=staffId(request);
   if(STATUSES.has(status)){where.push('t.status=?');binds.push(status)}if(PRIORITIES.has(priority)){where.push('t.priority=?');binds.push(priority)}if(mine==='1'&&sid){where.push('t.assigned_staff_id=?');binds.push(sid)}if(q){where.push('(t.ticket_no LIKE ? OR t.subject LIKE ? OR t.contact_name LIKE ? OR t.contact_phone LIKE ? OR o.order_no LIKE ?)');const like=`%${q}%`;binds.push(like,like,like,like,like)}
   let sql=`SELECT t.ticket_no,t.contact_name,t.contact_phone,t.category,t.priority,t.status,t.channel,t.subject,t.assigned_staff_id,t.sla_first_response_due_at,t.sla_resolution_due_at,t.first_response_at,t.created_at,t.updated_at,o.order_no,s.display_name assigned_agent,
@@ -44,7 +51,8 @@ export async function onRequestGet({request,env}){
   CASE WHEN t.status NOT IN ('resolved','closed') AND t.sla_resolution_due_at<datetime('now') THEN 1 ELSE 0 END resolution_breached,
   CAST((julianday(t.sla_first_response_due_at)-julianday('now'))*1440 AS INTEGER) first_response_minutes_left,
   CAST((julianday(t.sla_resolution_due_at)-julianday('now'))*1440 AS INTEGER) resolution_minutes_left,
-  (SELECT COUNT(*) FROM support_messages m WHERE m.ticket_id=t.id) message_count
+  (SELECT COUNT(*) FROM support_messages m WHERE m.ticket_id=t.id) message_count,
+  (SELECT ss.score FROM support_satisfaction ss WHERE ss.ticket_id=t.id LIMIT 1) satisfaction_score
   FROM support_tickets t LEFT JOIN orders o ON o.id=t.order_id LEFT JOIN staff_users s ON s.id=t.assigned_staff_id`;if(where.length)sql+=` WHERE ${where.join(' AND ')}`;sql+=' ORDER BY CASE WHEN t.status NOT IN (\'resolved\',\'closed\') AND t.first_response_at IS NULL AND t.sla_first_response_due_at<datetime(\'now\') THEN 0 WHEN t.status NOT IN (\'resolved\',\'closed\') AND t.sla_resolution_due_at<datetime(\'now\') THEN 1 ELSE 2 END,CASE t.priority WHEN \'urgent\' THEN 0 WHEN \'high\' THEN 1 WHEN \'normal\' THEN 2 ELSE 3 END,t.updated_at DESC LIMIT ?';binds.push(limit);const [rows,stats,agentRows]=await Promise.all([env.DB.prepare(sql).bind(...binds).all(),supportStats(env),agents(env)]);return json({tickets:rows.results||[],stats,agents:agentRows});
 }
 
