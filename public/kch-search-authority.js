@@ -2,7 +2,7 @@
 (()=>{
   'use strict';
   if(typeof document==='undefined')return;
-  const BUILD='1.0.3';
+  const BUILD='1.0.4';
   if(window.__KCH_SEARCH_AUTHORITY__===BUILD)return;
   window.__KCH_SEARCH_AUTHORITY__=BUILD;
 
@@ -64,14 +64,19 @@
   }
 
   function inputs(){return [...document.querySelectorAll(SEARCH_SELECTOR)]}
-  function primaryInput(){return document.querySelector(PRIMARY_SEARCH_SELECTOR)||inputs()[0]||null}
+  function primaryInput(){
+    if(editingInput?.isConnected&&editingInput.matches?.(SEARCH_SELECTOR))return editingInput;
+    if(activeInput?.isConnected&&activeInput.matches?.(SEARCH_SELECTOR))return activeInput;
+    const focused=document.activeElement;
+    if(focused?.matches?.(SEARCH_SELECTOR))return focused;
+    return document.querySelector(PRIMARY_SEARCH_SELECTOR)||inputs()[0]||null;
+  }
 
   function syncReplacementInputs(q){
-    if(!q)return;
     const primary=primaryInput();
     inputs().forEach(input=>{
       if(input===primary||input===editingInput)return;
-      if(!normalize(input.value))input.value=q;
+      if(normalize(input.value)!==normalize(q))input.value=q;
     });
   }
 
@@ -106,12 +111,9 @@
   }
 
   function queryFromTarget(target){
-    if(target?.matches?.(PRIMARY_SEARCH_SELECTOR))return target.value||'';
+    if(target?.matches?.(SEARCH_SELECTOR))return target.value||'';
     const primary=primaryInput();
     if(primary)return primary.value||'';
-    if(activeInput?.isConnected&&activeInput.matches?.(SEARCH_SELECTOR))return activeInput.value||'';
-    const focused=document.activeElement;
-    if(focused?.matches?.(SEARCH_SELECTOR))return focused.value||'';
     const all=inputs();
     const populated=all.find(input=>normalize(input.value));
     return populated?.value??all[0]?.value??activeQuery;
@@ -120,9 +122,9 @@
   function onSearchFocus(event){
     const target=event.target;
     if(!target?.matches?.(SEARCH_SELECTOR))return;
-    const primary=primaryInput();
-    if(primary&&target!==primary)return;
     editingInput=target;
+    activeInput=target;
+    if(activeQuery&&!normalize(target.value))target.value=activeQuery;
   }
 
   function onSearchBlur(event){
@@ -137,32 +139,20 @@
     const target=event.target;
     if(!target?.matches?.(SEARCH_SELECTOR))return;
 
-    // Only the storefront's visible topbar search is allowed to own query
-    // state when it exists. Legacy/duplicate search nodes may mirror the query
-    // but cannot overwrite it with stale or partial values.
-    const primary=primaryInput();
-    if(primary&&target!==primary){
-      if(activeQuery&&!normalize(primary.value))primary.value=activeQuery;
-      return;
-    }
-
-    const next=target.value||'';
-    const q=normalize(next);
-
-    // Header layers may replace the search node and dispatch an empty input
-    // event from the replacement. Only an input that the customer actually
-    // focused for editing may clear a live query. This preserves a real query
-    // across mobile/tablet header rerenders while still allowing an intentional
-    // clear in the active search field.
-    if(!q&&activeQuery&&editingInput!==target){
-      target.value=activeQuery;
-      activeInput=target;
+    // Only browser-trusted customer input/search events may change the
+    // authoritative query. Legacy storefront layers frequently replace the
+    // header, focus the replacement node and dispatch synthetic input events;
+    // those events must never clear or shorten the customer's real query.
+    if(event.isTrusted===false){
+      if(normalize(target.value)!==activeQuery)target.value=activeQuery;
+      activeInput=primaryInput()||activeInput;
       schedule(activeQuery);
       return;
     }
 
+    editingInput=target;
     activeInput=target;
-    schedule(next);
+    schedule(target.value||'');
   }
 
   function clearFromReset(event){
@@ -191,7 +181,7 @@
       if(editingInput&&!editingInput.isConnected)editingInput=null;
       if(activeInput&&!activeInput.isConnected){
         const replacement=primaryInput();
-        if(replacement&&activeQuery&&!normalize(replacement.value))replacement.value=activeQuery;
+        if(replacement&&normalize(replacement.value)!==activeQuery)replacement.value=activeQuery;
         activeInput=replacement;
       }
       if(activeQuery)schedule(activeQuery);
