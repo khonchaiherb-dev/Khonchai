@@ -32,12 +32,16 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          text=Path('.github/workflows/support-omnichannel-readiness.yml').read_text()
-          assert '--file=' not in text, 'readiness workflow must never apply migrations'
-          assert 'INSERT INTO' not in text and 'UPDATE ' not in text and 'DELETE FROM' not in text
-          queries=[line.strip() for line in text.splitlines() if line.strip().startswith('QUERY=')]
-          assert queries and all(q.startswith('QUERY="SELECT ') for q in queries)
-          print('Support readiness contract is read-only')
+          lines=Path('.github/workflows/support-omnichannel-readiness.yml').read_text().splitlines()
+          queries=[line.strip() for line in lines if line.strip().startswith('QUERY=')]
+          executes=[line.strip() for line in lines if 'wrangler@latest d1 execute' in line and line.strip().startswith('npx ')]
+          assert queries and all(q.startswith('QUERY="SELECT ') for q in queries), 'all D1 schema queries must be SELECT statements'
+          assert executes, 'readiness workflow must contain remote D1 schema checks'
+          for command in executes:
+              assert '--remote' in command, f'D1 readiness check is not remote: {command}'
+              assert '--command="$QUERY"' in command, f'D1 readiness check must use the validated query variable: {command}'
+              assert '--file' not in command, f'D1 readiness check cannot apply a migration file: {command}'
+          print(f'Support readiness contract is read-only: {len(queries)} SELECT queries, {len(executes)} remote checks')
           PY
 
       - name: Validate configured credentials
