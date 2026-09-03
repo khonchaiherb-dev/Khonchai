@@ -13,6 +13,7 @@ on:
           - 0021_koonchaishop_source_library.sql
           - 0022_revenue_payment_recovery.sql
           - 0023_support_platform.sql
+          - 0024_support_omnichannel.sql
       confirmation:
         description: Type APPLY-PRODUCTION-D1 to confirm
         required: true
@@ -72,13 +73,12 @@ jobs:
               found=True
               break
           assert found, f'migration not found: {target}'
+          tables={r[0] for r in db.execute("select name from sqlite_master where type='table'")}
           if target=='0019_inventory_fefo.sql':
-            tables={r[0] for r in db.execute("select name from sqlite_master where type='table'")}
             assert 'inventory_lot_allocations' in tables
             cols={r[1] for r in db.execute("pragma table_info('inventory_lots')")}
             assert {'lot_code','manufactured_at','quarantined','quarantine_note','updated_at'} <= cols
           if target=='0020_operational_alert_state.sql':
-            tables={r[0] for r in db.execute("select name from sqlite_master where type='table'")}
             assert 'operational_alert_state' in tables
             cols={r[1] for r in db.execute("pragma table_info('operational_alert_state')")}
             assert {'alert_key','status','assigned_to','acknowledged_by','acknowledged_at','resolved_by','resolved_at','first_seen_at','last_seen_at'} <= cols
@@ -86,7 +86,6 @@ jobs:
             assert 'idx_operational_alert_state_status' in indexes
             assert 'idx_operational_alert_state_assigned' in indexes
           if target=='0021_koonchaishop_source_library.sql':
-            tables={r[0] for r in db.execute("select name from sqlite_master where type='table'")}
             assert {'commerce_sources','source_assets','source_reviews','source_product_links'} <= tables
             source=db.execute("select platform,shop_code,shop_name,authorization_scope,active from commerce_sources where shop_code='THLCRLWLHR'").fetchone()
             assert source==('tiktok_shop','THLCRLWLHR','Koonchaishop','owner_authorized_media_content_reviews',1)
@@ -104,7 +103,6 @@ jobs:
             except sqlite3.IntegrityError:
               pass
           if target=='0022_revenue_payment_recovery.sql':
-            tables={r[0] for r in db.execute("select name from sqlite_master where type='table'")}
             assert {'payment_attempts','payment_provider_events','checkout_sessions','checkout_recovery_events','cod_risk_assessments'} <= tables
             checkout_cols={r[1] for r in db.execute("pragma table_info('checkout_sessions')")}
             assert {'session_key','cart_fingerprint','cart_json','last_step','status','recovery_allowed','last_activity_at','expires_at'} <= checkout_cols
@@ -112,7 +110,6 @@ jobs:
             assert {'method','provider','provider_intent_ref','amount','currency','status','expires_at','paid_at'} <= payment_cols
             risk_cols={r[1] for r in db.execute("pragma table_info('cod_risk_assessments')")}
             assert {'score','risk_level','decision','reasons_json','policy_version','reviewed_by'} <= risk_cols
-            indexes={r[1] for r in db.execute("pragma index_list('payment_provider_events')")}
             assert any(r[2] for r in db.execute("pragma index_list('payment_provider_events')")), 'provider event dedupe must be unique'
             try:
               db.execute("insert into payment_attempts(order_id,method,amount) values(1,'UNSAFE',100)")
@@ -120,7 +117,6 @@ jobs:
             except (sqlite3.IntegrityError, sqlite3.OperationalError):
               pass
           if target=='0023_support_platform.sql':
-            tables={r[0] for r in db.execute("select name from sqlite_master where type='table'")}
             assert {'support_tickets','support_messages','support_ticket_events','support_satisfaction'} <= tables
             ticket_cols={r[1] for r in db.execute("pragma table_info('support_tickets')")}
             assert {'ticket_no','customer_id','order_id','category','priority','status','access_code_hash','assigned_staff_id','sla_first_response_due_at','sla_resolution_due_at'} <= ticket_cols
@@ -132,6 +128,30 @@ jobs:
             try:
               db.execute("insert into support_tickets(ticket_no,contact_name,category,priority,status,channel,subject,access_code_hash) values('guard-invalid','Tester','order','critical','open','web','Guard','hash')")
               raise AssertionError('support priority guard must reject unknown priority')
+            except sqlite3.IntegrityError:
+              pass
+          if target=='0024_support_omnichannel.sql':
+            assert {'support_channel_contacts','support_external_events','support_outbox'} <= tables
+            contact_cols={r[1] for r in db.execute("pragma table_info('support_channel_contacts')")}
+            assert {'ticket_id','channel','external_contact_id','destination','metadata_json'} <= contact_cols
+            event_cols={r[1] for r in db.execute("pragma table_info('support_external_events')")}
+            assert {'channel','external_event_id','event_type','direction','processed_at'} <= event_cols
+            outbox_cols={r[1] for r in db.execute("pragma table_info('support_outbox')")}
+            assert {'message_id','channel','destination','status','attempt_count','next_attempt_at','last_error','external_message_id','sent_at'} <= outbox_cols
+            indexes={r[1] for r in db.execute("pragma index_list('support_outbox')")}
+            assert 'idx_support_outbox_delivery' in indexes
+            ticket=db.execute("insert into support_tickets(ticket_no,contact_name,category,priority,status,channel,subject,access_code_hash) values('guard-omni','Tester','other','normal','open','line','Guard','hash') returning id").fetchone()[0]
+            message=db.execute("insert into support_messages(ticket_id,author_type,body,visibility,channel) values(?, 'staff','reply','public','line') returning id",(ticket,)).fetchone()[0]
+            db.execute("insert into support_external_events(ticket_id,channel,external_event_id,event_type,direction) values(?, 'line','evt-1','message','inbound')",(ticket,))
+            try:
+              db.execute("insert into support_external_events(ticket_id,channel,external_event_id,event_type,direction) values(?, 'line','evt-1','message','inbound')",(ticket,))
+              raise AssertionError('external event idempotency guard must reject duplicate events')
+            except sqlite3.IntegrityError:
+              pass
+            db.execute("insert into support_outbox(ticket_id,message_id,channel,destination) values(?,?, 'line','U123')",(ticket,message))
+            try:
+              db.execute("insert into support_outbox(ticket_id,message_id,channel,destination) values(?,?, 'line','U123')",(ticket,message))
+              raise AssertionError('outbox must reject duplicate delivery rows')
             except sqlite3.IntegrityError:
               pass
           print('Migration validation passed:',target)
@@ -192,3 +212,14 @@ jobs:
           npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA table_info('support_tickets');"
           npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA table_info('support_messages');"
           npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA index_list('support_tickets');"
+
+      - name: Verify production support omnichannel schema
+        if: ${{ inputs.migration == '0024_support_omnichannel.sql' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="SELECT name FROM sqlite_master WHERE type='table' AND name IN ('support_channel_contacts','support_external_events','support_outbox') ORDER BY name;"
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA table_info('support_channel_contacts');"
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA table_info('support_external_events');"
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA table_info('support_outbox');"
+          npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="PRAGMA index_list('support_outbox');"
