@@ -2,7 +2,7 @@
 (()=>{
   'use strict';
   if(typeof document==='undefined')return;
-  const BUILD='1.0.4';
+  const BUILD='1.0.5';
   if(window.__KCH_SEARCH_AUTHORITY__===BUILD)return;
   window.__KCH_SEARCH_AUTHORITY__=BUILD;
 
@@ -11,6 +11,8 @@
   const CARD_SELECTOR='.kch-master-product';
   const IDENTITY_ATTRIBUTES=new Set(['data-kch-name','data-product','data-kch-cat']);
   let activeQuery='';
+  let activeDisplayQuery='';
+  let authorityReady=false;
   let activeInput=null;
   let editingInput=null;
   let seq=0;
@@ -72,31 +74,46 @@
     return document.querySelector(PRIMARY_SEARCH_SELECTOR)||inputs()[0]||null;
   }
 
-  function syncReplacementInputs(q){
-    const primary=primaryInput();
+  // Search UI is rendered by several legacy layers. Any one of them may keep
+  // the same input node and clear its value, or replace the node entirely.
+  // Once authority is established, every live search control must therefore
+  // mirror the customer's exact display query. Property assignment does not
+  // dispatch input events, so this hydration cannot hand ownership to legacy
+  // synthetic handlers.
+  function syncReplacementInputs(displayQuery=activeDisplayQuery){
+    const value=String(displayQuery??'');
     inputs().forEach(input=>{
-      if(input===primary||input===editingInput)return;
-      if(normalize(input.value)!==normalize(q))input.value=q;
+      if(input.value!==value)input.value=value;
     });
   }
 
-  function apply(query=activeQuery){
+  function apply(query=activeDisplayQuery){
     ensureRule();
-    const q=normalize(query);
+    const displayQuery=String(query??'');
+    const q=normalize(displayQuery);
+    activeDisplayQuery=displayQuery;
     activeQuery=q;
+    authorityReady=true;
+
+    // Hydrate before touching cards, including the empty-query path. This is
+    // what keeps replacement/cleared header inputs visually continuous and
+    // also makes a trusted customer clear propagate to every search control.
+    syncReplacementInputs(displayQuery);
+
     const cards=[...document.querySelectorAll(CARD_SELECTOR)];
     if(!cards.length)return;
     if(!q){cards.forEach(clearCard);return}
-    syncReplacementInputs(query);
     const tokens=q.split(' ').filter(Boolean);
     cards.forEach(card=>setCard(card,tokens.every(token=>cardText(card).includes(token))));
   }
 
   function schedule(query){
-    const q=normalize(query);
-    activeQuery=q;
+    const displayQuery=String(query??'');
+    activeDisplayQuery=displayQuery;
+    activeQuery=normalize(displayQuery);
+    authorityReady=true;
     const run=++seq;
-    const pass=()=>{if(run===seq)apply(query)};
+    const pass=()=>{if(run===seq)apply(displayQuery)};
 
     // Apply repeatedly across the legacy render window so the canonical query
     // remains authoritative even while old storefront layers are settling.
@@ -116,7 +133,7 @@
     if(primary)return primary.value||'';
     const all=inputs();
     const populated=all.find(input=>normalize(input.value));
-    return populated?.value??all[0]?.value??activeQuery;
+    return populated?.value??all[0]?.value??activeDisplayQuery;
   }
 
   function onSearchFocus(event){
@@ -124,7 +141,7 @@
     if(!target?.matches?.(SEARCH_SELECTOR))return;
     editingInput=target;
     activeInput=target;
-    if(activeQuery&&!normalize(target.value))target.value=activeQuery;
+    if(authorityReady&&activeQuery&&!normalize(target.value))target.value=activeDisplayQuery;
   }
 
   function onSearchBlur(event){
@@ -142,11 +159,13 @@
     // Only browser-trusted customer input/search events may change the
     // authoritative query. Legacy storefront layers frequently replace the
     // header, focus the replacement node and dispatch synthetic input events;
-    // those events must never clear or shorten the customer's real query.
+    // those events may request a re-apply but must never own, clear or shorten
+    // the customer's real query.
     if(event.isTrusted===false){
-      if(normalize(target.value)!==activeQuery)target.value=activeQuery;
+      if(!authorityReady)return;
+      if(target.value!==activeDisplayQuery)target.value=activeDisplayQuery;
       activeInput=primaryInput()||activeInput;
-      schedule(activeQuery);
+      schedule(activeDisplayQuery);
       return;
     }
 
@@ -158,9 +177,11 @@
   function clearFromReset(event){
     if(!event.target?.closest?.('.kch-master-reset'))return;
     activeQuery='';
+    activeDisplayQuery='';
+    authorityReady=true;
     activeInput=null;
     editingInput=null;
-    inputs().forEach(input=>{input.value=''});
+    syncReplacementInputs('');
     schedule('');
   }
 
@@ -179,12 +200,16 @@
       if(!relevant)return;
 
       if(editingInput&&!editingInput.isConnected)editingInput=null;
-      if(activeInput&&!activeInput.isConnected){
-        const replacement=primaryInput();
-        if(replacement&&normalize(replacement.value)!==activeQuery)replacement.value=activeQuery;
-        activeInput=replacement;
+      if(activeInput&&!activeInput.isConnected)activeInput=primaryInput();
+
+      // Always repair every live search control after a relevant rerender,
+      // even when the old active node stayed connected but legacy code cleared
+      // its value in place. v1.0.4 only repaired disconnected active nodes and
+      // therefore allowed the visible primary input to fall back to "".
+      if(authorityReady){
+        syncReplacementInputs(activeDisplayQuery);
+        schedule(activeDisplayQuery);
       }
-      if(activeQuery)schedule(activeQuery);
     }).observe(document.documentElement,{
       childList:true,
       subtree:true,
@@ -194,8 +219,9 @@
   }
 
   const boot=()=>{
-    const live=normalize(queryFromTarget());
-    schedule(live||activeQuery);
+    const live=queryFromTarget();
+    authorityReady=true;
+    schedule(live||activeDisplayQuery);
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
   window.addEventListener('pageshow',boot,{passive:true});
