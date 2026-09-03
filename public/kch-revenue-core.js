@@ -32,7 +32,8 @@
 
   async function complete(orderNo){
     const key=readKey();if(!key||!orderNo)return;
-    const items=lines();await send({sessionKey:key,items:items.length?items:[{id:1,qty:1}],lastStep:'complete',action:'complete',orderNo,recoveryAllowed:false,sourceChannel:'direct'});
+    const items=lines();
+    await send({sessionKey:key,items,lastStep:'complete',action:'complete',orderNo,recoveryAllowed:false,sourceChannel:'direct'});
     writeKey('');state.lastFingerprint='';
   }
 
