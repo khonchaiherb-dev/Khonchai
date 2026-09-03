@@ -14,7 +14,7 @@ for(const token of ['support_channel_contacts','support_external_events','suppor
 for(const token of ['UNIQUE(channel,external_event_id)','UNIQUE(message_id,channel)'])if(!migration.includes(token))throw new Error(`missing idempotency guard ${token}`);
 for(const token of ['SUPPORT_INGEST_SECRET','support_ingest_disabled','support_omnichannel_not_ready','duplicate:true','external_message_received'])if(!ingest.includes(token))throw new Error(`missing ingest safety/capability ${token}`);
 for(const token of ['DELIVERABLE_CHANNELS','queueExternalReply','channel_destination_missing','delivery:\'queued\'','support_outbox'])if(!admin.includes(token))throw new Error(`missing outbound queue capability ${token}`);
-for(const token of ['เข้าคิวส่งผ่านช่องทางภายนอก','ยังไม่ถือว่าส่งสำเร็จ','support_outbox','OMNICHANNEL FOUNDATION'])if(!ui.includes(token))throw new Error(`support console does not expose truthful delivery state: ${token}`);
+for(const token of ['เข้าคิวส่งผ่านช่องทางภายนอก','ยังไม่ถือว่าส่งสำเร็จ','Outbound queue','OMNICHANNEL FOUNDATION','o.outbox'])if(!ui.includes(token))throw new Error(`support console does not expose truthful delivery behavior: ${token}`);
 if(!html.includes('/seller-support-omnichannel.js'))throw new Error('support console does not load omnichannel controller');
 if(!headers.includes('/seller-support-omnichannel.js')||!headers.includes('no-cache, no-store'))throw new Error('omnichannel staff logic must not be cached');
 if(!guard.includes('0024_support_omnichannel.sql'))throw new Error('production migration guard does not know migration 0024');
