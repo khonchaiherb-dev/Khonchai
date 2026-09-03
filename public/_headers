@@ -31,6 +31,9 @@
 /seller-support.js
   Cache-Control: no-cache, no-store, must-revalidate
 
+/seller-support-quality.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
 /*.js
   Cache-Control: no-cache, must-revalidate
 
