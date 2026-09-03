@@ -1,0 +1,24 @@
+/* KHONCHAIHERB v1.37.0 — contextual customer care launcher */
+.kch-v137-care{position:fixed;right:max(18px,env(safe-area-inset-right));bottom:max(20px,env(safe-area-inset-bottom));z-index:2147482500;font-family:'Noto Sans Thai',system-ui,sans-serif;color:#173f31}
+.kch-v137-care-trigger{display:flex;align-items:center;gap:8px;min-height:50px;padding:0 17px;border:1px solid rgba(255,255,255,.45);border-radius:999px;background:#173f31;color:#fff;box-shadow:0 16px 36px rgba(20,51,40,.22);font:800 14px/1 'Noto Sans Thai',system-ui,sans-serif;cursor:pointer}
+.kch-v137-care-trigger span{display:grid;place-items:center;width:25px;height:25px;border-radius:50%;background:#fff;color:#173f31;font:900 15px/1 system-ui,sans-serif}
+.kch-v137-care-trigger:focus-visible,.kch-v137-care-action:focus-visible,.kch-v137-care-close:focus-visible{outline:3px solid rgba(23,63,49,.25);outline-offset:3px}
+.kch-v137-care-panel{position:absolute;right:0;bottom:62px;width:min(390px,calc(100vw - 28px));max-height:min(650px,calc(100vh - 105px));overflow:auto;border:1px solid #dfe7e1;border-radius:22px;background:#fff;box-shadow:0 24px 60px rgba(18,48,37,.24)}
+.kch-v137-care-panel[hidden]{display:none!important}
+.kch-v137-care-head{display:flex;gap:12px;align-items:flex-start;padding:20px 20px 14px;background:linear-gradient(145deg,#f5f8f5,#fff)}
+.kch-v137-care-head>div{min-width:0;flex:1}
+.kch-v137-care-head span{display:block;margin-bottom:5px;color:#6b796f;font-size:10px;font-weight:900;letter-spacing:.11em}
+.kch-v137-care-head h2{margin:0;color:#173f31;font-size:20px;line-height:1.25}
+.kch-v137-care-head p{margin:7px 0 0;color:#68766e;font-size:12.5px;line-height:1.55}
+.kch-v137-care-close{flex:0 0 38px;width:38px;height:38px;border:1px solid #dce5df;border-radius:50%;background:#fff;color:#355346;font:500 24px/1 system-ui,sans-serif;cursor:pointer}
+.kch-v137-care-actions{display:grid;gap:9px;padding:14px 16px}
+.kch-v137-care-action{display:block;padding:12px 14px;border:1px solid #dfe7e1;border-radius:14px;background:#fff;color:#173f31;text-decoration:none;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+.kch-v137-care-action:hover{transform:translateY(-1px);border-color:#b8c9bf;box-shadow:0 9px 20px rgba(23,63,49,.07)}
+.kch-v137-care-action b{display:block;font-size:13px;line-height:1.35}
+.kch-v137-care-action small{display:block;margin-top:3px;color:#718078;font-size:11.5px;line-height:1.45}
+.kch-v137-care-action.primary{border-color:#173f31;background:#173f31;color:#fff}
+.kch-v137-care-action.primary small{color:#dce8e2}
+.kch-v137-care-trust{margin:0;padding:0 18px 17px;color:#66746c;font-size:10.5px;line-height:1.5;text-align:center}
+@media(max-width:720px){.kch-v137-care{right:12px;bottom:calc(76px + env(safe-area-inset-bottom))}.kch-v137-care-trigger{min-height:48px;padding:0 14px}.kch-v137-care-panel{position:fixed;right:10px;left:10px;bottom:calc(136px + env(safe-area-inset-bottom));width:auto;max-height:calc(100vh - 170px)}.kch-v137-care-action{min-height:58px}.kch-v137-care-head h2{font-size:19px}}
+@media(max-width:420px){.kch-v137-care-trigger b{font-size:13px}.kch-v137-care-panel{right:8px;left:8px}.kch-v137-care-head{padding:17px 16px 12px}.kch-v137-care-actions{padding:12px}.kch-v137-care-action{padding:11px 12px}}
+@media(prefers-reduced-motion:reduce){.kch-v137-care-action{transition:none}}
