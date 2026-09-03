@@ -37,7 +37,7 @@ async function loadV132(page){
 
 async function loadSearchAuthority(page){
   await page.addScriptTag({path:'public/kch-search-authority.js'});
-  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.3');
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.4');
 }
 
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
@@ -101,6 +101,7 @@ test('master storefront discovery is readable, Thai-first and stable across view
 
   const search=page.locator('.tshop-searchbox input');
   await search.fill('ชารางจืด');
+  await expect(search).toHaveValue('ชารางจืด');
   await expect(rangJued).toBeVisible();
   await expect(chiangDa).toBeHidden();
   await expect(chiangDa).toHaveAttribute('data-kch-v131-search-match','0');
