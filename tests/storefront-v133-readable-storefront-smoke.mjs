@@ -33,10 +33,23 @@ assert.match(js,/normalizeUtilityAction\(orders,'คำสั่งซื้อ'
 assert.match(js,/normalizeUtilityAction\(cart,'ตะกร้า','ดูสินค้า'\)/);
 assert.match(js,/function hideLegacyAccountStrip\(shell,accountButton\)/);
 assert.match(js,/typeof account==='function'/);
+
+// Canonical search must be owned by window.__KCH_MASTER_SEARCH__; v1.31 state is compatibility-only.
+assert.match(js,/function masterSearchOwner\(\)\{return window\.__KCH_MASTER_SEARCH__/);
+assert.match(js,/window\.addEventListener\('input',acceptCanonicalSearchInput,true\)/);
+assert.match(js,/window\.addEventListener\('search',acceptCanonicalSearchInput,true\)/);
+assert.match(js,/owner\.source='v133-window-input'/);
+assert.match(js,/card\.dataset\.kchV131SearchMatch=state/);
+assert.match(js,/card\.removeAttribute\('data-kch-v131-search-match'\)/);
+
+// Tablet structural actions must retain an accessible 48x48 minimum hit target without adding a new tshop layer.
+assert.match(js,/@media\(max-width:860px\) and \(min-width:561px\)/);
+assert.match(js,/grid-template-columns:repeat\(3,48px\)!important/);
+assert.match(js,/min-width:48px!important;min-height:48px!important/);
 assert.doesNotMatch(js,/Math\.random/);
 assert.doesNotMatch(js,/sale_verified\s*=|price\s*=|stock\s*=/);
 
 assert.ok(pkg.scripts['qa:v133']);
 assert.match(pkg.scripts.check,/storefront-v133-readable-storefront-smoke\.mjs/);
 
-console.log('storefront v1.33.1 readable header + specificity baseline smoke: OK');
+console.log('storefront v1.33.1 readable header + canonical search + tablet touch baseline smoke: OK');
