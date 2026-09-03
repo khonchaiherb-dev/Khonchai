@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/seller-support.css">
+<style>.metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.quality-strip{border-top:1px solid #ece9e1;padding-top:0}.quality-strip .sla-line:first-child{background:#fbf6e8}.quality-strip .sla-line:first-child b{color:#785f25}@media(max-width:1260px){.metrics{grid-template-columns:repeat(3,1fr)}}@media(max-width:620px){.metrics{grid-template-columns:repeat(2,1fr)}}</style>
 <title>KHONCHAIHERB | Support Operations</title>
 </head>
 <body>
@@ -46,7 +47,7 @@
     </header>
 
     <div class="content">
-      <section class="page-head"><div><span>SUPPORT OPERATIONS</span><h1>ศูนย์บริการลูกค้า</h1><p>จัดการเคส SLA ประวัติลูกค้า และคำสั่งซื้อที่เกี่ยวข้องจากหน้าจอเดียว</p></div><div class="live-indicator"><i></i><span>Auto refresh ทุก 60 วินาที</span></div></section>
+      <section class="page-head"><div><span>SUPPORT OPERATIONS</span><h1>ศูนย์บริการลูกค้า</h1><p>จัดการเคส SLA ประวัติลูกค้า คุณภาพบริการ และคำสั่งซื้อที่เกี่ยวข้องจากหน้าจอเดียว</p></div><div class="live-indicator"><i></i><span>Auto refresh ทุก 60 วินาที</span></div></section>
 
       <section class="metrics" aria-label="ตัวชี้วัดบริการลูกค้า">
         <article><span>เคสที่ยังเปิด</span><b id="metric-open">—</b><small>ยังไม่ปิดงาน</small></article>
@@ -55,6 +56,8 @@
         <article><span>เกิน SLA แก้ไข</span><b id="metric-resolution-breach">—</b><small>Resolution overdue</small></article>
         <article><span>ยังไม่มีผู้รับผิดชอบ</span><b id="metric-unassigned">—</b><small>Unassigned queue</small></article>
         <article><span>เวลาตอบเฉลี่ย</span><b id="metric-response">—</b><small>First response</small></article>
+        <article><span>CSAT เฉลี่ย</span><b id="metric-csat">—</b><small id="metric-csat-responses">ยังไม่มีแบบประเมิน</small></article>
+        <article><span>ความพึงพอใจเชิงบวก</span><b id="metric-positive">—</b><small>คะแนน 4–5 ดาว</small></article>
       </section>
 
       <section class="filters">
@@ -71,7 +74,7 @@
         </div>
 
         <div class="detail-pane">
-          <div id="empty-detail" class="empty-detail"><span>◎</span><h2>เลือกเคสจากด้านซ้าย</h2><p>รายละเอียดลูกค้า ออเดอร์ ข้อความ และ SLA จะปรากฏที่นี่</p></div>
+          <div id="empty-detail" class="empty-detail"><span>◎</span><h2>เลือกเคสจากด้านซ้าย</h2><p>รายละเอียดลูกค้า ออเดอร์ ข้อความ SLA และผลประเมินจะปรากฏที่นี่</p></div>
           <div id="ticket-detail" class="hidden">
             <div class="detail-head">
               <div><span id="detail-ticket-no" class="ticket-no">—</span><h2 id="detail-subject">—</h2><div id="detail-pills" class="pill-row"></div></div>
@@ -80,7 +83,7 @@
 
             <div class="detail-grid">
               <section class="card customer-card"><div class="card-head"><div><span>CUSTOMER 360</span><h3>ข้อมูลลูกค้า</h3></div><span id="customer-segment" class="segment">—</span></div><div id="customer-info" class="info-grid"></div><div id="recent-orders" class="recent-orders"></div></section>
-              <section class="card sla-card"><div class="card-head"><div><span>SERVICE LEVEL</span><h3>SLA และผู้รับผิดชอบ</h3></div></div><div id="sla-info" class="sla-info"></div><div class="manage-grid"><label>สถานะ<select id="detail-status"><option value="open">เปิดเคส</option><option value="pending_team">รอทีมดูแล</option><option value="pending_customer">รอลูกค้า</option><option value="resolved">แก้ไขแล้ว</option><option value="closed">ปิดเคส</option></select></label><label>ความสำคัญ<select id="detail-priority"><option value="urgent">เร่งด่วน</option><option value="high">สำคัญ</option><option value="normal">ปกติ</option><option value="low">ทั่วไป</option></select></label><label>ผู้รับผิดชอบ<select id="detail-agent"><option value="">ยังไม่มอบหมาย</option></select></label><button id="save-ticket" class="primary" type="button">บันทึกการเปลี่ยนแปลง</button></div></section>
+              <section class="card sla-card"><div class="card-head"><div><span>SERVICE LEVEL</span><h3>SLA และผู้รับผิดชอบ</h3></div></div><div id="sla-info" class="sla-info"></div><div id="quality-info" class="sla-info quality-strip"><div class="sla-line"><span>Customer Satisfaction</span><b>ยังไม่มีผลประเมินสำหรับเคสนี้</b></div></div><div class="manage-grid"><label>สถานะ<select id="detail-status"><option value="open">เปิดเคส</option><option value="pending_team">รอทีมดูแล</option><option value="pending_customer">รอลูกค้า</option><option value="resolved">แก้ไขแล้ว</option><option value="closed">ปิดเคส</option></select></label><label>ความสำคัญ<select id="detail-priority"><option value="urgent">เร่งด่วน</option><option value="high">สำคัญ</option><option value="normal">ปกติ</option><option value="low">ทั่วไป</option></select></label><label>ผู้รับผิดชอบ<select id="detail-agent"><option value="">ยังไม่มอบหมาย</option></select></label><button id="save-ticket" class="primary" type="button">บันทึกการเปลี่ยนแปลง</button></div></section>
             </div>
 
             <section class="card conversation-card">
@@ -98,5 +101,6 @@
 </section>
 <div id="toast" class="toast hidden" role="status"></div>
 <script src="/seller-support.js"></script>
+<script src="/seller-support-quality.js"></script>
 </body>
 </html>
