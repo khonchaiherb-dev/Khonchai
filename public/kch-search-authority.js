@@ -2,7 +2,7 @@
 (()=>{
   'use strict';
   if(typeof document==='undefined')return;
-  const BUILD='1.0.6';
+  const BUILD='1.0.7';
   if(window.__KCH_SEARCH_AUTHORITY__===BUILD)return;
   window.__KCH_SEARCH_AUTHORITY__=BUILD;
 
@@ -75,26 +75,27 @@
     return document.querySelector(PRIMARY_SEARCH_SELECTOR)||inputs()[0]||null;
   }
 
-  // Search UI is rendered by several legacy layers. Any one of them may keep
-  // the same input node and clear its value, or replace the node entirely.
-  // Once authority is established, every live search control must therefore
-  // mirror the customer's exact display query. Property assignment does not
-  // dispatch input events, so hydration cannot recursively claim ownership.
-  function syncReplacementInputs(displayQuery=activeDisplayQuery){
+  // Never overwrite the input currently being edited. Browser typing, mobile
+  // IME, autofill and automation own that live value until their input event is
+  // committed. Authority mirrors the canonical query only to sibling or newly
+  // rendered search controls. If the editing node is replaced, the replacement
+  // is no longer === source and is hydrated automatically.
+  function syncReplacementInputs(displayQuery=activeDisplayQuery,source=null){
     const value=String(displayQuery??'');
     inputs().forEach(input=>{
+      if(source?.isConnected&&input===source)return;
       if(input.value!==value)input.value=value;
     });
   }
 
-  function apply(query=activeDisplayQuery){
+  function apply(query=activeDisplayQuery,source=null){
     ensureRule();
     const displayQuery=String(query??'');
     const q=normalize(displayQuery);
     activeDisplayQuery=displayQuery;
     activeQuery=q;
     authorityReady=true;
-    syncReplacementInputs(displayQuery);
+    syncReplacementInputs(displayQuery,source);
 
     const cards=[...document.querySelectorAll(CARD_SELECTOR)];
     if(!cards.length)return;
@@ -103,16 +104,17 @@
     cards.forEach(card=>setCard(card,tokens.every(token=>cardText(card).includes(token))));
   }
 
-  function schedule(query){
+  function schedule(query,source=null){
     const displayQuery=String(query??'');
     activeDisplayQuery=displayQuery;
     activeQuery=normalize(displayQuery);
     authorityReady=true;
     const run=++seq;
-    const pass=()=>{if(run===seq)apply(displayQuery)};
+    const pass=()=>{if(run===seq)apply(displayQuery,source?.isConnected?source:null)};
 
     // Legacy storefront layers can still mutate product markup while the page
-    // settles. Re-apply one canonical state across that render window.
+    // settles. Re-apply one canonical state across that render window without
+    // rewriting the live input that the customer is actively editing.
     pass();
     queueMicrotask(pass);
     if(typeof requestAnimationFrame==='function')requestAnimationFrame(pass);
@@ -144,7 +146,10 @@
     const target=event.target;
     if(target!==editingInput)return;
     queueMicrotask(()=>{
-      if(document.activeElement!==target)editingInput=null;
+      if(document.activeElement!==target){
+        editingInput=null;
+        syncReplacementInputs(activeDisplayQuery);
+      }
     });
   }
 
@@ -152,35 +157,30 @@
     const target=event.target;
     if(!target?.matches?.(SEARCH_SELECTOR))return;
 
-    // The approved Master Storefront has accumulated older input listeners.
-    // One v0.4 listener calls home() whenever an input event briefly reports an
-    // empty value; browser fill/autofill commonly performs that empty step
-    // before writing the next value, which replaces #global-shop-search in the
-    // middle of editing. At capture phase, Search Authority owns Master search
-    // completely and prevents those legacy handlers from rerendering/filtering
-    // the same UI a second time. Non-Master pages keep their legacy fallback.
-    if(masterActive())event.stopImmediatePropagation();
-
     const displayQuery=String(target.value??'');
     const q=normalize(displayQuery);
     const focused=document.activeElement===target;
     const owned=target===editingInput||target===activeInput||focused;
 
-    // Never infer customer intent from isTrusted. Programmatic search entry
-    // points (history, smart actions, structural header bridge, automation and
-    // autofill) legitimately dispatch synthetic input events. Any non-empty
-    // search may become authoritative. Empty events may clear only from the
-    // active/focused source (or when there is no active query); an empty stale
-    // replacement source is rehydrated instead of erasing the customer's text.
+    // The dangerous legacy v0.4 behavior only runs when an input event is
+    // empty: it calls home() and reconstructs the whole storefront. Quarantine
+    // that empty event at capture phase on the approved Master Storefront, but
+    // do not suppress non-empty input events. This keeps the browser editing
+    // pipeline intact while Search Authority remains the final filter state.
+    if(masterActive()&&!q)event.stopImmediatePropagation();
+
+    // An empty event from a stale/replacement control may not erase a live
+    // query. Restore only that stale source. An empty event from the active
+    // editing control is a genuine clear and is committed normally.
     if(!q&&activeQuery&&!owned){
       target.value=activeDisplayQuery;
-      schedule(activeDisplayQuery);
+      schedule(activeDisplayQuery,editingInput?.isConnected?editingInput:null);
       return;
     }
 
     editingInput=focused?target:editingInput;
     activeInput=target;
-    schedule(displayQuery);
+    schedule(displayQuery,target);
   }
 
   function clearFromReset(event){
@@ -206,7 +206,7 @@
     get:()=>activeDisplayQuery,
     set:setQuery,
     clear:()=>setQuery(''),
-    refresh:()=>schedule(activeDisplayQuery)
+    refresh:()=>schedule(activeDisplayQuery,editingInput?.isConnected?editingInput:null)
   };
 
   document.addEventListener('focusin',onSearchFocus,true);
@@ -227,8 +227,9 @@
       if(activeInput&&!activeInput.isConnected)activeInput=primaryInput();
 
       if(authorityReady){
-        syncReplacementInputs(activeDisplayQuery);
-        schedule(activeDisplayQuery);
+        const source=editingInput?.isConnected?editingInput:null;
+        syncReplacementInputs(activeDisplayQuery,source);
+        schedule(activeDisplayQuery,source);
       }
     }).observe(document.documentElement,{
       childList:true,
