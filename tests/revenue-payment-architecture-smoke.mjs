@@ -6,6 +6,8 @@ const options=read('functions/api/payment-options.js');
 const readiness=read('functions/api/admin/revenue-readiness.js');
 const sessionApi=read('functions/api/checkout-session.js');
 const recoveryAdmin=read('functions/api/admin/checkout-recovery.js');
+const codRiskLib=read('functions/_lib/cod-risk.js');
+const codRiskAdmin=read('functions/api/admin/cod-risk.js');
 const revenueClient=read('public/kch-revenue-core.js');
 const loader=read('public/app-admin-actions.js');
 
@@ -69,10 +71,24 @@ for(const marker of recoveryMarkers){
   if(!recoveryAdmin.includes(marker))throw new Error(`Checkout recovery safety/notification contract missing: ${marker}`);
 }
 
+const codRiskMarkers=[
+  "return level==='high'?'review':'allow'",
+  "It intentionally never returns `block`",
+  "policyVersion:'v1-advisory'",
+  "mode:'advisory'",
+  'enforcement:false',
+  "action==='review'"
+];
+for(const marker of codRiskMarkers){
+  const haystack=marker.includes('return level')||marker.includes('never returns')||marker.includes('policyVersion')?codRiskLib:codRiskAdmin;
+  if(!haystack.includes(marker))throw new Error(`COD risk advisory safety contract missing: ${marker}`);
+}
+if(/decision\s*=\s*['"]block['"]/.test(codRiskLib)||/return\s+['"]block['"]/.test(codRiskLib))throw new Error('COD risk v1 must remain advisory and must not auto-block orders.');
+
 if(!loader.includes("addScript('/kch-revenue-core.js?v=1.0.0','kch-revenue-core')"))throw new Error('Consolidated revenue client is not loaded by the storefront boot path.');
 if(!revenueClient.includes("/api/checkout-session"))throw new Error('Revenue client is not connected to checkout-session API.');
 if(!revenueClient.includes("/\\/api\\/orders(?:\\?|$)/"))throw new Error('Revenue client does not mark completed order flow.');
 if(/\{id\s*:\s*1\s*,\s*qty\s*:\s*1\}/.test(revenueClient))throw new Error('Revenue client must never invent a fallback product when completing recovery sessions.');
 if(!revenueClient.includes("recoveryAllowed:false"))throw new Error('Completed checkout must explicitly disable recovery.');
 
-console.log('Revenue/payment architecture smoke passed: truthful payment capability, consent-gated recovery, order ownership, completion handling and COD-risk schema are protected.');
+console.log('Revenue/payment architecture smoke passed: truthful payment capability, consent-gated recovery, order ownership, completion handling and advisory COD-risk policy are protected.');
