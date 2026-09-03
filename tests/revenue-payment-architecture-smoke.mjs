@@ -9,6 +9,7 @@ const recoveryAdmin=read('functions/api/admin/checkout-recovery.js');
 const codRiskLib=read('functions/_lib/cod-risk.js');
 const codRiskAdmin=read('functions/api/admin/cod-risk.js');
 const revenueClient=read('public/kch-revenue-core.js');
+const revenuePage=read('public/seller-revenue.html');
 const loader=read('public/app-admin-actions.js');
 
 const requiredMigrationMarkers=[
@@ -91,4 +92,19 @@ if(!revenueClient.includes("/\\/api\\/orders(?:\\?|$)/"))throw new Error('Revenu
 if(/\{id\s*:\s*1\s*,\s*qty\s*:\s*1\}/.test(revenueClient))throw new Error('Revenue client must never invent a fallback product when completing recovery sessions.');
 if(!revenueClient.includes("recoveryAllowed:false"))throw new Error('Completed checkout must explicitly disable recovery.');
 
-console.log('Revenue/payment architecture smoke passed: truthful payment capability, consent-gated recovery, order ownership, completion handling and advisory COD-risk policy are protected.');
+const pageMarkers=[
+  'name="robots" content="noindex,nofollow,noarchive"',
+  'Production & Revenue Control Center',
+  '/api/admin/revenue-readiness',
+  '/api/payment-options',
+  '/api/admin/checkout-recovery',
+  '/api/admin/cod-risk',
+  "'X-KCH-CSRF':state.csrfToken",
+  'คะแนนสูงส่งให้คนตรวจ ไม่บล็อกออเดอร์อัตโนมัติ'
+];
+for(const marker of pageMarkers){
+  if(!revenuePage.includes(marker))throw new Error(`Seller revenue control center contract missing: ${marker}`);
+}
+if(/ADMIN_TOKEN|Authorization:\s*[`'"]Bearer/i.test(revenuePage))throw new Error('Seller revenue page must never expose or collect the legacy admin secret.');
+
+console.log('Revenue/payment architecture smoke passed: truthful payment capability, consent-gated recovery, seller control center, order ownership and advisory COD-risk policy are protected.');
