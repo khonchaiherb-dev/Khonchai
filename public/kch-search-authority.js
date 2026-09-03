@@ -2,7 +2,7 @@
 (()=>{
   'use strict';
   if(typeof document==='undefined')return;
-  const BUILD='1.0.5';
+  const BUILD='1.0.6';
   if(window.__KCH_SEARCH_AUTHORITY__===BUILD)return;
   window.__KCH_SEARCH_AUTHORITY__=BUILD;
 
@@ -18,6 +18,7 @@
   let seq=0;
 
   const normalize=value=>String(value??'').normalize('NFKC').toLocaleLowerCase('th-TH').replace(/\s+/g,' ').trim();
+  const masterActive=()=>Boolean(document.querySelector('.kch-master-home'));
   const cardText=card=>{
     const authoritative=[
       card?.dataset?.kchName,
@@ -78,8 +79,7 @@
   // the same input node and clear its value, or replace the node entirely.
   // Once authority is established, every live search control must therefore
   // mirror the customer's exact display query. Property assignment does not
-  // dispatch input events, so this hydration cannot hand ownership to legacy
-  // synthetic handlers.
+  // dispatch input events, so hydration cannot recursively claim ownership.
   function syncReplacementInputs(displayQuery=activeDisplayQuery){
     const value=String(displayQuery??'');
     inputs().forEach(input=>{
@@ -94,10 +94,6 @@
     activeDisplayQuery=displayQuery;
     activeQuery=q;
     authorityReady=true;
-
-    // Hydrate before touching cards, including the empty-query path. This is
-    // what keeps replacement/cleared header inputs visually continuous and
-    // also makes a trusted customer clear propagate to every search control.
     syncReplacementInputs(displayQuery);
 
     const cards=[...document.querySelectorAll(CARD_SELECTOR)];
@@ -115,8 +111,8 @@
     const run=++seq;
     const pass=()=>{if(run===seq)apply(displayQuery)};
 
-    // Apply repeatedly across the legacy render window so the canonical query
-    // remains authoritative even while old storefront layers are settling.
+    // Legacy storefront layers can still mutate product markup while the page
+    // settles. Re-apply one canonical state across that render window.
     pass();
     queueMicrotask(pass);
     if(typeof requestAnimationFrame==='function')requestAnimationFrame(pass);
@@ -156,22 +152,35 @@
     const target=event.target;
     if(!target?.matches?.(SEARCH_SELECTOR))return;
 
-    // Only browser-trusted customer input/search events may change the
-    // authoritative query. Legacy storefront layers frequently replace the
-    // header, focus the replacement node and dispatch synthetic input events;
-    // those events may request a re-apply but must never own, clear or shorten
-    // the customer's real query.
-    if(event.isTrusted===false){
-      if(!authorityReady)return;
-      if(target.value!==activeDisplayQuery)target.value=activeDisplayQuery;
-      activeInput=primaryInput()||activeInput;
+    // The approved Master Storefront has accumulated older input listeners.
+    // One v0.4 listener calls home() whenever an input event briefly reports an
+    // empty value; browser fill/autofill commonly performs that empty step
+    // before writing the next value, which replaces #global-shop-search in the
+    // middle of editing. At capture phase, Search Authority owns Master search
+    // completely and prevents those legacy handlers from rerendering/filtering
+    // the same UI a second time. Non-Master pages keep their legacy fallback.
+    if(masterActive())event.stopImmediatePropagation();
+
+    const displayQuery=String(target.value??'');
+    const q=normalize(displayQuery);
+    const focused=document.activeElement===target;
+    const owned=target===editingInput||target===activeInput||focused;
+
+    // Never infer customer intent from isTrusted. Programmatic search entry
+    // points (history, smart actions, structural header bridge, automation and
+    // autofill) legitimately dispatch synthetic input events. Any non-empty
+    // search may become authoritative. Empty events may clear only from the
+    // active/focused source (or when there is no active query); an empty stale
+    // replacement source is rehydrated instead of erasing the customer's text.
+    if(!q&&activeQuery&&!owned){
+      target.value=activeDisplayQuery;
       schedule(activeDisplayQuery);
       return;
     }
 
-    editingInput=target;
+    editingInput=focused?target:editingInput;
     activeInput=target;
-    schedule(target.value||'');
+    schedule(displayQuery);
   }
 
   function clearFromReset(event){
@@ -184,6 +193,21 @@
     syncReplacementInputs('');
     schedule('');
   }
+
+  function setQuery(query){
+    activeInput=null;
+    editingInput=null;
+    schedule(String(query??''));
+    return activeDisplayQuery;
+  }
+
+  window.__KCH_SEARCH_AUTHORITY_API__={
+    build:BUILD,
+    get:()=>activeDisplayQuery,
+    set:setQuery,
+    clear:()=>setQuery(''),
+    refresh:()=>schedule(activeDisplayQuery)
+  };
 
   document.addEventListener('focusin',onSearchFocus,true);
   document.addEventListener('focusout',onSearchBlur,true);
@@ -202,10 +226,6 @@
       if(editingInput&&!editingInput.isConnected)editingInput=null;
       if(activeInput&&!activeInput.isConnected)activeInput=primaryInput();
 
-      // Always repair every live search control after a relevant rerender,
-      // even when the old active node stayed connected but legacy code cleared
-      // its value in place. v1.0.4 only repaired disconnected active nodes and
-      // therefore allowed the visible primary input to fall back to "".
       if(authorityReady){
         syncReplacementInputs(activeDisplayQuery);
         schedule(activeDisplayQuery);
