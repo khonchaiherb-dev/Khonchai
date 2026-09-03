@@ -2,7 +2,7 @@ import {legacyAuthorized,getStaffSession,hasPermission,securityEvent,json,sameOr
 function permissionFor(path,method){
   const name=path.split('/').filter(Boolean).pop()||'',write=!['GET','HEAD','OPTIONS'].includes(method);
   if(name==='staff')return write?'staff.manage':'staff.read';if(name==='approvals')return 'approvals.manage';if(name==='backup')return 'backup.manage';if(name==='launch-readiness')return 'launch.read';if(['audit-log','security-events'].includes(name))return 'audit.read';
-  if(name==='operational-alerts')return 'orders.read';if(name==='support-tickets')return write?'returns.manage':'orders.read';
+  if(name==='operational-alerts')return 'orders.read';if(name==='support-tickets')return write?'support.manage':'support.read';
   if(['finance','cod-reconciliation','daily-closing','costs'].includes(name))return write?'finance.manage':'finance.read';if(['refund-ledger','return-refund'].includes(name))return write?'refunds.manage':'finance.read';
   if(['inventory','warehouse','receiving','picking-waves','packing-verify','shipping-label','inventory-lots'].includes(name))return write?'inventory.manage':'inventory.read';if(name==='procurement')return write?'procurement.manage':'procurement.read';
   if(['order-action','fulfillment'].includes(name))return write?'fulfillment.manage':'orders.read';if(name==='returns')return write?'returns.manage':'orders.read';if(name==='notification-queue')return write?'notifications.manage':'orders.read';
