@@ -116,10 +116,11 @@
     const next=target.value||'';
     const q=normalize(next);
 
-    // Legacy storefront layers can replace the header/search node and emit an
-    // empty synthetic input event. Do not let that erase a real customer query.
-    // A deliberate customer clear still works because the edited input is focused.
-    if(!q&&activeQuery&&document.activeElement!==target){
+    // Legacy layers may replace the header and dispatch an empty synthetic
+    // input/search event. Preserve a real query only for those untrusted
+    // programmatic events. A genuine customer clear is a trusted browser event
+    // even if the edited search node is replaced before focus can be inspected.
+    if(!q&&activeQuery&&event.isTrusted===false){
       schedule(activeQuery);
       return;
     }
