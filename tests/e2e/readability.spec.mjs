@@ -28,6 +28,7 @@ test('v1.34 structural header is readable at 100% zoom and puts account in the c
   await page.goto('/?e2e=v134-structural',{waitUntil:'domcontentloaded'});
   await expect(page.locator('.kch-master-home')).toBeVisible();
   await page.addStyleTag({url:'/tshop-v134-structural-storefront.css?v=1.34.0'});
+  await page.addStyleTag({url:'/kch-storefront-stability.css?v=1.0.0'});
   await page.addScriptTag({url:'/kch-v134-structural-storefront.js?v=1.34.0'});
 
   const shell=page.locator('.kch-master-shell').first();
