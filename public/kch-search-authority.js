@@ -50,6 +50,16 @@
     card.setAttribute('aria-hidden',match?'false':'true');
   }
 
+  function inputs(){return [...document.querySelectorAll(SEARCH_SELECTOR)]}
+
+  function syncReplacementInputs(q){
+    if(!q)return;
+    inputs().forEach(input=>{
+      if(input===document.activeElement)return;
+      if(!normalize(input.value))input.value=q;
+    });
+  }
+
   function apply(query=activeQuery){
     ensureRule();
     const q=normalize(query);
@@ -57,6 +67,7 @@
     const cards=[...document.querySelectorAll(CARD_SELECTOR)];
     if(!cards.length)return;
     if(!q){cards.forEach(clearCard);return}
+    syncReplacementInputs(query);
     const tokens=q.split(' ').filter(Boolean);
     cards.forEach(card=>setCard(card,tokens.every(token=>cardText(card).includes(token))));
   }
@@ -65,7 +76,7 @@
     const q=normalize(query);
     activeQuery=q;
     const run=++seq;
-    const pass=()=>{if(run===seq)apply(q)};
+    const pass=()=>{if(run===seq)apply(query)};
 
     // Apply once synchronously so competing legacy listeners cannot leave a
     // transiently stale product grid after an input event.
@@ -76,9 +87,8 @@
     setTimeout(pass,96);
     setTimeout(pass,220);
     setTimeout(pass,420);
+    setTimeout(pass,900);
   }
-
-  function inputs(){return [...document.querySelectorAll(SEARCH_SELECTOR)]}
 
   function queryFromTarget(target){
     if(target?.matches?.(SEARCH_SELECTOR))return target.value||'';
@@ -91,13 +101,34 @@
   }
 
   function onSearchInput(event){
-    if(!event.target?.matches?.(SEARCH_SELECTOR))return;
-    activeInput=event.target;
-    schedule(event.target.value||'');
+    const target=event.target;
+    if(!target?.matches?.(SEARCH_SELECTOR))return;
+    const next=target.value||'';
+    const q=normalize(next);
+
+    // Legacy storefront layers can replace the header/search node and emit an
+    // empty synthetic input event. Do not let that erase a real customer query.
+    // A deliberate customer clear still works because the edited input is focused.
+    if(!q&&activeQuery&&document.activeElement!==target){
+      schedule(activeQuery);
+      return;
+    }
+
+    activeInput=target;
+    schedule(next);
+  }
+
+  function clearFromReset(event){
+    if(!event.target?.closest?.('.kch-master-reset'))return;
+    activeQuery='';
+    activeInput=null;
+    inputs().forEach(input=>{input.value=''});
+    schedule('');
   }
 
   document.addEventListener('input',onSearchInput,true);
   document.addEventListener('search',onSearchInput,true);
+  document.addEventListener('click',clearFromReset,true);
 
   if(typeof MutationObserver!=='undefined'){
     new MutationObserver(records=>{
