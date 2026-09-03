@@ -245,3 +245,38 @@ jobs:
             echo "### Revenue recovery schema: NOT READY" >> "$GITHUB_STEP_SUMMARY"
             echo "Migration 0022 has not been fully applied to remote D1. This is informational; the workflow remains read-only." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Inspect support platform schema on remote D1
+        if: steps.account.outputs.available == 'true'
+        id: support_schema
+        shell: bash
+        run: |
+          set -uo pipefail
+          QUERY="SELECT name FROM sqlite_master WHERE type='table' AND name IN ('support_tickets','support_messages','support_ticket_events','support_satisfaction') ORDER BY name;"
+          set +e
+          CLOUDFLARE_ACCOUNT_ID="$D1_ACCOUNT_ID" npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="$QUERY" > d1-support-readiness.txt 2>&1
+          code=$?
+          set -e
+          cat d1-support-readiness.txt
+          if [ "$code" -ne 0 ]; then
+            echo "ready=unknown" >> "$GITHUB_OUTPUT"
+            echo "### Support platform schema: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
+            echo "Remote read-only support schema query could not be completed." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          missing=0
+          for table in support_tickets support_messages support_ticket_events support_satisfaction; do
+            if ! grep -q "$table" d1-support-readiness.txt; then
+              echo "Missing: $table"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 0 ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "### Support platform schema: READY" >> "$GITHUB_STEP_SUMMARY"
+            echo "Migration 0023 schema is present on remote D1." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "### Support platform schema: NOT READY" >> "$GITHUB_STEP_SUMMARY"
+            echo "Migration 0023 has not been fully applied to remote D1. Customer Support ticket APIs must remain treated as not production-ready until the guarded migration is explicitly applied." >> "$GITHUB_STEP_SUMMARY"
+          fi
