@@ -184,11 +184,11 @@ jobs:
           done
           if [ "$missing" -eq 0 ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
-            echo "### Production D1 readiness: READY" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Production D1 source readiness: READY" >> "$GITHUB_STEP_SUMMARY"
             echo "Migration 0021 schema is present on remote D1." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "### Production D1 readiness: NOT READY" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Production D1 source readiness: NOT READY" >> "$GITHUB_STEP_SUMMARY"
             echo "Migration 0021 has not been fully applied to remote D1." >> "$GITHUB_STEP_SUMMARY"
           fi
 
@@ -210,3 +210,38 @@ jobs:
           fi
           echo "### Koonchaishop source registration: READY" >> "$GITHUB_STEP_SUMMARY"
           echo "Shop Code THLCRLWLHR is registered with the expected authorization scope." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Inspect revenue payment recovery schema on remote D1
+        if: steps.account.outputs.available == 'true'
+        id: revenue_schema
+        shell: bash
+        run: |
+          set -uo pipefail
+          QUERY="SELECT name FROM sqlite_master WHERE type='table' AND name IN ('payment_attempts','payment_provider_events','checkout_sessions','checkout_recovery_events','cod_risk_assessments') ORDER BY name;"
+          set +e
+          CLOUDFLARE_ACCOUNT_ID="$D1_ACCOUNT_ID" npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="$QUERY" > d1-revenue-readiness.txt 2>&1
+          code=$?
+          set -e
+          cat d1-revenue-readiness.txt
+          if [ "$code" -ne 0 ]; then
+            echo "ready=unknown" >> "$GITHUB_OUTPUT"
+            echo "### Revenue recovery schema: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
+            echo "Remote read-only revenue schema query could not be completed." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          missing=0
+          for table in payment_attempts payment_provider_events checkout_sessions checkout_recovery_events cod_risk_assessments; do
+            if ! grep -q "$table" d1-revenue-readiness.txt; then
+              echo "Missing: $table"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 0 ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "### Revenue recovery schema: READY" >> "$GITHUB_STEP_SUMMARY"
+            echo "Migration 0022 schema is present on remote D1." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "### Revenue recovery schema: NOT READY" >> "$GITHUB_STEP_SUMMARY"
+            echo "Migration 0022 has not been fully applied to remote D1. This is informational; the workflow remains read-only." >> "$GITHUB_STEP_SUMMARY"
+          fi
