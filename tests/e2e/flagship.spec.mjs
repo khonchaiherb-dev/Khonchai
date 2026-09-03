@@ -37,7 +37,8 @@ async function loadV132(page){
 
 async function loadSearchAuthority(page){
   await page.addScriptTag({path:'public/kch-search-authority.js'});
-  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.5');
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.6');
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY_API__?.build)).toBe('1.0.6');
 }
 
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
@@ -100,14 +101,17 @@ test('master storefront discovery is readable, Thai-first and stable across view
   else expect(mediaHeight).toBeLessThanOrEqual(215);
 
   const search=page.locator('.tshop-searchbox input');
+  await search.evaluate(el=>{el.dataset.kchE2eSearchNode='stable'});
   await search.fill('ชารางจืด');
   await expect(search).toHaveValue('ชารางจืด');
+  await expect(search).toHaveAttribute('data-kch-e2e-search-node','stable');
   await expect(rangJued).toBeVisible();
   await expect(chiangDa).toBeHidden();
   await expect(chiangDa).toHaveAttribute('data-kch-v131-search-match','0');
   await expect(chiangDa).toHaveAttribute('data-kch-search-match','0');
   await search.fill('');
   await expect(search).toHaveValue('');
+  await expect(search).toHaveAttribute('data-kch-e2e-search-node','stable');
   await expect(chiangDa).toBeVisible();
   await expect(chiangDa).not.toHaveAttribute('data-kch-v131-search-match','0');
   await expect(chiangDa).not.toHaveAttribute('data-kch-search-match','0');
