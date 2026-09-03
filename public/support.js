@@ -17,4 +17,18 @@ track.addEventListener('submit',e=>{e.preventDefault();fetchTicket()});
 reply.addEventListener('submit',async e=>{e.preventDefault();const msg=clean(reply.elements.message.value);if(!msg)return;try{await api('/api/support/tickets',{method:'POST',body:JSON.stringify({action:'reply',ticketNo:active.ticketNo,accessCode:active.accessCode,message:msg})});reply.reset();await fetchTicket()}catch{setStatus(trackStatus,'ส่งข้อความไม่สำเร็จ กรุณาลองอีกครั้ง')}});
 document.querySelectorAll('[data-category]').forEach(b=>b.addEventListener('click',()=>{form.elements.category.value=b.dataset.category;form.elements.subject.focus();form.scrollIntoView({behavior:'smooth',block:'start'})}));
 const recent=loadAccess();if(recent.ticketNo){track.elements.ticketNo.value=recent.ticketNo;track.elements.accessCode.value=recent.accessCode||''}
+function applyStorefrontContext(){
+  const params=new URLSearchParams(location.search),allowed=new Set(['order','shipping','payment','return','product','account','other']);
+  const category=clean(params.get('category')),orderNo=clean(params.get('orderNo')),subject=clean(params.get('subject')),focus=clean(params.get('focus')),ticketNo=clean(params.get('ticketNo'));
+  if(allowed.has(category))form.elements.category.value=category;
+  if(orderNo)form.elements.orderNo.value=orderNo.slice(0,80);
+  if(subject)form.elements.subject.value=subject.slice(0,180);
+  if(ticketNo)track.elements.ticketNo.value=ticketNo.slice(0,100);
+  if(category||orderNo||subject){
+    const p=$('.panel form#ticket-form');
+    p?.closest?.('.panel')?.setAttribute?.('data-context-prefilled','1');
+  }
+  if(focus==='track')requestAnimationFrame(()=>track.scrollIntoView({behavior:'smooth',block:'start'}));
+}
+applyStorefrontContext();
 })();
