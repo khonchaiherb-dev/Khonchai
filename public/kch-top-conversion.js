@@ -32,6 +32,13 @@
     return null;
   }
 
+  function searchText(card){
+    const authoritative=[card?.dataset?.kchName,card?.dataset?.product,card?.dataset?.kchCat].filter(value=>normalize(value));
+    if(authoritative.length)return normalize(authoritative.join(' '));
+    const heading=$('h1,h2,h3,h4,.kch-master-product-name,[data-product-name]',card);
+    return normalize([heading?.textContent,card?.getAttribute?.('aria-label')].filter(Boolean).join(' '));
+  }
+
   function enhanceHeader(){
     const shell=$('.shell.kch-master-shell')||$('.shell');
     if(!shell)return;
@@ -151,7 +158,7 @@
     if(!q){cards.forEach(card=>card.removeAttribute('data-kch-v131-search-match'));return}
     const tokens=q.split(' ').filter(Boolean);
     cards.forEach(card=>{
-      const hay=normalize([card.dataset?.kchName,card.dataset?.product,card.dataset?.kchCat,text(card)].filter(Boolean).join(' '));
+      const hay=searchText(card);
       const match=tokens.every(token=>hay.includes(token));
       card.dataset.kchV131SearchMatch=match?'1':'0';
     });
