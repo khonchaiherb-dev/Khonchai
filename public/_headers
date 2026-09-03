@@ -16,6 +16,21 @@
 /index.html
   Cache-Control: no-cache, no-store, must-revalidate
 
+/seller-center.html
+  Cache-Control: no-cache, no-store, must-revalidate
+  X-Robots-Tag: noindex, nofollow, noarchive
+
+/seller-center-v2.html
+  Cache-Control: no-cache, no-store, must-revalidate
+  X-Robots-Tag: noindex, nofollow, noarchive
+
+/seller-support.html
+  Cache-Control: no-cache, no-store, must-revalidate
+  X-Robots-Tag: noindex, nofollow, noarchive
+
+/seller-support.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
 /*.js
   Cache-Control: no-cache, must-revalidate
 
