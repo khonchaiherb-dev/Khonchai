@@ -17,27 +17,34 @@ export async function onRequestGet({env}){
   const checkoutEnabled=bool(env.CHECKOUT_ENABLED);
   const codConfigured=bool(env.COD_ENABLED);
   const databaseBound=!!env.DB;
-  const productMediaConfigured=!!env.PRODUCT_MEDIA_BUCKET;
+  const r2ProductMediaConfigured=!!env.PRODUCT_MEDIA_BUCKET;
   const securityBaselineConfigured=databaseBound&&!!env.ADMIN_TOKEN&&!!env.AUTH_PEPPER&&!!env.RATE_LIMIT_PEPPER&&!legacyBrowserAdminEnabled&&staffCsrfEnforced&&packingVerificationRequired&&orderIdempotencyRequired;
 
-  let databaseReady=false,catalogSchemaReady=false,orderSchemaReady=false,saleReadyProducts=0,catalogProbe=null,orderProbe=null;
+  let databaseReady=false,catalogSchemaReady=false,orderSchemaReady=false,saleReadyProducts=0,staticMediaReadyProducts=0,catalogProbe=null,staticMediaProbe=null,orderProbe=null;
   if(databaseBound){
     const dbProbe=await probe(env.DB,'SELECT 1 ok');
     databaseReady=dbProbe.ok;
     if(databaseReady){
-      catalogProbe=await probe(env.DB,`SELECT COUNT(*) c FROM products p
-        WHERE p.active=1 AND p.sale_verified=1 AND p.price>0
-          AND (CASE WHEN EXISTS(SELECT 1 FROM product_variants vx WHERE vx.product_id=p.id AND vx.active=1)
-            THEN COALESCE((SELECT SUM(MAX(0,v.stock-COALESCE(v.reserved_stock,0))) FROM product_variants v WHERE v.product_id=p.id AND v.active=1),0)
-            ELSE MAX(0,p.stock-COALESCE(p.reserved_stock,0)) END)>0
-          AND EXISTS(SELECT 1 FROM product_media m WHERE m.product_id=p.id AND m.active=1)`);
+      const saleReadyWhere=`p.active=1 AND p.sale_verified=1 AND p.price>0
+        AND (CASE WHEN EXISTS(SELECT 1 FROM product_variants vx WHERE vx.product_id=p.id AND vx.active=1)
+          THEN COALESCE((SELECT SUM(MAX(0,v.stock-COALESCE(v.reserved_stock,0))) FROM product_variants v WHERE v.product_id=p.id AND v.active=1),0)
+          ELSE MAX(0,p.stock-COALESCE(p.reserved_stock,0)) END)>0
+        AND EXISTS(SELECT 1 FROM product_media m WHERE m.product_id=p.id AND m.active=1)`;
+      catalogProbe=await probe(env.DB,`SELECT COUNT(*) c FROM products p WHERE ${saleReadyWhere}`);
       catalogSchemaReady=catalogProbe.ok;
       saleReadyProducts=Number(catalogProbe.row?.c||0);
+      if(catalogSchemaReady){
+        staticMediaProbe=await probe(env.DB,`SELECT COUNT(*) c FROM products p WHERE ${saleReadyWhere}
+          AND EXISTS(SELECT 1 FROM product_media sm WHERE sm.product_id=p.id AND sm.active=1 AND sm.object_key IN ('static/rang-jued-tea-360.webp','static/chiang-da-tea-360.webp','static/gymnema-capsules-100-512.webp'))`);
+        staticMediaReadyProducts=staticMediaProbe.ok?Number(staticMediaProbe.row?.c||0):0;
+      }
       orderProbe=await probe(env.DB,"SELECT idempotency_key,payment_method,payment_status,fulfillment_status FROM orders LIMIT 1");
       orderSchemaReady=orderProbe.ok;
     }
   }
 
+  const staticProductMediaConfigured=catalogSchemaReady&&saleReadyProducts>0&&staticMediaReadyProducts===saleReadyProducts;
+  const productMediaConfigured=r2ProductMediaConfigured||staticProductMediaConfigured;
   const codLaunchReady=databaseReady&&catalogSchemaReady&&orderSchemaReady&&saleReadyProducts>0&&productMediaConfigured&&checkoutEnabled&&codConfigured&&packingVerificationRequired&&orderIdempotencyRequired;
   const blockers=[];
   if(!databaseBound)blockers.push('database_not_bound');
@@ -45,7 +52,7 @@ export async function onRequestGet({env}){
   if(databaseReady&&!catalogSchemaReady)blockers.push('catalog_schema_not_ready');
   if(databaseReady&&!orderSchemaReady)blockers.push('order_schema_not_ready');
   if(catalogSchemaReady&&saleReadyProducts<1)blockers.push('no_sale_ready_products');
-  if(!productMediaConfigured)blockers.push('product_media_not_configured');
+  if(saleReadyProducts>0&&!productMediaConfigured)blockers.push('product_media_not_configured');
   if(!checkoutEnabled)blockers.push('checkout_disabled');
   if(!codConfigured)blockers.push('cod_disabled');
   if(!packingVerificationRequired)blockers.push('packing_verification_not_enforced');
@@ -54,10 +61,7 @@ export async function onRequestGet({env}){
   return Response.json({
     ok:databaseReady&&catalogSchemaReady&&orderSchemaReady,
     service:'khonchaiherb-commerce',
-    version:'1.18.2',
-    // Compatibility contract: legacy storefronts historically read `d1` as
-    // "order intake is ready". Keep that consumer safe while exposing the
-    // actual binding state separately as d1Bound/databaseBound.
+    version:'1.18.3',
     d1:codLaunchReady,
     d1Bound:databaseBound,
     databaseBound,
@@ -65,6 +69,7 @@ export async function onRequestGet({env}){
     catalogSchemaReady,
     orderSchemaReady,
     saleReadyProducts,
+    staticMediaReadyProducts,
     checkoutEnabled,
     codConfigured,
     codLaunchReady,
@@ -86,6 +91,8 @@ export async function onRequestGet({env}){
     dailyCloseDualApproval:bool(env.DAILY_CLOSE_DUAL_APPROVAL),
     reviewMediaConfigured:!!env.MEDIA_BUCKET,
     productMediaConfigured,
+    r2ProductMediaConfigured,
+    staticProductMediaConfigured,
     shippingWebhookConfigured:!!env.SHIPPING_WEBHOOK_SECRET,
     notificationWebhookConfigured:!!env.NOTIFICATION_WEBHOOK_URL,
     packingVerificationRequired,
