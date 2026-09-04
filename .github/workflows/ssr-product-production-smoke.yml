@@ -1,0 +1,87 @@
+name: KHONCHAIHERB SSR Product Production Smoke
+
+on:
+  push:
+    branches: [storefront-social-commerce]
+  workflow_run:
+    workflows: ["Deploy KHONCHAIHERB to Cloudflare Pages"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: khonchaiherb-ssr-product-production-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Verify SSR product and sitemap
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SITE_ORIGIN: https://khonchaiherb-commerce.pages.dev
+      PRODUCT_SLUG: rang-jued-tea
+    steps:
+      - name: Wait for SSR product deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for attempt in $(seq 1 40); do
+            product_code=$(curl --silent --show-error --location --max-time 20 -o product.html -w '%{http_code}' "$SITE_ORIGIN/product/$PRODUCT_SLUG" || true)
+            sitemap_code=$(curl --silent --show-error --location --max-time 20 -o sitemap.xml -w '%{http_code}' "$SITE_ORIGIN/sitemap.xml" || true)
+            if [ "$product_code" = "200" ] && [ "$sitemap_code" = "200" ] \
+              && grep -Fq 'KHONCHAIHERB VERIFIED PRODUCT' product.html \
+              && grep -Fq 'type="application/ld+json"' product.html \
+              && grep -Fq '"@type":"Product"' product.html \
+              && grep -Fq '"priceCurrency":"THB"' product.html \
+              && grep -Fq "/product/$PRODUCT_SLUG" sitemap.xml; then
+              ok=1
+              break
+            fi
+            echo "SSR product not fully visible yet (attempt $attempt/40; product=$product_code sitemap=$sitemap_code)"
+            sleep 3
+          done
+          [ "$ok" = "1" ] || { echo 'Verified SSR product or sitemap was not observed on Production.' >&2; exit 1; }
+
+      - name: Validate structured product data
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,re,xml.etree.ElementTree as ET
+          from pathlib import Path
+          html=Path('product.html').read_text(encoding='utf-8')
+          m=re.search(r'<script type="application/ld\+json">(.*?)</script>',html,re.S)
+          assert m,'Product JSON-LD not found'
+          data=json.loads(m.group(1))
+          assert data.get('@type')=='Product',data
+          assert (data.get('brand') or {}).get('name')=='KHONCHAIHERB',data
+          offer=data.get('offers') or {}
+          assert offer.get('@type')=='Offer',offer
+          assert offer.get('priceCurrency')=='THB',offer
+          assert str(offer.get('url','')).endswith('/product/rang-jued-tea'),offer
+          assert offer.get('availability') in {'https://schema.org/InStock','https://schema.org/OutOfStock'},offer
+          rating=data.get('aggregateRating')
+          if rating:
+              assert 1 <= float(rating.get('ratingValue')) <= 5,rating
+              assert int(rating.get('reviewCount')) > 0,rating
+          root=ET.fromstring(Path('sitemap.xml').read_text(encoding='utf-8'))
+          ns={'s':'http://www.sitemaps.org/schemas/sitemap/0.9'}
+          urls=[x.text for x in root.findall('s:url/s:loc',ns)]
+          assert any(x and x.endswith('/product/rang-jued-tea') for x in urls),urls
+          assert 'ขายแล้ว' not in html
+          print('Production SSR product structured data: OK')
+          PY
+
+      - name: Report SSR product readiness
+        shell: bash
+        run: |
+          echo '### KHONCHAIHERB SSR Product' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Server-rendered product route: verified' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Product JSON-LD / Offer THB: verified' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Verified-product sitemap URL: verified' >> "$GITHUB_STEP_SUMMARY"
+          echo '- No legacy sold-count copy on SSR product page: verified' >> "$GITHUB_STEP_SUMMARY"
