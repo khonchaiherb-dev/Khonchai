@@ -1,4 +1,29 @@
-/* KHONCHAIHERB storefront stability fixes — touch/accessibility contract */
+/* KHONCHAIHERB storefront stability fixes — final touch/accessibility contract.
+   This stylesheet is intentionally loaded after progressive structural layers so
+   customer-facing visibility and readability cannot regress through legacy CSS. */
+
+/* Native hidden must remain authoritative even when an older layer declares
+   display:* !important on the same component. */
+html body [hidden],
+html body .kch-master-range[hidden],
+html body .kch-master-range[aria-hidden="true"]{
+  display:none!important;
+}
+
+/* Product names are purchase-critical text. Keep them readable across canonical
+   cards and any still-visible legacy card shell selected during progressive load. */
+html body.kch-master-2026 .kch-master-product-copy h3,
+html body.kch-master-2026 .kch-master-product-name,
+html body.kch-master-2026 .card-info h3,
+html body.kch-master-2026 article.card h3,
+html body .kch-master-home .kch-master-product-copy h3,
+html body .kch-master-home .kch-master-product-name,
+html body .kch-master-home .card-info h3,
+html body .kch-master-home article.card h3{
+  font-size:18px!important;
+  line-height:1.4!important;
+}
+
 @media (min-width:700px) and (max-width:860px){
   #kch-v134-header .kch-v134-actions{
     grid-template-columns:repeat(3,48px)!important;
@@ -7,5 +32,18 @@
     min-width:48px!important;
     min-height:48px!important;
     height:48px!important;
+  }
+}
+
+@media (max-width:699px){
+  html body.kch-master-2026 .kch-master-product-copy h3,
+  html body.kch-master-2026 .kch-master-product-name,
+  html body.kch-master-2026 .card-info h3,
+  html body.kch-master-2026 article.card h3,
+  html body .kch-master-home .kch-master-product-copy h3,
+  html body .kch-master-home .kch-master-product-name,
+  html body .kch-master-home .card-info h3,
+  html body .kch-master-home article.card h3{
+    font-size:17px!important;
   }
 }
