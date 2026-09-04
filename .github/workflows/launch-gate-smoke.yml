@@ -1,0 +1,127 @@
+name: KHONCHAIHERB Live Launch Gate Smoke
+
+on:
+  push:
+    branches: [storefront-social-commerce]
+  workflow_run:
+    workflows: ["Deploy KHONCHAIHERB to Cloudflare Pages"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: khonchaiherb-live-launch-gate
+  cancel-in-progress: true
+
+jobs:
+  launch-gate:
+    name: Verify live checkout and catalog gates
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SITE_ORIGIN: https://khonchaiherb-commerce.pages.dev
+    steps:
+      - name: Wait for launch-gate API contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl --silent --show-error --location --max-time 15 "$SITE_ORIGIN/api/health" > health.json; then
+              if python3 - <<'PY'
+          import json
+          try:
+              d=json.load(open('health.json'))
+          except Exception:
+              raise SystemExit(1)
+          raise SystemExit(0 if 'orderIntakeReady' in d and 'launchBlockers' in d and 'codLaunchReady' in d else 1)
+          PY
+              then
+                ready=1
+                break
+              fi
+            fi
+            sleep 3
+          done
+          [ "$ready" = "1" ] || { echo 'Latest launch-gate API contract was not observed on Production.' >&2; exit 1; }
+
+      - name: Fetch live launch surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/api/health" > health.json
+          curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/api/payment-options" > payment-options.json
+          product_code=$(curl --silent --show-error --location --max-time 20 --output products.json --write-out '%{http_code}' "$SITE_ORIGIN/api/products")
+          echo "PRODUCT_HTTP_CODE=$product_code" >> "$GITHUB_ENV"
+
+      - name: Verify gate consistency without creating an order
+        id: verdict
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os
+          health=json.load(open('health.json'))
+          payments=json.load(open('payment-options.json'))
+          products=json.load(open('products.json'))
+          product_code=int(os.environ['PRODUCT_HTTP_CODE'])
+
+          cod_ready=bool(health.get('codLaunchReady'))
+          assert health.get('d1') is cod_ready, 'legacy d1 compatibility gate diverged from codLaunchReady'
+          assert health.get('orderIntakeReady') is cod_ready, 'orderIntakeReady diverged from codLaunchReady'
+
+          checkout=bool(health.get('checkoutEnabled'))
+          cod_configured=bool(health.get('codConfigured'))
+          capabilities=payments.get('capabilities') or []
+          cod_cap=next((x for x in capabilities if x.get('id')=='COD'),None)
+          assert cod_cap is not None, 'COD capability missing'
+          assert bool(cod_cap.get('enabled')) == (checkout and cod_configured), 'COD capability does not follow checkout/config gates'
+          visible={x.get('id') for x in (payments.get('methods') or [])}
+          assert ('COD' in visible) == bool(cod_cap.get('enabled')), 'disabled COD leaked into visible payment methods'
+          assert bool(payments.get('checkoutEnabled')) == checkout, 'payment-options checkout state diverged from health'
+
+          catalog_ready=bool(health.get('catalogSchemaReady'))
+          if catalog_ready:
+              assert product_code == 200, f'catalog schema is ready but products returned HTTP {product_code}'
+              assert products.get('ready') is True, 'products endpoint did not report ready=true'
+              assert int(products.get('count') or 0) == int(health.get('saleReadyProducts') or 0), 'sale-ready product count diverged between APIs'
+          else:
+              assert product_code == 503, f'catalog schema is not ready but products returned HTTP {product_code}'
+              assert products.get('ready') is False, 'products endpoint must fail closed when catalog schema is unavailable'
+
+          blockers=health.get('launchBlockers') or []
+          if cod_ready:
+              assert not blockers, f'codLaunchReady=true while blockers remain: {blockers}'
+          print('cod_launch_ready='+str(cod_ready).lower())
+          print('checkout_enabled='+str(checkout).lower())
+          print('cod_configured='+str(cod_configured).lower())
+          print('sale_ready_products='+str(int(health.get('saleReadyProducts') or 0)))
+          print('launch_blockers='+(','.join(map(str,blockers)) if blockers else 'none'))
+          with open('launch-state.env','w') as f:
+              f.write('COD_LAUNCH_READY='+str(cod_ready).lower()+'\n')
+              f.write('CHECKOUT_ENABLED='+str(checkout).lower()+'\n')
+              f.write('COD_CONFIGURED='+str(cod_configured).lower()+'\n')
+              f.write('SALE_READY_PRODUCTS='+str(int(health.get('saleReadyProducts') or 0))+'\n')
+              f.write('LAUNCH_BLOCKERS='+(';'.join(map(str,blockers)) if blockers else 'none')+'\n')
+          PY
+          cat launch-state.env >> "$GITHUB_ENV"
+          echo "cod_ready=$COD_LAUNCH_READY" >> "$GITHUB_OUTPUT"
+
+      - name: Publish live launch state
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "### KHONCHAIHERB live launch gate" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Checkout enabled: $CHECKOUT_ENABLED" >> "$GITHUB_STEP_SUMMARY"
+          echo "- COD configured: $COD_CONFIGURED" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Sale-ready products: $SALE_READY_PRODUCTS" >> "$GITHUB_STEP_SUMMARY"
+          echo "- COD launch ready: $COD_LAUNCH_READY" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Blockers: $LAUNCH_BLOCKERS" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$COD_LAUNCH_READY" = "true" ]; then
+            echo "Live order-intake gate is READY." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Live order-intake remains safely CLOSED until all blockers are removed." >> "$GITHUB_STEP_SUMMARY"
+          fi
