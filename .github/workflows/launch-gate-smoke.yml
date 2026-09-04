@@ -94,12 +94,23 @@ jobs:
           blockers=health.get('launchBlockers') or []
           if cod_ready:
               assert not blockers, f'codLaunchReady=true while blockers remain: {blockers}'
+          print('database_bound='+str(bool(health.get('databaseBound'))).lower())
+          print('database_ready='+str(bool(health.get('databaseReady'))).lower())
+          print('catalog_schema_ready='+str(catalog_ready).lower())
+          print('order_schema_ready='+str(bool(health.get('orderSchemaReady'))).lower())
+          print('catalog_probe_error='+str(health.get('catalogProbeError') or 'none'))
+          print('order_probe_error='+str(health.get('orderProbeError') or 'none'))
+          print('product_media_configured='+str(bool(health.get('productMediaConfigured'))).lower())
           print('cod_launch_ready='+str(cod_ready).lower())
           print('checkout_enabled='+str(checkout).lower())
           print('cod_configured='+str(cod_configured).lower())
           print('sale_ready_products='+str(int(health.get('saleReadyProducts') or 0)))
           print('launch_blockers='+(','.join(map(str,blockers)) if blockers else 'none'))
           with open('launch-state.env','w') as f:
+              f.write('DATABASE_READY='+str(bool(health.get('databaseReady'))).lower()+'\n')
+              f.write('CATALOG_SCHEMA_READY='+str(catalog_ready).lower()+'\n')
+              f.write('ORDER_SCHEMA_READY='+str(bool(health.get('orderSchemaReady'))).lower()+'\n')
+              f.write('PRODUCT_MEDIA_CONFIGURED='+str(bool(health.get('productMediaConfigured'))).lower()+'\n')
               f.write('COD_LAUNCH_READY='+str(cod_ready).lower()+'\n')
               f.write('CHECKOUT_ENABLED='+str(checkout).lower()+'\n')
               f.write('COD_CONFIGURED='+str(cod_configured).lower()+'\n')
@@ -113,6 +124,10 @@ jobs:
         run: |
           set -euo pipefail
           echo "### KHONCHAIHERB live launch gate" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Database ready: $DATABASE_READY" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Catalog schema ready: $CATALOG_SCHEMA_READY" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Order schema ready: $ORDER_SCHEMA_READY" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Product media binding: $PRODUCT_MEDIA_CONFIGURED" >> "$GITHUB_STEP_SUMMARY"
           echo "- Checkout enabled: $CHECKOUT_ENABLED" >> "$GITHUB_STEP_SUMMARY"
           echo "- COD configured: $COD_CONFIGURED" >> "$GITHUB_STEP_SUMMARY"
           echo "- Sale-ready products: $SALE_READY_PRODUCTS" >> "$GITHUB_STEP_SUMMARY"
