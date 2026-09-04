@@ -91,9 +91,8 @@
           const q=normalize(value);
           const owned=ownsInput(this);
 
-          // A number of legacy renderers still clear the search element by
-          // assigning input.value=''. While the customer owns the field, that
-          // programmatic clear is stale UI state and must not erase the query.
+          // Legacy renderers can clear the same search node by assigning an
+          // empty value. While the customer owns the field, retain Authority.
           if(!q&&activeQuery&&owned){
             INPUT_VALUE.set.call(this,activeDisplayQuery);
             return;
@@ -220,8 +219,6 @@
     const dom=nativeValue(input);
     const q=normalize(dom);
 
-    // Native browser editing can update the internal value before any of the
-    // progressive listeners run. Promote that visible value to Authority state.
     if(q){
       if(normalize(activeDisplayQuery)!==q){
         activeInput=input;
@@ -231,9 +228,6 @@
       return;
     }
 
-    // If Authority already owns a non-empty query but a legacy renderer has
-    // blanked the DOM, restore it from Authority itself. This is the recovery
-    // path that does not depend on Master state also surviving the rerender.
     if(activeQuery){
       writeNative(input,activeDisplayQuery);
       syncMasterFallback(activeDisplayQuery);
@@ -321,7 +315,7 @@
       if(!target.isConnected)return;
       const committed=nativeValue(target);
       if(committed===intended){schedule(committed,target);syncMasterFallback(committed);return}
-      writeNative(target,intended);schedule(intended,target);syncMasterFallback(intended);
+      target.value=intended; schedule(intended,target); syncMasterFallback(intended);
     },32);
   }
 
@@ -333,9 +327,17 @@
     const displayQuery=nativeValue(target);
     const q=normalize(displayQuery);
     const focused=document.activeElement===target;
+    const owned=target===editingInput||target===activeInput||focused;
 
-    // Synthetic empty input events are produced by legacy renderers. A real
-    // customer clear is trusted by the browser and is allowed to clear state.
+    // Preserve the original safety contract for synthetic clears coming from
+    // a replacement/non-owned search node.
+    if(masterActive()&&!q&&event.isTrusted===false&&activeQuery&&!owned){
+      event.stopImmediatePropagation();target.value=activeDisplayQuery;schedule(activeDisplayQuery,editingInput?.isConnected?editingInput:null);return;
+    }
+    if(!q&&activeQuery&&!owned){target.value=activeDisplayQuery;schedule(activeDisplayQuery,editingInput?.isConnected?editingInput:null);return}
+
+    // New guard: the same legacy renderer can also clear the currently-owned
+    // node. Reject only synthetic clears; trusted customer clears still pass.
     if(!q&&activeQuery&&event.isTrusted===false){
       event.stopImmediatePropagation();
       writeNative(target,activeDisplayQuery);
