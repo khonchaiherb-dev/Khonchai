@@ -32,7 +32,7 @@ test('diagnose search input value writer',async({page})=>{
   await page.addStyleTag({path:'public/tshop-v1321-search-visibility-fix.css'});
   await page.addScriptTag({path:'public/kch-conversion-storefront.js'});
   await page.addScriptTag({path:'public/kch-search-authority.js'});
-  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.7');
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.8');
 
   const search=page.locator('.tshop-searchbox input');
   await expect(search).toHaveCount(1);
