@@ -116,7 +116,8 @@ test('diagnose search input value writer',async({page})=>{
   await search.evaluate(el=>{el.dataset.kchE2eSearchNode='diagnostic'});
 
   await page.addScriptTag({path:'public/kch-search-authority.js'});
-  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.8');
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.9');
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY_API__?.build)).toBe('1.0.9');
 
   await search.fill('ชารางจืด');
   await page.waitForTimeout(1200);
@@ -131,4 +132,5 @@ test('diagnose search input value writer',async({page})=>{
   }));
   console.log(`KCH_SEARCH_WRITER_DIAG=${JSON.stringify(diag)}`);
   expect(diag.value,`KCH_SEARCH_WRITER_DIAG=${JSON.stringify(diag)}`).toBe('ชารางจืด');
+  expect(diag.authority,`KCH_SEARCH_WRITER_DIAG=${JSON.stringify(diag)}`).toBe('ชารางจืด');
 });
