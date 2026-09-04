@@ -3,7 +3,7 @@ const clean=v=>String(v||'').trim();
 const VERSION='rang-jued-2026-09-04-v1';
 const PRODUCT_ID=1;
 const STATIC_KEY='static/rang-jued-tea-360.webp';
-// Keep this guarded bootstrap tied to the storefront build that includes the live-catalog fail-closed guard.
+// Final launch trigger: storefront live-catalog guard and server-side COD gate are both present in this source revision.
 
 export async function onRequestGet({env}){
   return json({service:'khonchaiherb-launch-product-bootstrap',version:VERSION,enabled:Boolean(clean(env.LAUNCH_PRODUCT_TOKEN))});
