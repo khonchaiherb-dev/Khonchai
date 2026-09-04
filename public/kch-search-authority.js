@@ -2,7 +2,7 @@
 (()=>{
   'use strict';
   if(typeof document==='undefined')return;
-  const BUILD='1.0.7';
+  const BUILD='1.0.8';
   if(window.__KCH_SEARCH_AUTHORITY__===BUILD)return;
   window.__KCH_SEARCH_AUTHORITY__=BUILD;
 
@@ -162,12 +162,17 @@
     const focused=document.activeElement===target;
     const owned=target===editingInput||target===activeInput||focused;
 
-    // The dangerous legacy v0.4 behavior only runs when an input event is
-    // empty: it calls home() and reconstructs the whole storefront. Quarantine
-    // that empty event at capture phase on the approved Master Storefront, but
-    // do not suppress non-empty input events. This keeps the browser editing
-    // pipeline intact while Search Authority remains the final filter state.
-    if(masterActive()&&!q)event.stopImmediatePropagation();
+    // Search Authority listens at Window capture so it always receives the
+    // customer's browser event before older Document capture handlers can stop
+    // propagation. Only a synthetic empty event is quarantined: real browser
+    // clears remain authoritative, while legacy scripted resets cannot erase a
+    // live customer query.
+    if(masterActive()&&!q&&event.isTrusted===false&&activeQuery){
+      event.stopImmediatePropagation();
+      target.value=activeDisplayQuery;
+      schedule(activeDisplayQuery,editingInput?.isConnected?editingInput:null);
+      return;
+    }
 
     // An empty event from a stale/replacement control may not erase a live
     // query. Restore only that stale source. An empty event from the active
@@ -211,8 +216,8 @@
 
   document.addEventListener('focusin',onSearchFocus,true);
   document.addEventListener('focusout',onSearchBlur,true);
-  document.addEventListener('input',onSearchInput,true);
-  document.addEventListener('search',onSearchInput,true);
+  window.addEventListener('input',onSearchInput,true);
+  window.addEventListener('search',onSearchInput,true);
   document.addEventListener('click',clearFromReset,true);
 
   if(typeof MutationObserver!=='undefined'){
