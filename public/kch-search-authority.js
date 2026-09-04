@@ -2,7 +2,7 @@
 (()=>{
   'use strict';
   if(typeof document==='undefined')return;
-  const BUILD='1.0.8';
+  const BUILD='1.0.9';
   if(window.__KCH_SEARCH_AUTHORITY__===BUILD)return;
   window.__KCH_SEARCH_AUTHORITY__=BUILD;
 
@@ -153,6 +153,53 @@
     });
   }
 
+  function intendedBeforeInputValue(target,event){
+    const current=String(target.value??'');
+    const type=String(event.inputType||'');
+    const start=Number.isInteger(target.selectionStart)?target.selectionStart:current.length;
+    const end=Number.isInteger(target.selectionEnd)?target.selectionEnd:start;
+
+    if(type.startsWith('insert')){
+      let data=event.data;
+      if(data==null&&event.dataTransfer?.getData){
+        try{data=event.dataTransfer.getData('text/plain')}catch{}
+      }
+      if(data==null)return null;
+      return `${current.slice(0,start)}${String(data)}${current.slice(end)}`;
+    }
+
+    if(type.startsWith('delete')){
+      if(start!==end)return `${current.slice(0,start)}${current.slice(end)}`;
+      if(/Backward$/i.test(type)&&start>0)return `${current.slice(0,start-1)}${current.slice(end)}`;
+      if(/Forward$/i.test(type)&&end<current.length)return `${current.slice(0,start)}${current.slice(end+1)}`;
+      return current;
+    }
+
+    return null;
+  }
+
+  function onSearchBeforeInput(event){
+    const target=event.target;
+    if(!target?.matches?.(SEARCH_SELECTOR))return;
+    const intended=intendedBeforeInputValue(target,event);
+    if(intended==null)return;
+
+    editingInput=target;
+    activeInput=target;
+    schedule(intended,target);
+
+    // Some older storefront layers can revert the native edit before the
+    // follow-up input event is committed. beforeinput is the customer's intent,
+    // so recover that exact edit once the event stack settles and emit one
+    // synthetic input only when the browser value did not commit naturally.
+    queueMicrotask(()=>{
+      if(!target.isConnected||activeDisplayQuery!==intended)return;
+      if(String(target.value??'')===intended)return;
+      target.value=intended;
+      target.dispatchEvent(new Event('input',{bubbles:true}));
+    });
+  }
+
   function onSearchInput(event){
     const target=event.target;
     if(!target?.matches?.(SEARCH_SELECTOR))return;
@@ -216,6 +263,7 @@
 
   document.addEventListener('focusin',onSearchFocus,true);
   document.addEventListener('focusout',onSearchBlur,true);
+  window.addEventListener('beforeinput',onSearchBeforeInput,true);
   window.addEventListener('input',onSearchInput,true);
   window.addEventListener('search',onSearchInput,true);
   document.addEventListener('click',clearFromReset,true);
