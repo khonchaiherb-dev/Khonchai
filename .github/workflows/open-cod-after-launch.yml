@@ -22,7 +22,7 @@ jobs:
   open-cod:
     name: Verify all gates and enable COD
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
     env:
       SITE_ORIGIN: https://khonchaiherb-commerce.pages.dev
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -34,30 +34,50 @@ jobs:
         with:
           ref: storefront-social-commerce
 
-      - name: Wait for verified launch gates
-        id: preflight
+      - name: Wait for commerce launch surface
         shell: bash
         run: |
           set -euo pipefail
           ready=0
-          mode=''
-          for attempt in $(seq 1 240); do
+          for attempt in $(seq 1 120); do
             curl --silent --show-error --location --max-time 20 "$SITE_ORIGIN/api/health" > health-before.json || true
             curl --silent --show-error --location --max-time 20 "$SITE_ORIGIN/api/products" > products-before.json || true
             curl --silent --show-error --location --max-time 20 "$SITE_ORIGIN/api/payment-options" > payments-before.json || true
             curl --silent --show-error --location --max-time 20 "$SITE_ORIGIN/" > storefront-before.html || true
             curl --silent --show-error --location --max-time 20 "$SITE_ORIGIN/kch-live-catalog-guard.js?v=1.0.0" > catalog-guard.js || true
-            if python3 - <<'PY' > preflight-mode.txt
+            if python3 - <<'PY'
           import json
           try:
-              h=json.load(open('health-before.json')); p=json.load(open('products-before.json')); pay=json.load(open('payments-before.json'))
+              h=json.load(open('health-before.json')); p=json.load(open('products-before.json'))
           except Exception: raise SystemExit(1)
-          required={
-            'databaseReady':h.get('databaseReady') is True,
-            'catalogSchemaReady':h.get('catalogSchemaReady') is True,
-            'orderSchemaReady':h.get('orderSchemaReady') is True,
-            'saleReadyProducts':int(h.get('saleReadyProducts') or 0)>=1,
-            'productMediaConfigured':h.get('productMediaConfigured') is True,
+          if h.get('databaseReady') is not True or h.get('catalogSchemaReady') is not True or h.get('orderSchemaReady') is not True: raise SystemExit(1)
+          if int(h.get('saleReadyProducts') or 0)<1 or h.get('productMediaConfigured') is not True: raise SystemExit(1)
+          rows=p.get('products') or []
+          if len(rows)!=1: raise SystemExit(1)
+          r=rows[0]
+          if r.get('slug')!='rang-jued-tea' or float(r.get('price') or 0)!=120 or int(r.get('stock') or 0)!=1: raise SystemExit(1)
+          raise SystemExit(0)
+          PY
+            then
+              if grep -Fq 'kch-live-catalog-guard.js?v=1.0.0' storefront-before.html && grep -Fq '__KCH_LIVE_CATALOG_GUARD__' catalog-guard.js; then ready=1; break; fi
+            fi
+            if [ $((attempt % 20)) -eq 0 ]; then echo "Commerce surface not complete yet ($attempt/120)"; fi
+            sleep 3
+          done
+          [ "$ready" = "1" ] || { echo 'Verified product/media/storefront guard did not become ready.' >&2; exit 1; }
+          echo 'Commerce launch surface: READY'
+
+      - name: Report sanitized security gates
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/api/health" > health-security.json
+          curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/api/payment-options" > payments-security.json
+          python3 - <<'PY' | tee security-gates.txt
+          import json
+          h=json.load(open('health-security.json')); pay=json.load(open('payments-security.json'))
+          checks={
             'packingVerificationRequired':h.get('packingVerificationRequired') is True,
             'orderIdempotencyRequired':h.get('orderIdempotencyRequired') is True,
             'staffCsrfEnforced':h.get('staffCsrfEnforced') is True,
@@ -67,33 +87,24 @@ jobs:
             'rateLimitPepperConfigured':h.get('rateLimitPepperConfigured') is True,
             'securityBaselineConfigured':h.get('securityBaselineConfigured') is True,
           }
-          if not all(required.values()): raise SystemExit(1)
-          rows=p.get('products') or []
-          if len(rows)!=1: raise SystemExit(1)
-          r=rows[0]
-          if r.get('slug')!='rang-jued-tea' or float(r.get('price') or 0)!=120 or int(r.get('stock') or 0)!=1: raise SystemExit(1)
+          for k,v in checks.items(): print(f'{k}={str(v).lower()}')
           checkout=h.get('checkoutEnabled') is True; cod=h.get('codConfigured') is True
-          if checkout != cod: raise SystemExit(1)
+          print('checkoutEnabled='+str(checkout).lower())
+          print('codConfigured='+str(cod).lower())
+          failed=[k for k,v in checks.items() if not v]
+          print('failedSecurityGates='+(','.join(failed) if failed else 'none'))
+          if failed: raise SystemExit('SECURITY_GATE_BLOCKED:'+','.join(failed))
+          if checkout!=cod: raise SystemExit('CHECKOUT_COD_FLAG_MISMATCH')
           if checkout:
-              if h.get('codLaunchReady') is not True or pay.get('checkoutEnabled') is not True: raise SystemExit(1)
-              print('already_open')
+              if h.get('codLaunchReady') is not True or pay.get('checkoutEnabled') is not True: raise SystemExit('ALREADY_OPEN_STATE_INCONSISTENT')
+              print('MODE=already_open')
           else:
-              if pay.get('checkoutEnabled') is True: raise SystemExit(1)
-              print('open')
+              if pay.get('checkoutEnabled') is True: raise SystemExit('PAYMENT_API_OPEN_EARLY')
+              print('MODE=open')
           PY
-            then
-              if grep -Fq 'kch-live-catalog-guard.js?v=1.0.0' storefront-before.html && grep -Fq '__KCH_LIVE_CATALOG_GUARD__' catalog-guard.js; then
-                mode=$(cat preflight-mode.txt)
-                ready=1
-                break
-              fi
-            fi
-            if [ $((attempt % 20)) -eq 0 ]; then echo "Launch gates not complete yet ($attempt/240)"; fi
-            sleep 3
-          done
-          [ "$ready" = "1" ] || { echo 'Refusing COD activation because verified production launch gates did not become ready.' >&2; exit 1; }
+          mode=$(awk -F= '/^MODE=/{print $2}' security-gates.txt)
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
-          echo "Production launch preflight passed: $mode"
+          echo 'Only boolean readiness was reported; no secret values were read or printed.'
 
       - name: Enable Checkout and COD only
         if: steps.preflight.outputs.mode == 'open'
