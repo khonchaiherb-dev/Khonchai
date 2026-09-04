@@ -1,9 +1,14 @@
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 const clean=v=>String(v||'').trim();
+const VERSION='0018-v2';
 
 async function columns(db,table){
   const r=await db.prepare(`PRAGMA table_info('${table.replace(/'/g,"''")}')`).all();
   return new Set((r.results||[]).map(x=>String(x.name||'')));
+}
+
+export async function onRequestGet({env}){
+  return json({service:'khonchaiherb-launch-schema-repair',version:VERSION,enabled:Boolean(clean(env.LAUNCH_REPAIR_TOKEN))});
 }
 
 export async function onRequestPost({request,env}){
@@ -38,9 +43,5 @@ export async function onRequestPost({request,env}){
   if(!ready)return json({error:'repair_incomplete',applied},500);
 
   const count=await env.DB.prepare('SELECT COUNT(*) c FROM products WHERE active=1').first();
-  return json({ok:true,repair:'0018_sale_readiness',applied,activeProducts:Number(count?.c||0)});
-}
-
-export async function onRequest(){
-  return json({error:'method_not_allowed'},405);
+  return json({ok:true,repair:'0018_sale_readiness',version:VERSION,applied,activeProducts:Number(count?.c||0)});
 }
