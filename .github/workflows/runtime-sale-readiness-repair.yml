@@ -30,17 +30,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Wait for normal Pages deployment to expose repair build
+      - name: Wait for exact commit on Pages production
         shell: bash
         run: |
           set -euo pipefail
           found=0
-          for attempt in $(seq 1 50); do
-            code=$(curl --silent --show-error --location --max-time 15 --output repair-marker.json --write-out '%{http_code}' "$SITE_ORIGIN/api/internal/launch-schema-repair")
-            if [ "$code" = "200" ] && python3 - <<'PY'
-          import json
-          d=json.load(open('repair-marker.json'))
-          raise SystemExit(0 if d.get('service')=='khonchaiherb-launch-schema-repair' and d.get('version')=='0018-v2' else 1)
+          for attempt in $(seq 1 60); do
+            curl --fail --silent --show-error \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H 'Content-Type: application/json' \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PAGES_PROJECT" \
+              > pages-current.json
+            if GITHUB_SHA="$GITHUB_SHA" python3 - <<'PY'
+          import json,os
+          d=json.load(open('pages-current.json'))
+          r=d.get('result') or {}
+          dep=r.get('canonical_deployment') or {}
+          trig=dep.get('deployment_trigger') or {}
+          meta=trig.get('metadata') or {}
+          latest=dep.get('latest_stage') or {}
+          commit=str(meta.get('commit_hash') or '')
+          status=str(latest.get('status') or '')
+          if commit==os.environ['GITHUB_SHA'] and status=='success':
+              print('Exact production commit is live:',commit[:12])
+              raise SystemExit(0)
+          print('Production currently:',commit[:12] or 'unknown','status=',status or 'unknown')
+          raise SystemExit(1)
           PY
             then
               found=1
@@ -48,8 +63,16 @@ jobs:
             fi
             sleep 3
           done
-          [ "$found" = "1" ] || { echo 'Current guarded repair build was not observed on Production.' >&2; exit 1; }
-          echo 'Normal Pages deployment completed before runtime repair deployment.'
+          [ "$found" = "1" ] || { echo 'Exact source commit was not observed as successful Pages production deployment.' >&2; exit 1; }
+          code=$(curl --silent --show-error --location --max-time 15 --output repair-marker.json --write-out '%{http_code}' "$SITE_ORIGIN/api/internal/launch-schema-repair")
+          [ "$code" = "200" ] || { echo 'Repair endpoint marker is not reachable.' >&2; exit 1; }
+          python3 - <<'PY'
+          import json
+          d=json.load(open('repair-marker.json'))
+          assert d.get('service')=='khonchaiherb-launch-schema-repair'
+          assert d.get('version')=='0018-v2'
+          print('Guarded repair build marker verified.')
+          PY
 
       - name: Preflight exact production blocker
         id: preflight
