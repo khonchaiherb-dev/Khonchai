@@ -1,0 +1,10 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const product=fs.readFileSync('functions/product/[slug].js','utf8');
+const sitemap=fs.readFileSync('functions/sitemap.xml.js','utf8');
+const robots=fs.readFileSync('public/robots.txt','utf8');
+for(const token of ['sale_verified=1','verified_purchase=1','product_media','content_products','application/ld+json',"'@type':'Product'","'@type':'Offer'",'priceCurrency:\'THB\'','https://schema.org/InStock','https://schema.org/OutOfStock','aggregateRating','KHONCHAIHERB','/#product/'])assert.ok(product.includes(token),`SSR product page missing: ${token}`);
+for(const forbidden of ['sold_count','viewer_count','like_count','Math.random'])assert.ok(!product.includes(forbidden),`SSR product page must not expose/generate unverified metric: ${forbidden}`);
+for(const token of ['active=1','sale_verified=1','reserved_stock','product_media','/product/','application/xml'])assert.ok(sitemap.includes(token),`sitemap missing verified product rule: ${token}`);
+assert.ok(robots.includes('Sitemap: https://khonchaiherb-commerce.pages.dev/sitemap.xml'),'robots must advertise canonical sitemap');
+console.log('server-rendered verified product SEO smoke: OK');
