@@ -18,25 +18,15 @@
   let pendingIntent=null;
   let intentSeq=0;
   let seq=0;
+  let editHeartbeat=0;
 
   const normalize=value=>String(value??'').normalize('NFKC').toLocaleLowerCase('th-TH').replace(/\s+/g,' ').trim();
   const masterActive=()=>Boolean(document.querySelector('.kch-master-home'));
   const cardText=card=>{
-    const authoritative=[
-      card?.dataset?.kchName,
-      card?.dataset?.product,
-      card?.dataset?.kchCat
-    ].filter(value=>normalize(value));
+    const authoritative=[card?.dataset?.kchName,card?.dataset?.product,card?.dataset?.kchCat].filter(value=>normalize(value));
     if(authoritative.length)return normalize(authoritative.join(' '));
-
-    // Fallback only to product-identifying elements. Never index the entire
-    // card text because buttons/badges injected by legacy layers can contain
-    // stale product names and create false-positive search matches.
     const heading=card?.querySelector?.('h1,h2,h3,h4,.kch-master-product-name,[data-product-name]');
-    return normalize([
-      heading?.textContent,
-      card?.getAttribute?.('aria-label')
-    ].filter(Boolean).join(' '));
+    return normalize([heading?.textContent,card?.getAttribute?.('aria-label')].filter(Boolean).join(' '));
   };
 
   function ensureRule(){
@@ -77,11 +67,17 @@
     return document.querySelector(PRIMARY_SEARCH_SELECTOR)||inputs()[0]||null;
   }
 
-  // Never overwrite the input currently being edited. Browser typing, mobile
-  // IME, autofill and automation own that live value until their input event is
-  // committed. Authority mirrors the canonical query only to sibling or newly
-  // rendered search controls. A focused search field is always protected,
-  // including from stale boot/settle timers that were scheduled before focus.
+  function masterDisplayQuery(){
+    const master=window.__KCH_MASTER_SEARCH__;
+    if(!master)return '';
+    try{
+      if(typeof master.get==='function')return String(master.get()??'');
+      if('query' in master)return String(master.query??'');
+      if('value' in master)return String(master.value??'');
+    }catch{}
+    return '';
+  }
+
   function syncReplacementInputs(displayQuery=activeDisplayQuery,source=null){
     const value=String(displayQuery??'');
     inputs().forEach(input=>{
@@ -114,10 +110,6 @@
     authorityReady=true;
     const run=++seq;
     const pass=()=>{if(run===seq)apply(displayQuery,source?.isConnected?source:null)};
-
-    // Legacy storefront layers can still mutate product markup while the page
-    // settles. Re-apply one canonical state across that render window without
-    // rewriting the live input that the customer is actively editing.
     pass();
     queueMicrotask(pass);
     if(typeof requestAnimationFrame==='function')requestAnimationFrame(pass);
@@ -126,6 +118,34 @@
     setTimeout(pass,220);
     setTimeout(pass,420);
     setTimeout(pass,900);
+  }
+
+  function reconcileFromMaster(){
+    if(!masterActive())return;
+    const masterQuery=masterDisplayQuery();
+    if(!normalize(masterQuery))return;
+    const input=primaryInput();
+    const inputQuery=String(input?.value??'');
+    const authorityMatches=normalize(activeDisplayQuery)===normalize(masterQuery);
+    const inputMatches=normalize(inputQuery)===normalize(masterQuery);
+    if(authorityMatches&&inputMatches)return;
+
+    // Some legacy tablet render paths receive the edit first, persist it in
+    // Master state, then clear the DOM input before this late authority's input
+    // listener can observe the event. Master state is therefore the recovery
+    // source, not legacy product text or a fabricated default query.
+    activeInput=input?.isConnected?input:activeInput;
+    if(input?.isConnected&&!inputMatches)input.value=masterQuery;
+    schedule(masterQuery,input?.isConnected?input:null);
+  }
+
+  function startEditHeartbeat(){
+    if(editHeartbeat)clearInterval(editHeartbeat);
+    editHeartbeat=setInterval(reconcileFromMaster,90);
+  }
+  function stopEditHeartbeatSoon(){
+    const token=editHeartbeat;
+    setTimeout(()=>{if(token&&editHeartbeat===token){clearInterval(editHeartbeat);editHeartbeat=0}},900);
   }
 
   function queryFromTarget(target){
@@ -143,6 +163,8 @@
     editingInput=target;
     activeInput=target;
     if(authorityReady&&activeQuery&&!normalize(target.value))target.value=activeDisplayQuery;
+    startEditHeartbeat();
+    setTimeout(reconcileFromMaster,40);
   }
 
   function onSearchBlur(event){
@@ -152,6 +174,7 @@
       if(document.activeElement!==target){
         editingInput=null;
         syncReplacementInputs(activeDisplayQuery);
+        stopEditHeartbeatSoon();
       }
     });
   }
@@ -164,20 +187,16 @@
 
     if(type.startsWith('insert')){
       let data=event.data;
-      if(data==null&&event.dataTransfer?.getData){
-        try{data=event.dataTransfer.getData('text/plain')}catch{}
-      }
+      if(data==null&&event.dataTransfer?.getData){try{data=event.dataTransfer.getData('text/plain')}catch{}}
       if(data==null)return null;
       return `${current.slice(0,start)}${String(data)}${current.slice(end)}`;
     }
-
     if(type.startsWith('delete')){
       if(start!==end)return `${current.slice(0,start)}${current.slice(end)}`;
       if(/Backward$/i.test(type)&&start>0)return `${current.slice(0,start-1)}${current.slice(end)}`;
       if(/Forward$/i.test(type)&&end<current.length)return `${current.slice(0,start)}${current.slice(end+1)}`;
       return current;
     }
-
     return null;
   }
 
@@ -186,10 +205,7 @@
     if(!master)return;
     try{
       if(typeof master.set==='function')master.set(String(value??''),{force:true,trusted:true,source:'search-authority-fallback'});
-      else{
-        master.query=String(value??'');
-        if(typeof master.apply==='function')master.apply();
-      }
+      else{master.query=String(value??'');if(typeof master.apply==='function')master.apply()}
     }catch{}
   }
 
@@ -198,63 +214,32 @@
     if(!target?.matches?.(SEARCH_SELECTOR))return;
     const intended=intendedBeforeInputValue(target,event);
     if(intended==null)return;
-
-    editingInput=target;
-    activeInput=target;
-    const token=++intentSeq;
-    pendingIntent={token,target,value:intended};
-
-    // beforeinput describes intent, not the committed value. Do not mutate or
-    // filter here: desktop browsers may still perform their native edit and an
-    // eager recovery would duplicate the text. Give the native input event one
-    // render beat to commit; recover only if no matching input arrives.
+    editingInput=target;activeInput=target;startEditHeartbeat();
+    const token=++intentSeq;pendingIntent={token,target,value:intended};
     setTimeout(()=>{
       const pending=pendingIntent;
       if(!pending||pending.token!==token||pending.target!==target)return;
       pendingIntent=null;
       if(!target.isConnected)return;
-
       const committed=String(target.value??'');
-      if(committed===intended){
-        schedule(committed,target);
-        return;
-      }
-
-      target.value=intended;
-      schedule(intended,target);
-      syncMasterFallback(intended);
+      if(committed===intended){schedule(committed,target);return}
+      target.value=intended;schedule(intended,target);syncMasterFallback(intended);
     },32);
   }
 
   function onSearchInput(event){
     const target=event.target;
     if(!target?.matches?.(SEARCH_SELECTOR))return;
-
     if(pendingIntent?.target===target)pendingIntent=null;
     const displayQuery=String(target.value??'');
     const q=normalize(displayQuery);
     const focused=document.activeElement===target;
     const owned=target===editingInput||target===activeInput||focused;
 
-    // Older scripted empty resets may not erase a live query from a stale or
-    // unfocused control. The actively edited/focused control always owns a
-    // clear, regardless of whether automation/browser integration marks its
-    // event trusted or synthetic.
     if(masterActive()&&!q&&event.isTrusted===false&&activeQuery&&!owned){
-      event.stopImmediatePropagation();
-      target.value=activeDisplayQuery;
-      schedule(activeDisplayQuery,editingInput?.isConnected?editingInput:null);
-      return;
+      event.stopImmediatePropagation();target.value=activeDisplayQuery;schedule(activeDisplayQuery,editingInput?.isConnected?editingInput:null);return;
     }
-
-    // An empty event from a stale/replacement control may not erase a live
-    // query. Restore only that stale source. An empty event from the active
-    // editing control is a genuine clear and is committed normally.
-    if(!q&&activeQuery&&!owned){
-      target.value=activeDisplayQuery;
-      schedule(activeDisplayQuery,editingInput?.isConnected?editingInput:null);
-      return;
-    }
+    if(!q&&activeQuery&&!owned){target.value=activeDisplayQuery;schedule(activeDisplayQuery,editingInput?.isConnected?editingInput:null);return}
 
     editingInput=focused?target:editingInput;
     activeInput=target;
@@ -263,31 +248,16 @@
 
   function clearFromReset(event){
     if(!event.target?.closest?.('.kch-master-reset'))return;
-    pendingIntent=null;
-    activeQuery='';
-    activeDisplayQuery='';
-    authorityReady=true;
-    activeInput=null;
-    editingInput=null;
-    syncReplacementInputs('');
-    schedule('');
+    pendingIntent=null;activeQuery='';activeDisplayQuery='';authorityReady=true;activeInput=null;editingInput=null;
+    if(editHeartbeat){clearInterval(editHeartbeat);editHeartbeat=0}
+    syncReplacementInputs('');schedule('');
   }
 
   function setQuery(query){
-    pendingIntent=null;
-    activeInput=null;
-    editingInput=null;
-    schedule(String(query??''));
-    return activeDisplayQuery;
+    pendingIntent=null;activeInput=null;editingInput=null;schedule(String(query??''));return activeDisplayQuery;
   }
 
-  window.__KCH_SEARCH_AUTHORITY_API__={
-    build:BUILD,
-    get:()=>activeDisplayQuery,
-    set:setQuery,
-    clear:()=>setQuery(''),
-    refresh:()=>schedule(activeDisplayQuery,editingInput?.isConnected?editingInput:null)
-  };
+  window.__KCH_SEARCH_AUTHORITY_API__={build:BUILD,get:()=>activeDisplayQuery,set:setQuery,clear:()=>setQuery(''),refresh:()=>schedule(activeDisplayQuery,editingInput?.isConnected?editingInput:null)};
 
   document.addEventListener('focusin',onSearchFocus,true);
   document.addEventListener('focusout',onSearchBlur,true);
@@ -298,33 +268,19 @@
 
   if(typeof MutationObserver!=='undefined'){
     new MutationObserver(records=>{
-      const relevant=records.some(record=>
-        (record.type==='childList'&&(record.addedNodes?.length||record.removedNodes?.length))||
-        (record.type==='attributes'&&IDENTITY_ATTRIBUTES.has(record.attributeName))
-      );
+      const relevant=records.some(record=>(record.type==='childList'&&(record.addedNodes?.length||record.removedNodes?.length))||(record.type==='attributes'&&IDENTITY_ATTRIBUTES.has(record.attributeName)));
       if(!relevant)return;
-
       if(editingInput&&!editingInput.isConnected)editingInput=null;
       if(activeInput&&!activeInput.isConnected)activeInput=primaryInput();
       if(pendingIntent?.target&&!pendingIntent.target.isConnected)pendingIntent=null;
-
-      if(authorityReady){
-        const source=editingInput?.isConnected?editingInput:null;
-        syncReplacementInputs(activeDisplayQuery,source);
-        schedule(activeDisplayQuery,source);
-      }
-    }).observe(document.documentElement,{
-      childList:true,
-      subtree:true,
-      attributes:true,
-      attributeFilter:[...IDENTITY_ATTRIBUTES]
-    });
+      if(authorityReady){const source=editingInput?.isConnected?editingInput:null;syncReplacementInputs(activeDisplayQuery,source);schedule(activeDisplayQuery,source)}
+      setTimeout(reconcileFromMaster,32);
+    }).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:[...IDENTITY_ATTRIBUTES]});
   }
 
   const boot=()=>{
-    const live=queryFromTarget();
-    authorityReady=true;
-    schedule(live||activeDisplayQuery);
+    const live=queryFromTarget();authorityReady=true;schedule(live||activeDisplayQuery);
+    setTimeout(reconcileFromMaster,60);setTimeout(reconcileFromMaster,180);setTimeout(reconcileFromMaster,480);setTimeout(reconcileFromMaster,880);setTimeout(reconcileFromMaster,1160);
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
   window.addEventListener('pageshow',boot,{passive:true});
