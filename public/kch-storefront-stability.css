@@ -3,23 +3,22 @@
    customer-facing visibility and readability cannot regress through legacy CSS. */
 
 /* Native hidden must remain authoritative even when an older layer declares
-   display:* !important on the same component. */
-html body [hidden],
-html body .kch-master-range[hidden],
-html body .kch-master-range[aria-hidden="true"]{
+   display:* !important on the same component. #app gives this contract enough
+   specificity to beat legacy component selectors without changing component UX. */
+html body #app [hidden],
+html body #app .kch-master-range[hidden],
+html body #app .kch-master-range[aria-hidden="true"],
+html body.kch-master-2026 .kch-master-range[hidden],
+html body.kch-master-2026 .kch-master-range[aria-hidden="true"]{
   display:none!important;
 }
 
-/* Product names are purchase-critical text. Keep them readable across canonical
-   cards and any still-visible legacy card shell selected during progressive load. */
-html body.kch-master-2026 .kch-master-product-copy h3,
-html body.kch-master-2026 .kch-master-product-name,
-html body.kch-master-2026 .card-info h3,
-html body.kch-master-2026 article.card h3,
-html body .kch-master-home .kch-master-product-copy h3,
-html body .kch-master-home .kch-master-product-name,
-html body .kch-master-home .card-info h3,
-html body .kch-master-home article.card h3{
+/* Product names are purchase-critical text. Apply the readable floor to both
+   canonical cards and still-visible legacy shells anywhere inside the app. */
+html body #app .kch-master-product-copy h3,
+html body #app .kch-master-product-name,
+html body #app .card-info h3,
+html body #app article.card h3{
   font-size:18px!important;
   line-height:1.4!important;
 }
@@ -36,14 +35,10 @@ html body .kch-master-home article.card h3{
 }
 
 @media (max-width:699px){
-  html body.kch-master-2026 .kch-master-product-copy h3,
-  html body.kch-master-2026 .kch-master-product-name,
-  html body.kch-master-2026 .card-info h3,
-  html body.kch-master-2026 article.card h3,
-  html body .kch-master-home .kch-master-product-copy h3,
-  html body .kch-master-home .kch-master-product-name,
-  html body .kch-master-home .card-info h3,
-  html body .kch-master-home article.card h3{
+  html body #app .kch-master-product-copy h3,
+  html body #app .kch-master-product-name,
+  html body #app .card-info h3,
+  html body #app article.card h3{
     font-size:17px!important;
   }
 }
