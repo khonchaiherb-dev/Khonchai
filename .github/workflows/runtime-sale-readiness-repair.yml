@@ -14,13 +14,13 @@ permissions:
 
 concurrency:
   group: khonchaiherb-runtime-sale-readiness-repair
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   repair:
     name: Repair migration 0018 through Pages runtime
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     env:
       SITE_ORIGIN: https://khonchaiherb-commerce.pages.dev
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -29,6 +29,27 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Wait for normal Pages deployment to expose repair build
+        shell: bash
+        run: |
+          set -euo pipefail
+          found=0
+          for attempt in $(seq 1 50); do
+            code=$(curl --silent --show-error --location --max-time 15 --output repair-marker.json --write-out '%{http_code}' "$SITE_ORIGIN/api/internal/launch-schema-repair")
+            if [ "$code" = "200" ] && python3 - <<'PY'
+          import json
+          d=json.load(open('repair-marker.json'))
+          raise SystemExit(0 if d.get('service')=='khonchaiherb-launch-schema-repair' and d.get('version')=='0018-v2' else 1)
+          PY
+            then
+              found=1
+              break
+            fi
+            sleep 3
+          done
+          [ "$found" = "1" ] || { echo 'Current guarded repair build was not observed on Production.' >&2; exit 1; }
+          echo 'Normal Pages deployment completed before runtime repair deployment.'
 
       - name: Preflight exact production blocker
         id: preflight
@@ -70,18 +91,9 @@ jobs:
           set -euo pipefail
           python3 - <<'PY' > pages-repair-env.json
           import json,os
-          print(json.dumps({
-            'deployment_configs':{
-              'production':{
-                'env_vars':{
-                  'LAUNCH_REPAIR_TOKEN':{'type':'secret_text','value':os.environ['LAUNCH_REPAIR_TOKEN']}
-                }
-              }
-            }
-          }))
+          print(json.dumps({'deployment_configs':{'production':{'env_vars':{'LAUNCH_REPAIR_TOKEN':{'type':'secret_text','value':os.environ['LAUNCH_REPAIR_TOKEN']}}}}}))
           PY
-          curl --fail --silent --show-error \
-            -X PATCH \
+          curl --fail --silent --show-error -X PATCH \
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
             -H 'Content-Type: application/json' \
             --data @pages-repair-env.json \
@@ -94,7 +106,7 @@ jobs:
           print('One-time Pages repair credential configured without exposing its value.')
           PY
 
-      - name: Deploy guarded repair endpoint
+      - name: Deploy runtime with one-time credential
         if: steps.preflight.outputs.needed == 'true'
         shell: bash
         run: |
@@ -114,11 +126,9 @@ jobs:
           for attempt in $(seq 1 30); do
             code=$(curl --silent --show-error --location --max-time 20 \
               --output repair-result.json --write-out '%{http_code}' \
-              -X POST \
-              -H "X-KCH-Launch-Repair: $LAUNCH_REPAIR_TOKEN" \
+              -X POST -H "X-KCH-Launch-Repair: $LAUNCH_REPAIR_TOKEN" \
               "$SITE_ORIGIN/api/internal/launch-schema-repair")
-            if [ "$code" = "200" ]; then
-              if python3 - <<'PY'
+            if [ "$code" = "200" ] && python3 - <<'PY'
           import json
           d=json.load(open('repair-result.json'))
           assert d.get('ok') is True
@@ -126,12 +136,10 @@ jobs:
           print('Runtime repair applied:', ','.join(d.get('applied') or []) or 'already repaired')
           print('Active products:', int(d.get('activeProducts') or 0))
           PY
-              then
-                ok=1
-                break
-              fi
+            then
+              ok=1
+              break
             fi
-            echo "Guarded repair endpoint not ready yet (attempt $attempt/30, HTTP $code)"
             sleep 3
           done
           [ "$ok" = "1" ] || { echo 'Guarded runtime repair could not be completed.' >&2; exit 1; }
@@ -141,26 +149,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ok=0
-          for attempt in $(seq 1 20); do
-            curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/api/health" > health-after.json
-            if python3 - <<'PY'
+          curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/api/health" > health-after.json
+          python3 - <<'PY'
           import json
           d=json.load(open('health-after.json'))
-          if d.get('catalogSchemaReady') is True:
-              print('Catalog schema is ready after migration 0018 repair.')
-              print('Sale-ready products:',int(d.get('saleReadyProducts') or 0))
-              raise SystemExit(0)
-          print('Remaining catalog probe error:',str(d.get('catalogProbeError') or 'unknown')[:180])
-          raise SystemExit(1)
+          print('databaseReady=',d.get('databaseReady'))
+          print('catalogSchemaReady=',d.get('catalogSchemaReady'))
+          print('orderSchemaReady=',d.get('orderSchemaReady'))
+          print('saleReadyProducts=',int(d.get('saleReadyProducts') or 0))
+          if d.get('catalogSchemaReady') is not True:
+              raise SystemExit('Remaining catalog probe error: '+str(d.get('catalogProbeError') or 'unknown')[:180])
           PY
-            then
-              ok=1
-              break
-            fi
-            sleep 2
-          done
-          [ "$ok" = "1" ] || { echo 'Catalog schema still has a blocker after narrow 0018 repair.' >&2; exit 1; }
 
       - name: Remove one-time repair credential
         if: always() && steps.preflight.outputs.needed == 'true'
@@ -170,8 +169,7 @@ jobs:
           cat > pages-repair-cleanup.json <<'JSON'
           {"deployment_configs":{"production":{"env_vars":{"LAUNCH_REPAIR_TOKEN":null}}}}
           JSON
-          curl --fail --silent --show-error \
-            -X PATCH \
+          curl --fail --silent --show-error -X PATCH \
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
             -H 'Content-Type: application/json' \
             --data @pages-repair-cleanup.json \
@@ -201,9 +199,18 @@ jobs:
         run: |
           set -euo pipefail
           closed=0
-          for attempt in $(seq 1 20); do
-            code=$(curl --silent --show-error --location --max-time 15 --output closed.json --write-out '%{http_code}' -X POST "$SITE_ORIGIN/api/internal/launch-schema-repair")
-            if [ "$code" = "404" ]; then closed=1; break; fi
+          for attempt in $(seq 1 25); do
+            curl --silent --show-error --location --max-time 15 "$SITE_ORIGIN/api/internal/launch-schema-repair" > marker-after.json || true
+            if python3 - <<'PY'
+          import json
+          try: d=json.load(open('marker-after.json'))
+          except Exception: raise SystemExit(1)
+          raise SystemExit(0 if d.get('service')=='khonchaiherb-launch-schema-repair' and d.get('enabled') is False else 1)
+          PY
+            then
+              code=$(curl --silent --show-error --location --max-time 15 --output closed-post.json --write-out '%{http_code}' -X POST "$SITE_ORIGIN/api/internal/launch-schema-repair")
+              if [ "$code" = "404" ]; then closed=1; break; fi
+            fi
             sleep 2
           done
           [ "$closed" = "1" ] || { echo 'Repair route did not return to closed state.' >&2; exit 1; }
