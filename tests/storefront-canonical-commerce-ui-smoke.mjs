@@ -11,8 +11,8 @@ for(const token of ['/api/products','KCHCommerceIntegrity','canonicalizeHero','c
 for(const claim of ['WELCOME50','คูปองลูกค้าใหม่','ขายแล้ว','แพ็กดี จัดส่งเรียบร้อย'])assert.ok(ui.includes(claim),`legacy claim sanitizer missing: ${claim}`);
 assert.ok(ui.includes("location.href='/member.html'"),'account route must use real member center');
 assert.ok(!ui.includes("location.href='/seller-center-v2.html'"),'public customer UI must not expose seller center shortcut');
-assert.ok(ui.includes('Number(p.available_stock??p.stock)>0'),'hero/feed must require live available stock');
-assert.ok(ui.includes('Number(p.price)>0'),'hero/feed must require a live positive price');
+assert.ok(ui.includes('stockOf(p)>0')||ui.includes('Number(p.available_stock??p.stock)>0'),'hero/feed must require live available stock');
+assert.ok(ui.includes('num(p.price)>0')||ui.includes('Number(p.price)>0'),'hero/feed must require a live positive price');
 assert.ok(ui.includes('clean(p.image_url||p.image)'),'hero/feed must require live product media');
 assert.ok(legacy.includes('v118HeroFallback'),'legacy renderer still has fallback and therefore canonical hero override must remain enforced');
 assert.ok(legacyShop.includes('ขายแล้ว ${p.sold.toLocaleString'),'legacy shop still contains demo sales copy and therefore canonical home feed override must remain enforced');
