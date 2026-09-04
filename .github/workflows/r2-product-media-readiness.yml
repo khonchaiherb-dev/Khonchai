@@ -1,0 +1,102 @@
+name: KHONCHAIHERB R2 Product Media Readiness
+
+on:
+  push:
+    branches: [storefront-social-commerce]
+    paths:
+      - '.github/workflows/r2-product-media-readiness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  r2-readiness:
+    name: Inspect product media R2 access
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TARGET_BUCKET: khonchaiherb-product-media
+      PAGES_PROJECT: khonchaiherb-commerce
+    steps:
+      - name: Check R2 bucket API permission
+        id: r2
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl --silent --show-error --output r2-buckets.json --write-out '%{http_code}' \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H 'Content-Type: application/json' \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/r2/buckets?per_page=100")
+          echo "http_code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" != "200" ]; then
+            echo "accessible=false" >> "$GITHUB_OUTPUT"
+            python3 - <<'PY'
+          import json
+          try:
+              d=json.load(open('r2-buckets.json'))
+          except Exception:
+              d={}
+          errs=d.get('errors') or []
+          for e in errs[:3]: print('R2:',e.get('message') or e.get('code') or 'access denied')
+          PY
+            exit 0
+          fi
+          python3 - <<'PY' > r2-state.env
+          import json
+          d=json.load(open('r2-buckets.json'))
+          assert d.get('success') is True
+          result=d.get('result') or {}
+          buckets=result.get('buckets') or []
+          names=sorted(str(x.get('name') or '') for x in buckets if x.get('name'))
+          target='khonchaiherb-product-media'
+          candidates=[n for n in names if 'khonchai' in n.lower() or 'product' in n.lower() or 'media' in n.lower()]
+          print('R2_ACCESSIBLE=true')
+          print('R2_TARGET_EXISTS='+('true' if target in names else 'false'))
+          print('R2_CANDIDATES='+(';'.join(candidates) if candidates else 'none'))
+          print('R2_BUCKET_COUNT='+str(len(names)))
+          PY
+          cat r2-state.env
+          cat r2-state.env >> "$GITHUB_ENV"
+          echo "accessible=true" >> "$GITHUB_OUTPUT"
+
+      - name: Inspect existing Pages R2 binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H 'Content-Type: application/json' \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PAGES_PROJECT" \
+            > pages-project.json
+          python3 - <<'PY' > pages-r2.env
+          import json
+          d=json.load(open('pages-project.json'))
+          assert d.get('success') is True
+          prod=((d.get('result') or {}).get('deployment_configs') or {}).get('production') or {}
+          binds=prod.get('r2_buckets') or {}
+          binding=binds.get('PRODUCT_MEDIA_BUCKET') or {}
+          print('PAGES_R2_BINDINGS='+(','.join(sorted(binds.keys())) if binds else 'none'))
+          print('PRODUCT_MEDIA_BUCKET_BOUND='+('true' if binding.get('name') else 'false'))
+          print('PRODUCT_MEDIA_BUCKET_NAME='+str(binding.get('name') or 'none'))
+          PY
+          cat pages-r2.env
+          cat pages-r2.env >> "$GITHUB_ENV"
+
+      - name: Publish R2 readiness verdict
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "### KHONCHAIHERB R2 product-media readiness" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.r2.outputs.accessible }}" = "true" ]; then
+            echo "- R2 API access: READY" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Target bucket exists: $R2_TARGET_EXISTS" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Candidate buckets: $R2_CANDIDATES" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- R2 API access: BLOCKED (HTTP ${{ steps.r2.outputs.http_code }})" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Required Cloudflare permission: Workers R2 Storage Read/Write" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "- Pages PRODUCT_MEDIA_BUCKET bound: $PRODUCT_MEDIA_BUCKET_BOUND" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Bound bucket: $PRODUCT_MEDIA_BUCKET_NAME" >> "$GITHUB_STEP_SUMMARY"
