@@ -16,268 +16,184 @@ jobs:
   readiness:
     name: Read-only remote D1 readiness
     runs-on: ubuntu-latest
-    timeout-minutes: 7
+    timeout-minutes: 5
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CONFIGURED_CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       DATABASE_NAME: khonchaiherb-commerce
       DATABASE_ID: de66c3d3-0082-47ac-b956-58f9c12d13b1
+      SHOP_CODE: THLCRLWLHR
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Confirm read-only contract
+      - name: Validate production credentials and immutable target
         shell: bash
         run: |
           set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "Cloudflare API token is missing"; exit 1; }
+          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]] || { echo "Cloudflare Account ID is missing or invalid"; exit 1; }
+          [[ "$DATABASE_ID" =~ ^[0-9a-fA-F-]{36}$ ]] || { echo "Configured D1 Database ID is invalid"; exit 1; }
           python3 - <<'PY'
+          import json
           from pathlib import Path
-          lines=Path('.github/workflows/d1-production-readiness.yml').read_text().splitlines()
-          queries=[line.strip() for line in lines if line.strip().startswith('QUERY=')]
-          executes=[line.strip() for line in lines if 'wrangler@latest d1 execute' in line and line.strip().startswith(('npx ','CLOUDFLARE_ACCOUNT_ID='))]
-          lists=[line.strip() for line in lines if 'wrangler@latest d1 list' in line and line.strip().startswith(('npx ','CLOUDFLARE_ACCOUNT_ID='))]
-          assert queries, 'readiness workflow must define at least one query'
-          assert executes, 'readiness workflow must execute at least one D1 query'
-          assert lists, 'readiness workflow must discover D1 access with a read-only list command'
-          for query in queries:
-            assert query.startswith('QUERY="SELECT '), f'non-read-only query definition: {query}'
-          for command in executes:
-            assert '--remote' in command, f'readiness execute must target remote D1: {command}'
-            assert '--command="$QUERY"' in command, f'readiness execute must use the validated SELECT variable: {command}'
-            assert '--file=' not in command, f'readiness workflow must never apply a migration file: {command}'
-          for command in lists:
-            assert '--json' in command, f'D1 discovery must use structured read-only list output: {command}'
-          print(f'Read-only workflow contract passed: {len(queries)} SELECT queries, {len(executes)} remote executes, {len(lists)} D1 list probes')
+          text=Path('wrangler.jsonc').read_text()
+          data=json.loads(text)
+          rows=data.get('d1_databases') or []
+          assert any(x.get('binding')=='DB' and x.get('database_name')=='khonchaiherb-commerce' and x.get('database_id')=='de66c3d3-0082-47ac-b956-58f9c12d13b1' for x in rows), 'wrangler D1 target does not match production target'
+          print('Production D1 target is pinned to the expected database.')
           PY
 
-      - name: Check Cloudflare token
-        id: credentials
+      - name: Inspect production D1 directly through Cloudflare REST API
+        id: d1
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "### Production D1 readiness: BLOCKED" >> "$GITHUB_STEP_SUMMARY"
-            echo "Cloudflare API token is not available to this workflow. Production readiness cannot be asserted safely." >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          else
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          fi
+          API="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$DATABASE_ID/query"
 
-      - name: Resolve account that owns the configured D1 database
-        if: steps.credentials.outputs.available == 'true'
-        id: account
+          query_d1() {
+            local sql="$1"
+            local out="$2"
+            SQL="$sql" python3 - <<'PY' > d1-payload.json
+          import json,os
+          sql=os.environ['SQL']
+          if not sql.lstrip().upper().startswith('SELECT '):
+              raise SystemExit('Only SELECT queries are allowed in production readiness')
+          print(json.dumps({'sql':sql},ensure_ascii=False))
+          PY
+            http_code=$(curl --silent --show-error --output "$out" --write-out '%{http_code}' \
+              -X POST "$API" \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H 'Content-Type: application/json' \
+              --data @d1-payload.json)
+            if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+              echo "Production D1 query returned HTTP $http_code"
+              python3 - "$out" <<'PY'
+          import json,sys
+          try:
+              d=json.load(open(sys.argv[1]))
+              errs=d.get('errors') or []
+              for e in errs[:3]: print('Cloudflare:', e.get('message') or e.get('code') or 'query failed')
+          except Exception:
+              pass
+          PY
+              exit 1
+            fi
+            python3 - "$out" <<'PY'
+          import json,sys
+          d=json.load(open(sys.argv[1]))
+          if not d.get('success'):
+              print('Cloudflare D1 API reported success=false')
+              for e in (d.get('errors') or [])[:3]: print(e.get('message') or e.get('code') or 'query failed')
+              raise SystemExit(1)
+          result=d.get('result') or []
+          for item in result if isinstance(result,list) else [result]:
+              if isinstance(item,dict) and item.get('success') is False:
+                  print('D1 statement reported success=false')
+                  raise SystemExit(1)
+          PY
+          }
+
+          QUERY="SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
+          query_d1 "$QUERY" d1-tables.json
+
+          QUERY="SELECT 'products' AS table_name,name FROM pragma_table_info('products') UNION ALL SELECT 'product_variants',name FROM pragma_table_info('product_variants') UNION ALL SELECT 'product_media',name FROM pragma_table_info('product_media') UNION ALL SELECT 'orders',name FROM pragma_table_info('orders') UNION ALL SELECT 'order_request_registry',name FROM pragma_table_info('order_request_registry');"
+          query_d1 "$QUERY" d1-columns.json
+
+          QUERY="SELECT COUNT(*) AS sale_ready_products FROM products p WHERE p.active=1 AND p.sale_verified=1 AND p.price>0 AND (CASE WHEN EXISTS(SELECT 1 FROM product_variants vx WHERE vx.product_id=p.id AND vx.active=1) THEN COALESCE((SELECT SUM(MAX(0,v.stock-COALESCE(v.reserved_stock,0))) FROM product_variants v WHERE v.product_id=p.id AND v.active=1),0) ELSE MAX(0,p.stock-COALESCE(p.reserved_stock,0)) END)>0 AND EXISTS(SELECT 1 FROM product_media m WHERE m.product_id=p.id AND m.active=1);"
+          query_d1 "$QUERY" d1-products.json
+
+          python3 - <<'PY'
+          import json
+
+          def rows(path):
+              d=json.load(open(path))
+              out=[]
+              r=d.get('result') or []
+              for item in r if isinstance(r,list) else [r]:
+                  if isinstance(item,dict): out.extend(item.get('results') or [])
+              return out
+
+          table_names={str(x.get('name') or '') for x in rows('d1-tables.json')}
+          required_tables={
+              'products','product_variants','product_media','orders','order_items',
+              'order_request_registry','payments','receipts'
+          }
+          missing_tables=sorted(required_tables-table_names)
+
+          cols={}
+          for x in rows('d1-columns.json'):
+              cols.setdefault(str(x.get('table_name') or ''),set()).add(str(x.get('name') or ''))
+          required_cols={
+              'products':{'active','price','stock','reserved_stock','sale_verified'},
+              'product_variants':{'product_id','active','stock','reserved_stock'},
+              'product_media':{'product_id','object_key','active'},
+              'orders':{'idempotency_key','payment_method','payment_status','fulfillment_status'},
+              'order_request_registry':{'idempotency_key','request_fingerprint','order_no'}
+          }
+          missing_cols=[]
+          for table,names in required_cols.items():
+              for name in sorted(names-cols.get(table,set())):
+                  missing_cols.append(f'{table}.{name}')
+
+          product_rows=rows('d1-products.json')
+          sale_ready=int((product_rows[0] if product_rows else {}).get('sale_ready_products') or 0)
+          print('sale_ready_products='+str(sale_ready))
+          print('missing_tables=' + (','.join(missing_tables) if missing_tables else 'none'))
+          print('missing_columns=' + (','.join(missing_cols) if missing_cols else 'none'))
+
+          with open('d1-readiness.env','w') as f:
+              f.write(f'SALE_READY_PRODUCTS={sale_ready}\n')
+              f.write(f'MISSING_TABLES={";".join(missing_tables)}\n')
+              f.write(f'MISSING_COLUMNS={";".join(missing_cols)}\n')
+
+          if missing_tables or missing_cols:
+              raise SystemExit('Production D1 core sales schema is not ready')
+          PY
+
+          cat d1-readiness.env >> "$GITHUB_ENV"
+          echo "reachable=true" >> "$GITHUB_OUTPUT"
+          echo "### Production D1 connection: READY" >> "$GITHUB_STEP_SUMMARY"
+          echo "Direct read-only query succeeded against the pinned production database." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify Koonchaishop source registration when source library exists
+        if: steps.d1.outputs.reachable == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          : > account-candidates.txt
-          if [[ "$CONFIGURED_CF_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]]; then
-            printf '%s\n' "$CONFIGURED_CF_ACCOUNT_ID" >> account-candidates.txt
-          fi
-
-          set +e
-          env -u CLOUDFLARE_ACCOUNT_ID npx --yes wrangler@latest whoami --json > whoami.json 2>/dev/null
-          whoami_code=$?
-          set -e
-          if [ "$whoami_code" -eq 0 ]; then
+          API="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$DATABASE_ID/query"
+          SQL="SELECT platform,shop_code,shop_name,authorization_scope,active FROM commerce_sources WHERE shop_code='$SHOP_CODE' LIMIT 1;"
+          SQL="$SQL" python3 - <<'PY' > d1-source-payload.json
+          import json,os
+          print(json.dumps({'sql':os.environ['SQL']}))
+          PY
+          code=$(curl --silent --show-error --output d1-source.json --write-out '%{http_code}' -X POST "$API" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json' --data @d1-source-payload.json)
+          if [ "$code" = "200" ]; then
             python3 - <<'PY'
-          import json,re
-          from pathlib import Path
-          try:
-              data=json.loads(Path('whoami.json').read_text())
-          except Exception:
-              data={}
-          found=[]
-          def walk(value):
-              if isinstance(value,dict):
-                  for v in value.values(): walk(v)
-              elif isinstance(value,list):
-                  for v in value: walk(v)
-              elif isinstance(value,str) and re.fullmatch(r'[0-9a-fA-F]{32}',value):
-                  found.append(value)
-          walk(data)
-          with Path('account-candidates.txt').open('a') as f:
-              for value in found: f.write(value+'\n')
+          import json
+          d=json.load(open('d1-source.json'))
+          text=json.dumps(d,ensure_ascii=False)
+          if 'THLCRLWLHR' in text and 'owner_authorized_media_content_reviews' in text:
+              print('Koonchaishop owner-authorized source registration is present.')
+          else:
+              print('Koonchaishop source registration not confirmed; storefront sales readiness is unaffected.')
           PY
-          fi
-
-          python3 - <<'PY'
-          from pathlib import Path
-          values=[]
-          for line in Path('account-candidates.txt').read_text().splitlines():
-              value=line.strip()
-              if value and value not in values: values.append(value)
-          Path('account-candidates.txt').write_text('\n'.join(values)+('\n' if values else ''))
-          PY
-
-          selected=''
-          while IFS= read -r candidate; do
-            [ -n "$candidate" ] || continue
-            echo "::add-mask::$candidate"
-            set +e
-            CLOUDFLARE_ACCOUNT_ID="$candidate" npx --yes wrangler@latest d1 list --json > d1-list.json 2>/dev/null
-            list_code=$?
-            set -e
-            if [ "$list_code" -ne 0 ]; then
-              continue
-            fi
-            if DATABASE_ID="$DATABASE_ID" DATABASE_NAME="$DATABASE_NAME" python3 - <<'PY'
-          import json,os,sys
-          from pathlib import Path
-          try:
-              data=json.loads(Path('d1-list.json').read_text())
-          except Exception:
-              sys.exit(1)
-          target_id=os.environ['DATABASE_ID'].lower()
-          target_name=os.environ['DATABASE_NAME']
-          rows=data if isinstance(data,list) else data.get('result',[]) if isinstance(data,dict) else []
-          for row in rows:
-              if not isinstance(row,dict): continue
-              rid=str(row.get('uuid') or row.get('id') or row.get('database_id') or '').lower()
-              name=str(row.get('name') or row.get('database_name') or '')
-              if rid==target_id or name==target_name:
-                  sys.exit(0)
-          sys.exit(1)
-          PY
-            then
-              selected="$candidate"
-              break
-            fi
-          done < account-candidates.txt
-
-          if [ -z "$selected" ]; then
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "### Production D1 readiness: BLOCKED" >> "$GITHUB_STEP_SUMMARY"
-            echo "The API token could not find or read the configured D1 database in any accessible account. Check Cloudflare Account ID and grant the token D1 Read permission." >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
-
-          echo "::add-mask::$selected"
-          echo "D1_ACCOUNT_ID=$selected" >> "$GITHUB_ENV"
-          echo "available=true" >> "$GITHUB_OUTPUT"
-          echo "### Cloudflare D1 account resolution: READY" >> "$GITHUB_STEP_SUMMARY"
-          echo "The workflow found an accessible account containing the configured KHONCHAIHERB D1 database without changing repository secrets." >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Inspect Koonchaishop schema on remote D1
-        if: steps.account.outputs.available == 'true'
-        id: schema
-        shell: bash
-        run: |
-          set -uo pipefail
-          QUERY="SELECT name FROM sqlite_master WHERE type='table' AND name IN ('commerce_sources','source_assets','source_reviews','source_product_links') ORDER BY name;"
-          set +e
-          CLOUDFLARE_ACCOUNT_ID="$D1_ACCOUNT_ID" npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="$QUERY" > d1-readiness.txt 2>&1
-          code=$?
-          set -e
-          cat d1-readiness.txt
-          if [ "$code" -ne 0 ]; then
-            echo "ready=unknown" >> "$GITHUB_OUTPUT"
-            echo "### Production D1 readiness: BLOCKED" >> "$GITHUB_STEP_SUMMARY"
-            echo "Remote read-only schema query could not be completed." >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
-          missing=0
-          for table in commerce_sources source_assets source_reviews source_product_links; do
-            if ! grep -q "$table" d1-readiness.txt; then
-              echo "Missing: $table"
-              missing=1
-            fi
-          done
-          if [ "$missing" -eq 0 ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-            echo "### Production D1 source readiness: READY" >> "$GITHUB_STEP_SUMMARY"
-            echo "Migration 0021 schema is present on remote D1." >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "### Production D1 source readiness: NOT READY" >> "$GITHUB_STEP_SUMMARY"
-            echo "Migration 0021 has not been fully applied to remote D1." >> "$GITHUB_STEP_SUMMARY"
+            echo "Koonchaishop source-library query skipped because optional commerce source schema is not available."
           fi
 
-      - name: Verify Koonchaishop source registration
-        if: steps.account.outputs.available == 'true' && steps.schema.outputs.ready == 'true'
+      - name: Publish launch-readiness verdict
         shell: bash
         run: |
-          set -uo pipefail
-          QUERY="SELECT platform,shop_code,shop_name,authorization_scope,active FROM commerce_sources WHERE shop_code='THLCRLWLHR' LIMIT 1;"
-          set +e
-          CLOUDFLARE_ACCOUNT_ID="$D1_ACCOUNT_ID" npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="$QUERY" > d1-source-readiness.txt 2>&1
-          code=$?
-          set -e
-          cat d1-source-readiness.txt
-          if [ "$code" -ne 0 ] || ! grep -q 'THLCRLWLHR' d1-source-readiness.txt || ! grep -q 'owner_authorized_media_content_reviews' d1-source-readiness.txt; then
-            echo "### Koonchaishop source registration: CHECK REQUIRED" >> "$GITHUB_STEP_SUMMARY"
-            echo "Tables exist, but the expected source registration could not be confirmed." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          echo "### Koonchaishop source registration: READY" >> "$GITHUB_STEP_SUMMARY"
-          echo "Shop Code THLCRLWLHR is registered with the expected authorization scope." >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Inspect revenue payment recovery schema on remote D1
-        if: steps.account.outputs.available == 'true'
-        id: revenue_schema
-        shell: bash
-        run: |
-          set -uo pipefail
-          QUERY="SELECT name FROM sqlite_master WHERE type='table' AND name IN ('payment_attempts','payment_provider_events','checkout_sessions','checkout_recovery_events','cod_risk_assessments') ORDER BY name;"
-          set +e
-          CLOUDFLARE_ACCOUNT_ID="$D1_ACCOUNT_ID" npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="$QUERY" > d1-revenue-readiness.txt 2>&1
-          code=$?
-          set -e
-          cat d1-revenue-readiness.txt
-          if [ "$code" -ne 0 ]; then
-            echo "ready=unknown" >> "$GITHUB_OUTPUT"
-            echo "### Revenue recovery schema: BLOCKED" >> "$GITHUB_STEP_SUMMARY"
-            echo "Remote read-only revenue schema query could not be completed." >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
-          missing=0
-          for table in payment_attempts payment_provider_events checkout_sessions checkout_recovery_events cod_risk_assessments; do
-            if ! grep -q "$table" d1-revenue-readiness.txt; then
-              echo "Missing: $table"
-              missing=1
-            fi
-          done
-          if [ "$missing" -eq 0 ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-            echo "### Revenue recovery schema: READY" >> "$GITHUB_STEP_SUMMARY"
-            echo "Migration 0022 schema is present on remote D1." >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          echo "### KHONCHAIHERB D1 launch readiness" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Database: $DATABASE_NAME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Production D1: reachable by direct read-only REST query" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Core sales schema: ready" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Sale-ready products: $SALE_READY_PRODUCTS" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$SALE_READY_PRODUCTS" -gt 0 ]; then
+            echo "- Catalog data gate: READY" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "### Revenue recovery schema: NOT READY" >> "$GITHUB_STEP_SUMMARY"
-            echo "Migration 0022 has not been fully applied to remote D1. This is informational; the workflow remains read-only." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: Inspect support platform schema on remote D1
-        if: steps.account.outputs.available == 'true'
-        id: support_schema
-        shell: bash
-        run: |
-          set -uo pipefail
-          QUERY="SELECT name FROM sqlite_master WHERE type='table' AND name IN ('support_tickets','support_messages','support_ticket_events','support_satisfaction') ORDER BY name;"
-          set +e
-          CLOUDFLARE_ACCOUNT_ID="$D1_ACCOUNT_ID" npx --yes wrangler@latest d1 execute "$DATABASE_NAME" --remote --command="$QUERY" > d1-support-readiness.txt 2>&1
-          code=$?
-          set -e
-          cat d1-support-readiness.txt
-          if [ "$code" -ne 0 ]; then
-            echo "ready=unknown" >> "$GITHUB_OUTPUT"
-            echo "### Support platform schema: BLOCKED" >> "$GITHUB_STEP_SUMMARY"
-            echo "Remote read-only support schema query could not be completed." >> "$GITHUB_STEP_SUMMARY"
+            echo "- Catalog data gate: BLOCKED — no verified product currently has price, stock and product media" >> "$GITHUB_STEP_SUMMARY"
             exit 1
-          fi
-          missing=0
-          for table in support_tickets support_messages support_ticket_events support_satisfaction; do
-            if ! grep -q "$table" d1-support-readiness.txt; then
-              echo "Missing: $table"
-              missing=1
-            fi
-          done
-          if [ "$missing" -eq 0 ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-            echo "### Support platform schema: READY" >> "$GITHUB_STEP_SUMMARY"
-            echo "Migration 0023 schema is present on remote D1." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "### Support platform schema: NOT READY" >> "$GITHUB_STEP_SUMMARY"
-            echo "Migration 0023 has not been fully applied to remote D1. Customer Support ticket APIs must remain treated as not production-ready until the guarded migration is explicitly applied." >> "$GITHUB_STEP_SUMMARY"
           fi
