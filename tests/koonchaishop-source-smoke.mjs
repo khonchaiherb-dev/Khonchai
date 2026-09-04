@@ -41,23 +41,22 @@ assert.match(d1Workflow,/APPLY-PRODUCTION-D1/,'production D1 migration must reta
 assert.match(d1Workflow,/verified_on_site guard must reject imported reviews/,'disposable validation must test the imported-review verification constraint');
 assert.match(d1Workflow,/Verify production Koonchaishop source schema/,'production workflow must verify the Koonchaishop schema after migration');
 assert.match(d1Workflow,/d1 execute \"\$DATABASE_NAME\" --remote/,'production migration must target remote D1 explicitly');
+
+// Production readiness now treats the customer-facing Pages runtime as authoritative.
+// This intentionally replaces the older account-discovery/read-only-wrangler contract.
 assert.match(d1Readiness,/name: KHONCHAIHERB Production D1 Readiness/,'a dedicated production D1 readiness workflow must exist');
-assert.match(d1Readiness,/name: Read-only remote D1 readiness/,'production readiness job must identify itself as read-only');
-assert.match(d1Readiness,/Resolve account that owns the configured D1 database/,'readiness must resolve the D1-owning account without changing secrets');
-assert.match(d1Readiness,/env -u CLOUDFLARE_ACCOUNT_ID npx --yes wrangler@latest whoami --json/,'account discovery must authenticate independently of a possibly stale configured account id');
-assert.match(d1Readiness,/wrangler@latest d1 list --json/,'account discovery must use the read-only D1 list command');
-assert.match(d1Readiness,/::add-mask::\$candidate/,'candidate account identifiers must be masked in Actions logs');
-assert.match(d1Readiness,/::add-mask::\$selected/,'resolved account identifier must be masked before reuse');
-assert.match(d1Readiness,/D1_ACCOUNT_ID=\$selected/,'resolved D1 account must be scoped to subsequent workflow steps rather than committed to config');
-const readinessQueries=[...d1Readiness.matchAll(/QUERY="([^"]+)"/g)].map(m=>m[1]);
-assert.ok(readinessQueries.length>=2,'readiness workflow must inspect both schema and source registration');
-for(const query of readinessQueries)assert.match(query,/^SELECT\s/i,'all remote readiness queries must be SELECT-only');
-const readinessCommands=d1Readiness.split('\n').map(line=>line.trim()).filter(line=>line.includes('wrangler@latest d1 execute')&&(line.startsWith('npx ')||line.startsWith('CLOUDFLARE_ACCOUNT_ID=')));
-assert.ok(readinessCommands.length>=2,'readiness workflow must run remote D1 inspections');
-for(const command of readinessCommands){assert.match(command,/--remote/,'readiness checks must target remote D1');assert.match(command,/--command="\$QUERY"/,'readiness checks must execute the validated SELECT query variable');assert.doesNotMatch(command,/--file=/,'readiness workflow must never apply a migration file')}
-assert.match(d1Readiness,/The API token could not find or read the configured D1 database/,'readiness must fail closed when D1 access cannot be resolved');
-assert.match(d1Readiness,/THLCRLWLHR/,'readiness workflow must verify the authorized Koonchaishop shop code');
-assert.match(d1Readiness,/owner_authorized_media_content_reviews/,'readiness workflow must verify the expected authorization scope');
+assert.match(d1Readiness,/name: Production D1 runtime readiness/,'production readiness job must identify the runtime readiness contract');
+assert.match(d1Readiness,/DATABASE_ID: de66c3d3-0082-47ac-b956-58f9c12d13b1/,'production readiness must pin the intended D1 database id');
+assert.match(d1Readiness,/pages\/projects\/\$PAGES_PROJECT/,'readiness must inspect the live Cloudflare Pages project');
+assert.match(d1Readiness,/actual==os\.environ\['DATABASE_ID'\]/,'Pages production DB binding must be checked against the pinned database id');
+assert.match(d1Readiness,/\$SITE_ORIGIN\/api\/health/,'readiness must verify D1 through the same live Pages runtime used by commerce APIs');
+assert.match(d1Readiness,/required=\['databaseReady','catalogSchemaReady','orderSchemaReady'\]/,'runtime readiness must require database, catalog and order schema probes');
+assert.match(d1Readiness,/Pages Functions cannot reach the production D1 binding/,'runtime readiness must fail closed when Pages cannot reach production D1');
+assert.match(d1Readiness,/Catalog schema probe failed/,'runtime readiness must fail closed when the catalog schema is not ready');
+assert.match(d1Readiness,/Order schema probe failed/,'runtime readiness must fail closed when the order schema is not ready');
+assert.match(d1Readiness,/Diagnose direct D1 REST permission without blocking runtime readiness/,'direct D1 API access must remain diagnostic rather than authoritative');
+assert.match(d1Readiness,/this does not block sales because the Pages runtime DB binding passed all schema probes/,'direct D1 REST permission must not override a healthy customer-facing runtime');
+assert.doesNotMatch(d1Readiness,/wrangler@latest d1 execute[^\n]*--file=/,'readiness must never apply a migration file');
 
 assert.match(publicSmoke,/workflow_run:/,'production public smoke must run from the deployment completion event');
 assert.match(publicSmoke,/Deploy KHONCHAIHERB to Cloudflare Pages/,'production public smoke must follow the actual Cloudflare Pages deployment workflow');
@@ -70,4 +69,4 @@ assert.match(publicSmoke,/kch-koonchaishop-commerce\.js\?v=1\.30\.1/,'production
 assert.match(publicSmoke,/tshop-v130-koonchaishop\.css\?v=1\.30\.0/,'production smoke must verify the deployed v1.30 styles');
 assert.doesNotMatch(publicSmoke,/curl[^\n]*(?:-X|--request)\s*(?:POST|PUT|PATCH|DELETE)/i,'production public smoke must not mutate HTTP state');
 
-console.log('Koonchaishop source provenance + v1.30 storefront + guarded production migration/readiness/account-discovery/public-smoke contracts: OK');
+console.log('Koonchaishop source provenance + v1.30 storefront + guarded migration + Pages-runtime D1 readiness + public-smoke contracts: OK');
