@@ -8,3 +8,22 @@ const v114BindBase=typeof bind==='function'?bind:null;if(v114BindBase){bind=func
 window.addEventListener('resize',v114ScheduleViewport,{passive:true});window.addEventListener('orientationchange',v114ScheduleViewport,{passive:true});window.visualViewport?.addEventListener('resize',v114ScheduleViewport,{passive:true});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{v114ApplyViewport();v114EnhanceResponsiveA11y()},{once:true});else{v114ApplyViewport();v114EnhanceResponsiveA11y()}
 window.__KCH_RESPONSIVE__={breakpoints:V114_BREAKPOINTS,formFactor:v114FormFactor,refresh:v114ApplyViewport};
+
+/* Canonical storefront bootstrap. These assets are deliberately loaded at runtime so they become the final customer-facing authority after the legacy cascade. */
+(()=>{
+  const VERSION='2026.09';
+  if(!document.querySelector('link[data-kch-master-reference="2026"]')){
+    const link=document.createElement('link');
+    link.rel='stylesheet';
+    link.href=`/kch-master-reference-2026.css?v=${encodeURIComponent(VERSION)}`;
+    link.dataset.kchMasterReference='2026';
+    document.head.appendChild(link);
+  }
+  if(!document.querySelector('script[data-kch-master-reference="2026"]')){
+    const script=document.createElement('script');
+    script.src=`/kch-master-reference-2026.js?v=${encodeURIComponent(VERSION)}`;
+    script.async=false;
+    script.dataset.kchMasterReference='2026';
+    document.head.appendChild(script);
+  }
+})();
