@@ -1,0 +1,145 @@
+name: KHONCHAIHERB Open COD After Verified Launch
+
+on:
+  workflow_run:
+    workflows: ["KHONCHAIHERB Launch Rang Jued Product"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: khonchaiherb-open-cod-production
+  cancel-in-progress: true
+
+jobs:
+  open-cod:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    name: Verify all gates and enable COD
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SITE_ORIGIN: https://khonchaiherb-commerce.pages.dev
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PAGES_PROJECT: khonchaiherb-commerce
+    steps:
+      - name: Checkout production source branch
+        uses: actions/checkout@v7
+        with:
+          ref: storefront-social-commerce
+
+      - name: Full read-only launch preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/api/health" > health-before.json
+          curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/api/products" > products-before.json
+          curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/api/payment-options" > payments-before.json
+          curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/" > storefront-before.html
+          curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/kch-live-catalog-guard.js?v=1.0.0" > catalog-guard.js
+          python3 - <<'PY'
+          import json
+          h=json.load(open('health-before.json'))
+          p=json.load(open('products-before.json'))
+          pay=json.load(open('payments-before.json'))
+          required={
+            'databaseReady':h.get('databaseReady') is True,
+            'catalogSchemaReady':h.get('catalogSchemaReady') is True,
+            'orderSchemaReady':h.get('orderSchemaReady') is True,
+            'saleReadyProducts':int(h.get('saleReadyProducts') or 0)>=1,
+            'productMediaConfigured':h.get('productMediaConfigured') is True,
+            'packingVerificationRequired':h.get('packingVerificationRequired') is True,
+            'orderIdempotencyRequired':h.get('orderIdempotencyRequired') is True,
+            'staffCsrfEnforced':h.get('staffCsrfEnforced') is True,
+            'legacyBrowserAdminDisabled':h.get('legacyBrowserAdminEnabled') is False,
+            'adminBridgeConfigured':h.get('adminBridgeConfigured') is True,
+            'customerAuthConfigured':h.get('customerAuthConfigured') is True,
+            'rateLimitPepperConfigured':h.get('rateLimitPepperConfigured') is True,
+            'securityBaselineConfigured':h.get('securityBaselineConfigured') is True,
+          }
+          failed=[k for k,v in required.items() if not v]
+          if failed: raise SystemExit('Refusing COD activation; failed gates: '+','.join(failed))
+          rows=p.get('products') or []
+          launch=[x for x in rows if x.get('slug')=='rang-jued-tea']
+          if len(launch)!=1: raise SystemExit('Verified Rang Jued launch SKU is not uniquely present')
+          r=launch[0]
+          if float(r.get('price') or 0)!=120: raise SystemExit('Launch price is not 120 THB')
+          if int(r.get('stock') or 0)!=1: raise SystemExit('Launch web safety stock is not exactly 1')
+          if any(x.get('slug')!='rang-jued-tea' for x in rows): raise SystemExit('Unverified/demo SKU leaked into public sale-ready catalog')
+          if h.get('checkoutEnabled') or h.get('codConfigured'): raise SystemExit('Checkout/COD already enabled before gated activation')
+          if pay.get('checkoutEnabled') is True: raise SystemExit('Payment API unexpectedly open before activation')
+          print('All production preflight gates passed; safe to enable COD.')
+          PY
+          grep -Fq 'kch-live-catalog-guard.js?v=1.0.0' storefront-before.html
+          grep -Fq '__KCH_LIVE_CATALOG_GUARD__' catalog-guard.js
+
+      - name: Enable Checkout and COD only
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > enable-cod.json <<'JSON'
+          {"deployment_configs":{"production":{"env_vars":{"CHECKOUT_ENABLED":{"type":"plain_text","value":"true"},"COD_ENABLED":{"type":"plain_text","value":"true"},"ONLINE_PAYMENTS_ENABLED":{"type":"plain_text","value":"false"}}}}}
+          JSON
+          curl --fail --silent --show-error -X PATCH \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data @enable-cod.json \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PAGES_PROJECT" > enable-cod-result.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open('enable-cod-result.json'))
+          assert d.get('success') is True, d.get('errors')
+          print('Production config now requests Checkout=true, COD=true, Online payments=false.')
+          PY
+
+      - name: Deploy current production source with COD flags
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHA=$(git rev-parse HEAD)
+          npx --yes wrangler@latest pages deploy public \
+            --project-name="$PAGES_PROJECT" \
+            --branch="storefront-social-commerce" \
+            --commit-hash="$SHA" \
+            --commit-message="open verified COD launch"
+
+      - name: Verify COD is live without creating an order
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for attempt in $(seq 1 60); do
+            curl --silent --show-error --location --max-time 20 "$SITE_ORIGIN/api/health" > health-after.json || true
+            curl --silent --show-error --location --max-time 20 "$SITE_ORIGIN/api/payment-options" > payments-after.json || true
+            if python3 - <<'PY'
+          import json
+          try:
+              h=json.load(open('health-after.json')); p=json.load(open('payments-after.json'))
+          except Exception: raise SystemExit(1)
+          if h.get('codLaunchReady') is not True or h.get('orderIntakeReady') is not True: raise SystemExit(1)
+          if h.get('launchBlockers'): raise SystemExit(1)
+          if p.get('checkoutEnabled') is not True: raise SystemExit(1)
+          cap=next((x for x in (p.get('capabilities') or []) if x.get('id')=='COD'),None)
+          if not cap or cap.get('enabled') is not True: raise SystemExit(1)
+          if 'COD' not in {x.get('id') for x in (p.get('methods') or [])}: raise SystemExit(1)
+          print('COD order intake is live; no test order was created.')
+          PY
+            then ok=1; break; fi
+            sleep 3
+          done
+          [ "$ok" = "1" ] || { echo 'COD activation did not pass post-deploy smoke checks.' >&2; exit 1; }
+
+      - name: Publish launch verdict
+        shell: bash
+        run: |
+          echo '### KHONCHAIHERB COD launch' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Verified product: Rang Jued 30 sachets' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Launch price: THB 120' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Web safety stock cap: 1' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Checkout: ENABLED' >> "$GITHUB_STEP_SUMMARY"
+          echo '- COD: ENABLED' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Online payment: DISABLED' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Smoke test: PASS without creating an order' >> "$GITHUB_STEP_SUMMARY"
