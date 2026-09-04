@@ -2,12 +2,12 @@ name: Storefront D1 Bootstrap Check
 
 on:
   push:
-    branches: [storefront-social-commerce]
+    branches: [storefront-social-commerce, storefront-production]
     paths:
       - 'db/bootstrap-production.sql'
       - '.github/workflows/storefront-bootstrap-check.yml'
   pull_request:
-    branches: [storefront-social-commerce]
+    branches: [storefront-social-commerce, storefront-production]
     paths:
       - 'db/bootstrap-production.sql'
       - '.github/workflows/storefront-bootstrap-check.yml'
