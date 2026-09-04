@@ -61,3 +61,4 @@
     })
     .catch(()=>{state.ready=true;state.count=0;document.documentElement.classList.remove('kch-live-catalog-pending');try{localStorage.setItem('kch-cart','[]')}catch{}apply()});
 })();
+// Sale-launch retry marker for khonchaiherb-commerce.pages.dev — 2026-09-05.
