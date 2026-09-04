@@ -42,8 +42,8 @@ const withCanonicalMetadata=(response,env,pathname='')=>{
     head.append('<link rel="stylesheet" href="/tshop-v135-lower-standard.css?v=1.35.0">',{html:true});
     head.append('<link rel="stylesheet" href="/kch-v136-fast-purchase.css?v=1.36.0">',{html:true});
     head.append('<link rel="stylesheet" href="/kch-v137-contextual-care.css?v=1.38.0">',{html:true});
-    head.append('<link rel="stylesheet" href="/kch-storefront-stability.css?v=1.0.0">',{html:true});
     if(canonicalPath==='/')head.append('<link rel="stylesheet" href="/kch-master-reference-2026.css?v=2026.09.05">',{html:true});
+    head.append('<link rel="stylesheet" href="/kch-storefront-stability.css?v=1.0.0">',{html:true});
     head.append('<script defer src="/kch-thai-first.js?v=1.23.1"></script>',{html:true});
     head.append('<script defer src="/kch-footer-premium.js?v=1.27.0"></script>',{html:true});
     head.append('<script defer src="/kch-future-standard.js?v=1.28.1"></script>',{html:true});
