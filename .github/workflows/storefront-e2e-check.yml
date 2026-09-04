@@ -2,9 +2,9 @@ name: Storefront Browser E2E Check
 
 on:
   push:
-    branches: [storefront-social-commerce]
+    branches: [storefront-social-commerce, storefront-production]
   pull_request:
-    branches: [storefront-social-commerce]
+    branches: [storefront-social-commerce, storefront-production]
 
 jobs:
   browser-e2e:
