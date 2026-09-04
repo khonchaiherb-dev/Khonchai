@@ -79,38 +79,12 @@
     card.setAttribute('aria-hidden',match?'false':'true');
   }
 
+  /* Keep the browser's native input.value property intact. Overriding the
+     property itself makes real typing/fill race with hydration in Chromium.
+     Authority is enforced through capture events + the focused heartbeat. */
   function guardInput(input){
-    if(!input||guardedInputs.has(input)||!INPUT_VALUE?.get||!INPUT_VALUE?.set)return input;
-    try{
-      Object.defineProperty(input,'value',{
-        configurable:true,
-        enumerable:INPUT_VALUE.enumerable,
-        get(){return INPUT_VALUE.get.call(this)},
-        set(next){
-          const value=String(next??'');
-          const q=normalize(value);
-          const owned=ownsInput(this);
-
-          // Legacy renderers can clear the same search node by assigning an
-          // empty value. While the customer owns the field, retain Authority.
-          if(!q&&activeQuery&&owned){
-            INPUT_VALUE.set.call(this,activeDisplayQuery);
-            return;
-          }
-
-          INPUT_VALUE.set.call(this,value);
-          if(!owned)return;
-
-          activeInput=this;
-          activeDisplayQuery=value;
-          activeQuery=q;
-          authorityReady=true;
-          schedule(value,this);
-          if(!masterSyncDepth)syncMasterFallback(value);
-        }
-      });
-      guardedInputs.add(input);
-    }catch{}
+    if(!input)return input;
+    guardedInputs.add(input);
     return input;
   }
 
@@ -147,7 +121,7 @@
     inputs().forEach(input=>{
       if(document.activeElement===input)return;
       if(source?.isConnected&&input===source)return;
-      if(nativeValue(input)!==value)writeNative(input,value);
+      if(input.value!==value)input.value=value;
     });
   }
 
@@ -240,7 +214,7 @@
 
   function startEditHeartbeat(){
     if(editHeartbeat)clearInterval(editHeartbeat);
-    editHeartbeat=setInterval(reconcileFocusedInput,45);
+    editHeartbeat=setInterval(reconcileFocusedInput,24);
   }
   function stopEditHeartbeatSoon(){
     const token=editHeartbeat;
@@ -336,8 +310,8 @@
     }
     if(!q&&activeQuery&&!owned){target.value=activeDisplayQuery;schedule(activeDisplayQuery,editingInput?.isConnected?editingInput:null);return}
 
-    // New guard: the same legacy renderer can also clear the currently-owned
-    // node. Reject only synthetic clears; trusted customer clears still pass.
+    // Reject synthetic clears of the currently-owned node; a trusted customer
+    // clear remains authoritative and is allowed through below.
     if(!q&&activeQuery&&event.isTrusted===false){
       event.stopImmediatePropagation();
       writeNative(target,activeDisplayQuery);
