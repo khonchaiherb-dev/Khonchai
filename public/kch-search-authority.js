@@ -2,7 +2,7 @@
 (()=>{
   'use strict';
   if(typeof document==='undefined')return;
-  const BUILD='1.0.9';
+  const BUILD='1.0.10';
   if(window.__KCH_SEARCH_AUTHORITY__===BUILD)return;
   window.__KCH_SEARCH_AUTHORITY__=BUILD;
 
@@ -15,6 +15,8 @@
   let authorityReady=false;
   let activeInput=null;
   let editingInput=null;
+  let pendingIntent=null;
+  let intentSeq=0;
   let seq=0;
 
   const normalize=value=>String(value??'').normalize('NFKC').toLocaleLowerCase('th-TH').replace(/\s+/g,' ').trim();
@@ -178,6 +180,18 @@
     return null;
   }
 
+  function syncMasterFallback(value){
+    const master=window.__KCH_MASTER_SEARCH__;
+    if(!master)return;
+    try{
+      if(typeof master.set==='function')master.set(String(value??''),{force:true,trusted:true,source:'search-authority-fallback'});
+      else{
+        master.query=String(value??'');
+        if(typeof master.apply==='function')master.apply();
+      }
+    }catch{}
+  }
+
   function onSearchBeforeInput(event){
     const target=event.target;
     if(!target?.matches?.(SEARCH_SELECTOR))return;
@@ -186,24 +200,36 @@
 
     editingInput=target;
     activeInput=target;
-    schedule(intended,target);
+    const token=++intentSeq;
+    pendingIntent={token,target,value:intended};
 
-    // Some older storefront layers can revert the native edit before the
-    // follow-up input event is committed. beforeinput is the customer's intent,
-    // so recover that exact edit once the event stack settles and emit one
-    // synthetic input only when the browser value did not commit naturally.
-    queueMicrotask(()=>{
-      if(!target.isConnected||activeDisplayQuery!==intended)return;
-      if(String(target.value??'')===intended)return;
+    // beforeinput describes intent, not the committed value. Do not mutate or
+    // filter here: desktop browsers may still perform their native edit and an
+    // eager recovery would duplicate the text. Give the native input event one
+    // render beat to commit; recover only if no matching input arrives.
+    setTimeout(()=>{
+      const pending=pendingIntent;
+      if(!pending||pending.token!==token||pending.target!==target)return;
+      pendingIntent=null;
+      if(!target.isConnected)return;
+
+      const committed=String(target.value??'');
+      if(committed===intended){
+        schedule(committed,target);
+        return;
+      }
+
       target.value=intended;
-      target.dispatchEvent(new Event('input',{bubbles:true}));
-    });
+      schedule(intended,target);
+      syncMasterFallback(intended);
+    },32);
   }
 
   function onSearchInput(event){
     const target=event.target;
     if(!target?.matches?.(SEARCH_SELECTOR))return;
 
+    if(pendingIntent?.target===target)pendingIntent=null;
     const displayQuery=String(target.value??'');
     const q=normalize(displayQuery);
     const focused=document.activeElement===target;
@@ -237,6 +263,7 @@
 
   function clearFromReset(event){
     if(!event.target?.closest?.('.kch-master-reset'))return;
+    pendingIntent=null;
     activeQuery='';
     activeDisplayQuery='';
     authorityReady=true;
@@ -247,6 +274,7 @@
   }
 
   function setQuery(query){
+    pendingIntent=null;
     activeInput=null;
     editingInput=null;
     schedule(String(query??''));
@@ -278,6 +306,7 @@
 
       if(editingInput&&!editingInput.isConnected)editingInput=null;
       if(activeInput&&!activeInput.isConnected)activeInput=primaryInput();
+      if(pendingIntent?.target&&!pendingIntent.target.isConnected)pendingIntent=null;
 
       if(authorityReady){
         const source=editingInput?.isConnected?editingInput:null;
