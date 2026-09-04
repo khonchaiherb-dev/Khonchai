@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
 const ui=fs.readFileSync('public/kch-canonical-commerce-ui.js','utf8');
+const shortcuts=fs.readFileSync('public/kch-home-safe-shortcuts.js','utf8');
 const middleware=fs.readFileSync('functions/_middleware.js','utf8');
 const legacy=fs.readFileSync('public/tshop-v118.js','utf8');
 const legacyShop=fs.readFileSync('public/tshop-v04.js','utf8');
@@ -20,8 +21,13 @@ assert.ok(!ui.includes('V118_LAUNCH_PRODUCTS'),'canonical hero must never depend
 assert.ok(!ui.includes('p.sold'),'canonical commerce UI must never render legacy sold metrics');
 assert.ok(!ui.includes('p.rating'),'canonical commerce UI must never render legacy rating metrics');
 
+for(const token of ['สินค้าทั้งหมด','ช่วยเลือกสินค้า','ติดตามคำสั่งซื้อ','ตะกร้า','บัญชี','/my-orders.html','/member.html','data-kch-safe-shortcut','.tshop-topbar [data-go="cart"]'])assert.ok(shortcuts.includes(token),`safe shortcut layer missing: ${token}`);
+for(const legacyDestination of ['data-scroll-deals','data-live-jump','data-scroll-voucher'])assert.ok(!shortcuts.includes(legacyDestination),`safe shortcut layer must not retain legacy destination: ${legacyDestination}`);
+
 const guided=middleware.indexOf('/kch-guided-sales.js?v=2026.09.05');
 const canonical=middleware.indexOf('/kch-canonical-commerce-ui.js?v=2026.09.05');
+const safeShortcuts=middleware.indexOf('/kch-home-safe-shortcuts.js?v=2026.09.05');
 assert.ok(guided>=0&&canonical>guided,'canonical commerce UI must load after guided sales');
+assert.ok(safeShortcuts>canonical,'safe home shortcuts must load after canonical commerce UI');
 
 console.log('storefront canonical commerce UI smoke: OK');
