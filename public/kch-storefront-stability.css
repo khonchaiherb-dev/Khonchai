@@ -23,6 +23,21 @@ html body #app article.card h3{
   line-height:1.4!important;
 }
 
+/* Secondary product information still influences a purchase decision and must
+   remain readable at real 100% browser zoom. Keep this rule broader than the
+   structural home wrapper because legacy renderers may place the live card just
+   outside that wrapper before the canonical layer settles. */
+html body #app .kch-master-product-copy .meta,
+html body #app .kch-master-product-meta,
+html body #app .kch-v132-card-note,
+html body #app .kch-v132-unready-note,
+html body #app .rating,
+html body #app .card-foot,
+html body #app .kch-live-product-status{
+  font-size:14px!important;
+  line-height:1.5!important;
+}
+
 @media (min-width:700px) and (max-width:860px){
   #kch-v134-header .kch-v134-actions{
     grid-template-columns:repeat(3,48px)!important;
