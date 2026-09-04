@@ -144,7 +144,7 @@
     shelf.dataset.kchCatalogCategorySignature=signature;
     const head=document.createElement('div');head.className='kch-catalog-category-head';const copy=document.createElement('span');const title=document.createElement('b');title.textContent='เลือกตามหมวดสินค้า';const note=document.createElement('small');note.textContent='แสดงจากสินค้าที่ผ่านการตรวจสอบและพร้อมจำหน่ายจริง';copy.append(title,note);head.appendChild(copy);
     const list=document.createElement('div');list.className='kch-catalog-category-list';list.appendChild(makeCategoryButton('','สินค้าทั้งหมด','storefront'));
-    categories.forEach(category=>list.appendChild(makeCategoryButton(category,category,'spa'));
+    categories.forEach(category=>list.appendChild(makeCategoryButton(category,category,'spa')));
     shelf.replaceChildren(head,list);
     list.addEventListener('click',event=>{
       const button=event.target.closest?.('[data-kch-catalog-category]');if(!button)return;
