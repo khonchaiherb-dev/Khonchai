@@ -53,6 +53,7 @@ const withCanonicalMetadata=(response,env,pathname='')=>{
     head.append('<script defer src="/kch-v1341-header-dedupe.js?v=1.34.1"></script>',{html:true});
     head.append('<script defer src="/kch-v136-fast-purchase.js?v=1.36.0"></script>',{html:true});
     head.append('<script defer src="/kch-v137-contextual-care.js?v=1.37.0"></script>',{html:true});
+    head.append('<script defer src="/kch-live-catalog-guard.js?v=1.0.0"></script>',{html:true});
     if(pathname===SELLER_KOONCHAISHOP)head.append(`<script defer src="${KOONCHAISHOP_ADMIN_GUARD}"></script>`,{html:true});
   }}).transform(response);
 };
