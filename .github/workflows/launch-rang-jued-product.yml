@@ -20,7 +20,7 @@ jobs:
   launch-product:
     name: Verify and bootstrap Rang Jued launch SKU
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 25
     env:
       SITE_ORIGIN: https://khonchaiherb-commerce.pages.dev
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -35,7 +35,7 @@ jobs:
         run: |
           set -euo pipefail
           found=0
-          for attempt in $(seq 1 60); do
+          for attempt in $(seq 1 180); do
             curl --fail --silent --show-error \
               -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
               -H 'Content-Type: application/json' \
@@ -53,6 +53,7 @@ jobs:
           raise SystemExit(1)
           PY
             then found=1; break; fi
+            if [ $((attempt % 20)) -eq 0 ]; then echo "Still waiting for exact Pages production commit ($attempt/180)"; fi
             sleep 3
           done
           [ "$found" = "1" ] || { echo 'Exact launch-product build was not observed on Production.' >&2; exit 1; }
@@ -86,14 +87,17 @@ jobs:
           echo "Static Rang Jued product media is reachable ($(wc -c < static-product.webp) bytes)."
 
       - name: Generate one-time product bootstrap credential
+        id: bootstrap_secret
         shell: bash
         run: |
           set -euo pipefail
           token=$(openssl rand -hex 32)
           echo "::add-mask::$token"
           echo "LAUNCH_PRODUCT_TOKEN=$token" >> "$GITHUB_ENV"
+          echo "configured=true" >> "$GITHUB_OUTPUT"
 
       - name: Temporarily enable guarded product bootstrap
+        if: steps.bootstrap_secret.outputs.configured == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -113,6 +117,7 @@ jobs:
           PY
 
       - name: Deploy runtime with one-time product credential
+        if: steps.bootstrap_secret.outputs.configured == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -121,11 +126,12 @@ jobs:
             --commit-hash="$GITHUB_SHA" --commit-message="guarded Rang Jued launch bootstrap"
 
       - name: Bootstrap verified Rang Jued product with one-unit web safety stock
+        if: steps.bootstrap_secret.outputs.configured == 'true'
         shell: bash
         run: |
           set -euo pipefail
           ok=0
-          for attempt in $(seq 1 30); do
+          for attempt in $(seq 1 45); do
             code=$(curl --silent --show-error --location --max-time 20 --output product-bootstrap.json --write-out '%{http_code}' \
               -X POST -H "X-KCH-Launch-Product: $LAUNCH_PRODUCT_TOKEN" \
               "$SITE_ORIGIN/api/internal/launch-product-bootstrap")
@@ -146,6 +152,7 @@ jobs:
           [ "$ok" = "1" ] || { echo 'Guarded Rang Jued product bootstrap failed.' >&2; cat product-bootstrap.json || true; exit 1; }
 
       - name: Verify catalog and media launch readiness
+        if: steps.bootstrap_secret.outputs.configured == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -173,7 +180,7 @@ jobs:
           PY
 
       - name: Remove one-time product bootstrap credential
-        if: always()
+        if: always() && steps.bootstrap_secret.outputs.configured == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -192,7 +199,7 @@ jobs:
           PY
 
       - name: Redeploy with product bootstrap credential removed
-        if: always()
+        if: always() && steps.bootstrap_secret.outputs.configured == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -201,12 +208,12 @@ jobs:
             --commit-hash="$GITHUB_SHA" --commit-message="close Rang Jued launch bootstrap"
 
       - name: Confirm product bootstrap route is closed
-        if: always()
+        if: always() && steps.bootstrap_secret.outputs.configured == 'true'
         shell: bash
         run: |
           set -euo pipefail
           closed=0
-          for attempt in $(seq 1 25); do
+          for attempt in $(seq 1 45); do
             code=$(curl --silent --show-error --location --max-time 15 --output closed-product.json --write-out '%{http_code}' -X POST "$SITE_ORIGIN/api/internal/launch-product-bootstrap")
             if [ "$code" = "404" ]; then closed=1; break; fi
             sleep 2
