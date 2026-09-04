@@ -8,7 +8,7 @@ const canonicalHost=env=>new URL(canonicalOrigin(env)).host;
 const legacyHosts=new Set(['khonchai.com','www.khonchai.com']);
 const SELLER_KOONCHAISHOP='/seller-koonchaishop.html';
 const KOONCHAISHOP_ADMIN_GUARD='/kch-koonchaishop-admin-readiness.js?v=1.0.1';
-const noIndexPath=pathname=>/\/(?:account|login|register|member|seller(?:-[^/]+)?|seller-center(?:-v2)?)\.html$/i.test(String(pathname||''));
+const noIndexPath=pathname=>/\/(?:account|login|register|member|my-orders|seller(?:-[^/]+)?|seller-center(?:-v2)?)\.html$/i.test(String(pathname||''));
 const canonicalRedirect=(request,env,u)=>{
   if(!['GET','HEAD'].includes(request.method))return null;
   const host=String(u.host||'').toLowerCase();
@@ -54,6 +54,8 @@ const withCanonicalMetadata=(response,env,pathname='')=>{
     head.append('<script defer src="/kch-v1341-header-dedupe.js?v=1.34.1"></script>',{html:true});
     head.append('<script defer src="/kch-v136-fast-purchase.js?v=1.36.0"></script>',{html:true});
     head.append('<script defer src="/kch-v137-contextual-care.js?v=1.38.0"></script>',{html:true});
+    head.append('<script defer src="/kch-v139-after-sales-bridge.js?v=1.39.0"></script>',{html:true});
+    head.append('<script defer src="/kch-v139-member-orders-bridge.js?v=1.39.0"></script>',{html:true});
     head.append('<script defer src="/kch-live-catalog-guard.js?v=1.0.0"></script>',{html:true});
     if(pathname===SELLER_KOONCHAISHOP)head.append(`<script defer src="${KOONCHAISHOP_ADMIN_GUARD}"></script>`,{html:true});
   }}).transform(response);
