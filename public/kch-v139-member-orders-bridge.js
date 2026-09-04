@@ -1,0 +1,13 @@
+/* KHONCHAIHERB v1.39.0 — member to orders center bridge */
+(()=>{
+  'use strict';
+  if(typeof document==='undefined'||window.__KCH_MEMBER_ORDERS_BRIDGE__==='1.39.0')return;
+  window.__KCH_MEMBER_ORDERS_BRIDGE__='1.39.0';
+  const path=String(location.pathname||'').toLowerCase();
+  if(!/\/(?:member|account)\.html$/.test(path))return;
+  const escSel=v=>{try{return CSS.escape(String(v||''))}catch{return String(v||'').replace(/[^a-z0-9_-]/gi,'')}};
+  function addStyle(){if(document.getElementById('kch-v139-member-style'))return;const s=document.createElement('style');s.id='kch-v139-member-style';s.textContent='.kch-v139-orders-link{display:flex;align-items:center;justify-content:center;min-height:50px;border:0;border-radius:14px;background:#173f31;color:#fff;text-decoration:none;font:900 12px/1.2 "Noto Sans Thai",system-ui,sans-serif}.kch-v139-order-link{display:block;color:inherit;text-decoration:none}.kch-v139-order-link .order{transition:border-color .16s ease,transform .16s ease}.kch-v139-order-link:hover .order{border-color:#b9ccc1;transform:translateY(-1px)}';(document.head||document.documentElement).appendChild(s)}
+  function orderNoFrom(el){const t=String(el?.textContent||'').replace(/\s+/g,' ');const m=t.match(/KCH[A-Z0-9-]{6,30}/i);return m?m[0].toUpperCase():''}
+  function enhance(){addStyle();const card=document.getElementById('member-card');if(!card)return;const logged=Boolean(card.querySelector('.status'))&&/เข้าสู่ระบบแล้ว/.test(card.textContent||'');if(!logged)return;const actions=card.querySelector('.actions');if(actions&&!actions.querySelector('.kch-v139-orders-link')){const a=document.createElement('a');a.className='kch-v139-orders-link';a.href='/my-orders.html';a.textContent='ดูคำสั่งซื้อและบริการหลังการขาย';actions.prepend(a)}card.querySelectorAll('.orders .order').forEach(row=>{if(row.closest('.kch-v139-order-link'))return;const no=orderNoFrom(row);if(!no)return;const a=document.createElement('a');a.className='kch-v139-order-link';a.href=`/my-orders.html#${encodeURIComponent(no)}`;row.parentNode.insertBefore(a,row);a.appendChild(row);a.setAttribute('aria-label',`ดูรายละเอียดคำสั่งซื้อ ${no}`);a.dataset.orderNo=no;a.dataset.orderAnchor=escSel(no)})}
+  let raf=0;const schedule=()=>{if(raf)return;raf=requestAnimationFrame(()=>{raf=0;enhance()})};const target=document.getElementById('member-card')||document.body;if(typeof MutationObserver!=='undefined')new MutationObserver(schedule).observe(target,{childList:true,subtree:true});if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});else schedule();setTimeout(schedule,150);setTimeout(schedule,600);
+})();
