@@ -1,5 +1,6 @@
 import {getCustomer} from './_lib/customer-auth.js';
 const digits=s=>String(s||'').replace(/\D/g,'');
+const bool=v=>String(v??'').toLowerCase()==='true';
 const phoneVariants=s=>{const d=digits(s);if(d.startsWith('66')&&d.length>=11)return [`0${d.slice(2)}`,d];if(d.startsWith('0')&&d.length>=9)return [d,`66${d.slice(1)}`];return [d,d]};
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 const canonicalOrigin=env=>String(env?.SITE_ORIGIN||'https://khonchaiherb-commerce.pages.dev').replace(/\/$/,'');
@@ -62,6 +63,7 @@ export async function onRequest({request,env,next}){
   const redirect=canonicalRedirect(request,env,u);
   if(redirect)return redirect;
   if(request.method==='POST'&&u.pathname==='/api/orders'){
+    if(!bool(env.CHECKOUT_ENABLED)||!bool(env.COD_ENABLED))return json({error:'order_intake_closed'},503);
     const body=await request.clone().json().catch(()=>null),code=String(body?.couponCode||'').trim().toUpperCase(),m=code.match(/^RVW(\d+)-[A-Z0-9]{12}$/);
     if(m&&env.DB){
       let customerId=null;
