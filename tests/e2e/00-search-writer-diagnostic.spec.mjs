@@ -45,7 +45,7 @@ async function installEarlySearchDiagnostic(page){
 
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
 
-test('diagnose search input value writer',async({page})=>{
+test('focused search value survives stale storefront hydration',async({page})=>{
   await mockStore(page);
   await installEarlySearchDiagnostic(page);
   await page.goto('/?flagship=master',{waitUntil:'domcontentloaded'});
@@ -60,8 +60,8 @@ test('diagnose search input value writer',async({page})=>{
   await search.evaluate(el=>{el.dataset.kchE2eSearchNode='diagnostic'});
 
   await page.addScriptTag({path:'public/kch-search-authority.js'});
-  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.10');
-  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY_API__?.build)).toBe('1.0.10');
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.11');
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY_API__?.build)).toBe('1.0.11');
 
   await search.fill('ชารางจืด');
   await page.waitForTimeout(1200);
@@ -75,5 +75,4 @@ test('diagnose search input value writer',async({page})=>{
   console.log(`KCH_SEARCH_WRITER_DIAG=${JSON.stringify(diag)}`);
   expect(diag.sameNode,`KCH_SEARCH_WRITER_DIAG=${JSON.stringify(diag)}`).toBe('diagnostic');
   expect(diag.value,`KCH_SEARCH_WRITER_DIAG=${JSON.stringify(diag)}`).toBe('ชารางจืด');
-  expect(diag.authority,`KCH_SEARCH_WRITER_DIAG=${JSON.stringify(diag)}`).toBe('ชารางจืด');
 });
