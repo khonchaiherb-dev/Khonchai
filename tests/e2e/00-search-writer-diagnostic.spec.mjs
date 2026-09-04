@@ -23,79 +23,23 @@ async function mockStore(page){
 
 async function installEarlySearchDiagnostic(page){
   await page.addInitScript(()=>{
-    const watched=new Set(['beforeinput','input','change','search']);
-    const diag=window.__KCH_E2E_SEARCH_WRITER_DIAG__={writes:[],events:[],registrations:[]};
-    const shortStack=()=>String(new Error().stack||'').split('\n').slice(1,9).map(x=>x.trim());
-    const isSearch=target=>Boolean(target?.matches?.('.tshop-searchbox input,#kch-v134-search'));
-    const push=(key,value,limit=240)=>{
-      diag[key].push(value);
-      if(diag[key].length>limit)diag[key].shift();
-    };
-
-    // Register this listener before any storefront script so stopImmediatePropagation
-    // from later window/document handlers cannot hide the browser event from us.
-    const nativeAdd=EventTarget.prototype.addEventListener;
-    const record=(scope,type,event)=>{
+    const events=[];
+    window.__KCH_E2E_SEARCH_WRITER_DIAG__={events};
+    const record=event=>{
       const target=event.target;
-      if(!isSearch(target))return;
-      push('events',{
+      if(!target?.matches?.('.tshop-searchbox input,#kch-v134-search'))return;
+      events.push({
         at:Math.round(performance.now()*10)/10,
-        scope,
-        type,
+        type:event.type,
         value:String(target.value??''),
         trusted:event.isTrusted,
         inputType:event.inputType||'',
         data:event.data??null,
-        focused:document.activeElement===target,
-        phase:event.eventPhase,
-        authority:window.__KCH_SEARCH_AUTHORITY_API__?.get?.()??null,
-        master:window.__KCH_MASTER_SEARCH__?.get?.()??window.__KCH_MASTER_SEARCH__?.query??null
+        focused:document.activeElement===target
       });
+      if(events.length>80)events.shift();
     };
-    for(const type of watched){
-      nativeAdd.call(window,type,event=>record('window-earliest',type,event),true);
-    }
-
-    // Record every later listener registration on window/document for the search
-    // event family, including the script stack where it was registered.
-    EventTarget.prototype.addEventListener=function(type,listener,options){
-      if(watched.has(String(type))&&(this===window||this===document)){
-        const capture=options===true||Boolean(options&&typeof options==='object'&&options.capture);
-        push('registrations',{
-          at:Math.round(performance.now()*10)/10,
-          target:this===window?'window':'document',
-          type:String(type),
-          capture,
-          stack:shortStack()
-        },320);
-      }
-      return nativeAdd.call(this,type,listener,options);
-    };
-
-    const proto=HTMLInputElement.prototype;
-    const descriptor=Object.getOwnPropertyDescriptor(proto,'value');
-    if(descriptor?.get&&descriptor?.set){
-      Object.defineProperty(proto,'value',{
-        configurable:descriptor.configurable,
-        enumerable:descriptor.enumerable,
-        get:descriptor.get,
-        set(value){
-          if(isSearch(this)){
-            push('writes',{
-              at:Math.round(performance.now()*10)/10,
-              id:this.id||'',
-              value:String(value??''),
-              connected:this.isConnected,
-              focused:document.activeElement===this,
-              authority:window.__KCH_SEARCH_AUTHORITY_API__?.get?.()??null,
-              master:window.__KCH_MASTER_SEARCH__?.get?.()??window.__KCH_MASTER_SEARCH__?.query??null,
-              stack:shortStack()
-            });
-          }
-          return descriptor.set.call(this,value);
-        }
-      });
-    }
+    for(const type of ['beforeinput','input','change','search'])window.addEventListener(type,record,true);
   });
 }
 
@@ -116,8 +60,8 @@ test('diagnose search input value writer',async({page})=>{
   await search.evaluate(el=>{el.dataset.kchE2eSearchNode='diagnostic'});
 
   await page.addScriptTag({path:'public/kch-search-authority.js'});
-  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.9');
-  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY_API__?.build)).toBe('1.0.9');
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.10');
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY_API__?.build)).toBe('1.0.10');
 
   await search.fill('ชารางจืด');
   await page.waitForTimeout(1200);
@@ -126,11 +70,10 @@ test('diagnose search input value writer',async({page})=>{
     sameNode:document.querySelector('.tshop-searchbox input')?.dataset?.kchE2eSearchNode||null,
     authority:window.__KCH_SEARCH_AUTHORITY_API__?.get?.()??null,
     master:window.__KCH_MASTER_SEARCH__?.get?.()??window.__KCH_MASTER_SEARCH__?.query??null,
-    writes:window.__KCH_E2E_SEARCH_WRITER_DIAG__?.writes||[],
-    events:window.__KCH_E2E_SEARCH_WRITER_DIAG__?.events||[],
-    registrations:window.__KCH_E2E_SEARCH_WRITER_DIAG__?.registrations||[]
+    events:window.__KCH_E2E_SEARCH_WRITER_DIAG__?.events||[]
   }));
   console.log(`KCH_SEARCH_WRITER_DIAG=${JSON.stringify(diag)}`);
+  expect(diag.sameNode,`KCH_SEARCH_WRITER_DIAG=${JSON.stringify(diag)}`).toBe('diagnostic');
   expect(diag.value,`KCH_SEARCH_WRITER_DIAG=${JSON.stringify(diag)}`).toBe('ชารางจืด');
   expect(diag.authority,`KCH_SEARCH_WRITER_DIAG=${JSON.stringify(diag)}`).toBe('ชารางจืด');
 });
