@@ -5,10 +5,13 @@
   'use strict';
   const MASTER='kch-master-2026';
   let frame=0;
+  const PDP_REVIEWS={productId:0,loading:false,loaded:false};
 
   function page(){return typeof current==='undefined'?'':String(current)}
   function isHome(){return page()==='home'||(!page()&&Boolean(document.querySelector('.tshop-hero')))}
   function isProduct(){return page()==='product'}
+  function isCart(){return page()==='cart'}
+  function isCheckout(){return page()==='checkout'}
   function isCustomerPage(){return !['seller','admin'].includes(page())}
   function visible(el){return Boolean(el)&&!el.hidden&&el.getAttribute('aria-hidden')!=='true'&&getComputedStyle(el).display!=='none'}
   function setText(el,text){if(el&&el.textContent!==text)el.textContent=text}
@@ -41,8 +44,16 @@
       body.kch-master-2026 .kch-master-pdp-guide-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}.kch-master-pdp-guide-head>span{display:grid;gap:2px}.kch-master-pdp-guide-head b{color:#1d4633;font-size:11px}.kch-master-pdp-guide-head small{color:#748078;font-size:8.7px;line-height:1.45}
       body.kch-master-2026 .kch-master-pdp-guide-head button{flex:0 0 auto;min-height:36px;padding:0 12px;border:1px solid #cfe0d5;border-radius:999px;background:#fff;color:#126640;font:900 9px/1 'Noto Sans Thai',sans-serif}
       body.kch-master-2026 .kch-master-pdp-guide-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.kch-master-pdp-guide-grid>div{display:flex;align-items:flex-start;gap:7px;padding:9px;border-radius:11px;background:#fff;border:1px solid #e4ebe6}.kch-master-pdp-guide-grid .material-symbols-rounded{font-size:18px;color:#137b4d}.kch-master-pdp-guide-grid span:last-child{display:grid;gap:2px}.kch-master-pdp-guide-grid b{font-size:8.8px;color:#284a39}.kch-master-pdp-guide-grid small{font-size:7.8px;line-height:1.4;color:#77837c}
+      body.kch-master-2026 .kch-master-real-pdp-reviews{margin:16px 0 0;padding:16px;border:1px solid #e0e8e2;border-radius:17px;background:#fff;box-shadow:0 7px 22px rgba(13,67,39,.045)}
+      body.kch-master-2026 .kch-master-real-review-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:11px}.kch-master-real-review-head span{display:grid;gap:2px}.kch-master-real-review-head b{color:#1d4633;font-size:13px}.kch-master-real-review-head small{color:#748078;font-size:8.8px}.kch-master-real-review-head strong{color:#137b4d;font-size:12px}
+      body.kch-master-2026 .kch-master-real-review-list{display:grid;gap:8px}.kch-master-real-review{display:grid;gap:6px;padding:11px;border:1px solid #e5ebe7;border-radius:13px;background:#fbfdfb}.kch-master-real-review-stars{color:#f5a000;font-size:13px;letter-spacing:1px}.kch-master-real-review p{margin:0;color:#3e584a;font-size:9.8px;line-height:1.62}.kch-master-real-review footer{display:flex;align-items:center;justify-content:space-between;gap:9px;margin:0!important;padding:0!important;border:0!important;background:transparent!important;color:#748078!important;font-size:8.3px}.kch-master-real-review footer b{color:#315440;font-size:8.7px}.kch-master-review-empty{margin:0;color:#718078;font-size:9.4px;line-height:1.55}
+      body.kch-master-2026 .kch-master-cart-confidence{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 14px}.kch-master-cart-confidence>div{display:flex;align-items:center;gap:8px;min-height:52px;padding:9px 11px;border:1px solid #e0e8e2;border-radius:13px;background:#f8fbf8;color:#315440}.kch-master-cart-confidence .material-symbols-rounded{font-size:19px;color:#137b4d}.kch-master-cart-confidence span:last-child{display:grid;gap:1px}.kch-master-cart-confidence b{font-size:8.9px}.kch-master-cart-confidence small{font-size:7.8px;color:#76827b}
+      body.kch-master-2026 .kch-master-checkout-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:0 0 14px}.kch-master-checkout-step{display:flex;align-items:center;gap:8px;padding:10px;border:1px solid #e0e8e2;border-radius:13px;background:#f8fbf8;color:#65766c}.kch-master-checkout-step i{display:grid;place-items:center;width:27px;height:27px;flex:0 0 auto;border-radius:50%;background:#e8f4eb;color:#116a42;font:900 9px/1 'Noto Sans Thai',sans-serif}.kch-master-checkout-step span{display:grid;gap:1px}.kch-master-checkout-step b{font-size:8.8px;color:#315440}.kch-master-checkout-step small{font-size:7.6px;color:#78837d}
+      body.kch-master-2026 .kch-master-checkout-page .checkout-form :where(input,textarea){min-height:47px;border-radius:11px!important;border-color:#dce6df!important;background:#fff!important;font-size:12px!important}body.kch-master-2026 .kch-master-checkout-page .checkout-form textarea{min-height:86px;padding-top:12px!important}
+      body.kch-master-2026 .kch-master-checkout-page .payment label.selected{border-color:#9ccbad!important;background:#f0f8f2!important;box-shadow:0 0 0 3px rgba(19,123,77,.05)!important}.kch-master-checkout-page .payment label.disabled{opacity:.55!important}
+      body.kch-master-2026 .kch-master-checkout-page [data-place]{min-height:54px;border:0!important;border-radius:13px!important;background:#075031!important;color:#fff!important;font-weight:900!important;box-shadow:0 13px 30px rgba(7,80,49,.17)!important}.kch-master-checkout-page [data-place]:disabled{opacity:.65!important}
       body.kch-master-2026 .v118-hero-copy h1 em{white-space:normal!important}
-      @media(max-width:699px){body.kch-master-2026 .kch-master-sales-assistant{right:10px;bottom:calc(76px + env(safe-area-inset-bottom));width:calc(100vw - 20px);border-radius:19px}body.kch-master-2026 .kch-assistant-actions{grid-template-columns:1fr 1fr}body.kch-master-2026 .kch-master-pdp-guide-grid{grid-template-columns:1fr}body.kch-master-2026 .kch-master-pdp-guide-head{display:grid;grid-template-columns:1fr}body.kch-master-2026 .kch-master-pdp-guide-head button{width:100%}body.kch-master-2026.kch-assistant-open{overflow:hidden}}
+      @media(max-width:699px){body.kch-master-2026 .kch-master-sales-assistant{right:10px;bottom:calc(76px + env(safe-area-inset-bottom));width:calc(100vw - 20px);border-radius:19px}body.kch-master-2026 .kch-assistant-actions{grid-template-columns:1fr 1fr}body.kch-master-2026 .kch-master-pdp-guide-grid{grid-template-columns:1fr}body.kch-master-2026 .kch-master-pdp-guide-head{display:grid;grid-template-columns:1fr}body.kch-master-2026 .kch-master-pdp-guide-head button{width:100%}body.kch-master-2026.kch-assistant-open{overflow:hidden}body.kch-master-2026 .kch-master-cart-confidence{grid-template-columns:1fr}body.kch-master-2026 .kch-master-checkout-steps{grid-template-columns:1fr 1fr 1fr;gap:5px}.kch-master-checkout-step{display:grid;justify-items:center;text-align:center;gap:4px;padding:8px 5px}.kch-master-checkout-step small{display:none}body.kch-master-2026 .kch-master-checkout-page{padding-bottom:150px!important}body.kch-master-2026 .kch-master-checkout-page [data-place]{position:sticky;bottom:calc(70px + env(safe-area-inset-bottom));z-index:75;width:100%;box-shadow:0 15px 34px rgba(7,80,49,.25)!important}body.kch-master-2026 .kch-master-real-pdp-reviews{margin:12px 10px 0;padding:13px}.kch-master-real-review-head{align-items:start}}
     `;
     document.head.appendChild(style);
   }
@@ -153,15 +164,74 @@
     pill.hidden=!isCustomerPage();
   }
 
+  function removeLegacyReviewPlaceholder(){
+    if(!isProduct())return;
+    document.querySelectorAll('section.review').forEach(section=>{
+      const text=String(section.textContent||'').replace(/\s+/g,' ').trim();
+      if(text.includes('แพ็กเรียบร้อย จัดส่งตามกำหนด และติดตามสถานะได้สะดวก'))section.remove();
+    });
+  }
+
+  async function loadVerifiedProductReviews(){
+    if(!isProduct()||typeof selected==='undefined'||!selected)return;
+    const productId=Number(selected.id||0);if(!Number.isInteger(productId)||productId<1)return;
+    if(PDP_REVIEWS.productId!==productId){PDP_REVIEWS.productId=productId;PDP_REVIEWS.loaded=false;PDP_REVIEWS.loading=false;document.querySelector('.kch-master-real-pdp-reviews')?.remove()}
+    if(PDP_REVIEWS.loaded||PDP_REVIEWS.loading)return;
+    PDP_REVIEWS.loading=true;
+    try{
+      const response=await fetch(`/api/reviews?productId=${encodeURIComponent(productId)}&limit=8`,{credentials:'same-origin',headers:{Accept:'application/json'}});
+      if(!response.ok)return;
+      const data=await response.json().catch(()=>null);if(!data)return;
+      const reviews=(Array.isArray(data.reviews)?data.reviews:[]).filter(r=>r&&r.verifiedPurchase&&String(r.body||'').trim());
+      renderVerifiedProductReviews(productId,data.summary||{},reviews);
+      PDP_REVIEWS.loaded=true;
+    }catch{}finally{PDP_REVIEWS.loading=false}
+  }
+
+  function renderVerifiedProductReviews(productId,summary,reviews){
+    if(!isProduct()||Number(selected?.id||0)!==productId)return;
+    let section=document.querySelector('.kch-master-real-pdp-reviews');
+    if(!section){section=document.createElement('section');section.className='kch-master-real-pdp-reviews';section.setAttribute('aria-label','รีวิวจากผู้ซื้อที่ยืนยันแล้ว')}
+    section.replaceChildren();
+    const head=document.createElement('div');head.className='kch-master-real-review-head';const label=document.createElement('span');const title=document.createElement('b');title.textContent='รีวิวจากผู้ซื้อที่ยืนยันแล้ว';const sub=document.createElement('small');sub.textContent='แสดงเฉพาะรีวิวที่เชื่อมกับคำสั่งซื้อในระบบ';label.append(title,sub);head.appendChild(label);
+    const count=Number(summary.count||0),average=Number(summary.average||0);if(count>0&&average>0){const score=document.createElement('strong');score.textContent=`${average.toFixed(1)} / 5 • ${count} รีวิว`;head.appendChild(score)}
+    section.appendChild(head);
+    if(reviews.length){const list=document.createElement('div');list.className='kch-master-real-review-list';reviews.forEach(r=>{const card=document.createElement('article');card.className='kch-master-real-review';const stars=document.createElement('div');stars.className='kch-master-real-review-stars';stars.textContent='★'.repeat(Math.max(0,Math.min(5,Number(r.rating||0))));stars.setAttribute('aria-label',`${Number(r.rating||0)} ดาว`);const body=document.createElement('p');body.textContent=String(r.body||'').trim();const footer=document.createElement('footer');const buyer=document.createElement('b');buyer.textContent=String(r.buyer||'ผู้ซื้อที่ยืนยันแล้ว');const verified=document.createElement('span');verified.textContent='✓ Verified Purchase';footer.append(buyer,verified);card.append(stars,body,footer);list.appendChild(card)});section.appendChild(list)}
+    else{const empty=document.createElement('p');empty.className='kch-master-review-empty';empty.textContent='ยังไม่มีรีวิวจากผู้ซื้อที่ยืนยันแล้วสำหรับสินค้านี้';section.appendChild(empty)}
+    const pdp=document.querySelector('.kch-pdp-20,.tshop-pdp,.detail');if(pdp&&!section.isConnected)pdp.appendChild(section);
+  }
+
   function enhanceProductDetail(){
     if(!isProduct())return;
-    const pdp=document.querySelector('.kch-pdp-20,.tshop-pdp');if(!pdp||pdp.querySelector('.kch-master-pdp-guide'))return;
-    const ready=typeof selected!=='undefined'&&selected&&Number(selected.price||0)>0&&!selected.comingSoon;
-    const name=typeof selected!=='undefined'&&selected?.name?String(selected.name):'';
-    const guide=document.createElement('section');guide.className='kch-master-pdp-guide';guide.setAttribute('aria-label','ความช่วยเหลือก่อนสั่งซื้อ');
-    guide.innerHTML=`<div class="kch-master-pdp-guide-head"><span><b>${ready?'พร้อมดำเนินการสั่งซื้อ':'ตรวจข้อมูลสินค้าก่อนสั่งซื้อ'}</b><small>ตรวจราคา จำนวน ที่อยู่จัดส่ง และยอดรวมอีกครั้งก่อนยืนยันคำสั่งซื้อ</small></span><button type="button" data-kch-ask-product>ให้ผู้ช่วยช่วยเลือก</button></div><div class="kch-master-pdp-guide-grid"><div><span class="material-symbols-rounded">payments</span><span><b>เก็บเงินปลายทาง</b><small>รองรับ COD เมื่อรายการเข้าเงื่อนไข</small></span></div><div><span class="material-symbols-rounded">local_shipping</span><span><b>ติดตามออเดอร์</b><small>ค้นหาสถานะด้วยข้อมูลคำสั่งซื้อ</small></span></div><div><span class="material-symbols-rounded">receipt_long</span><span><b>ใบเสร็จ</b><small>ออกได้หลังรับชำระสำเร็จ</small></span></div></div>`;
-    const anchor=pdp.querySelector('.pdp-price-block,.v115-pdp-info-pane,.pdp-info');if(anchor)anchor.insertAdjacentElement('afterend',guide);else pdp.appendChild(guide);
-    guide.querySelector('[data-kch-ask-product]')?.addEventListener('click',()=>openAssistant(name));
+    removeLegacyReviewPlaceholder();
+    const pdp=document.querySelector('.kch-pdp-20,.tshop-pdp,.detail');if(!pdp)return;
+    if(!pdp.querySelector('.kch-master-pdp-guide')){
+      const ready=typeof selected!=='undefined'&&selected&&Number(selected.price||0)>0&&!selected.comingSoon;
+      const name=typeof selected!=='undefined'&&selected?.name?String(selected.name):'';
+      const guide=document.createElement('section');guide.className='kch-master-pdp-guide';guide.setAttribute('aria-label','ความช่วยเหลือก่อนสั่งซื้อ');
+      guide.innerHTML=`<div class="kch-master-pdp-guide-head"><span><b>${ready?'พร้อมดำเนินการสั่งซื้อ':'ตรวจข้อมูลสินค้าก่อนสั่งซื้อ'}</b><small>ตรวจราคา จำนวน ที่อยู่จัดส่ง และยอดรวมอีกครั้งก่อนยืนยันคำสั่งซื้อ</small></span><button type="button" data-kch-ask-product>ให้ผู้ช่วยช่วยเลือก</button></div><div class="kch-master-pdp-guide-grid"><div><span class="material-symbols-rounded">payments</span><span><b>เก็บเงินปลายทาง</b><small>รองรับ COD เมื่อรายการเข้าเงื่อนไข</small></span></div><div><span class="material-symbols-rounded">local_shipping</span><span><b>ติดตามออเดอร์</b><small>ค้นหาสถานะด้วยข้อมูลคำสั่งซื้อ</small></span></div><div><span class="material-symbols-rounded">receipt_long</span><span><b>ใบเสร็จ</b><small>ออกได้หลังรับชำระสำเร็จ</small></span></div></div>`;
+      const anchor=pdp.querySelector('.pdp-price-block,.v115-pdp-info-pane,.pdp-info')||pdp;anchor.insertAdjacentElement?.('afterend',guide);if(!guide.isConnected)pdp.appendChild(guide);
+      guide.querySelector('[data-kch-ask-product]')?.addEventListener('click',()=>openAssistant(name));
+    }
+    loadVerifiedProductReviews();
+  }
+
+  function enhanceCart(){
+    if(!isCart())return;
+    const main=document.querySelector('main.page');if(!main)return;main.classList.add('kch-master-cart-page');
+    if(main.querySelector('.kch-master-cart-confidence'))return;
+    const title=main.querySelector('.page-title');if(!title)return;
+    const strip=document.createElement('section');strip.className='kch-master-cart-confidence';strip.setAttribute('aria-label','ความมั่นใจก่อนชำระเงิน');strip.innerHTML=`<div><span class="material-symbols-rounded">payments</span><span><b>รองรับเก็บเงินปลายทาง</b><small>เลือก COD ในขั้นตอนชำระเงิน</small></span></div><div><span class="material-symbols-rounded">fact_check</span><span><b>ตรวจยอดก่อนยืนยัน</b><small>ราคาและสต๊อกตรวจซ้ำบนเซิร์ฟเวอร์</small></span></div><div><span class="material-symbols-rounded">receipt_long</span><span><b>มีใบเสร็จหลังรับชำระ</b><small>เชื่อมกับคำสั่งซื้อและสถานะการชำระ</small></span></div>`;title.insertAdjacentElement('afterend',strip);
+  }
+
+  function enhanceCheckout(){
+    if(!isCheckout())return;
+    const main=document.querySelector('main.page');if(!main)return;main.classList.add('kch-master-checkout-page');
+    const title=main.querySelector('.page-title');
+    if(title&&!main.querySelector('.kch-master-checkout-steps')){const steps=document.createElement('section');steps.className='kch-master-checkout-steps';steps.setAttribute('aria-label','ขั้นตอนชำระเงิน');steps.innerHTML=`<div class="kch-master-checkout-step"><i>1</i><span><b>ข้อมูลจัดส่ง</b><small>ชื่อ เบอร์โทร ที่อยู่</small></span></div><div class="kch-master-checkout-step"><i>2</i><span><b>COD</b><small>ชำระเมื่อได้รับสินค้า</small></span></div><div class="kch-master-checkout-step"><i>3</i><span><b>ยืนยันออเดอร์</b><small>ตรวจยอดก่อนส่งคำสั่งซื้อ</small></span></div>`;title.insertAdjacentElement('afterend',steps)}
+    const err=main.querySelector('#checkout-error');if(err){err.setAttribute('role','alert');err.setAttribute('aria-live','polite')}
+    const place=main.querySelector('[data-place]');if(place&&!place.disabled&&place.textContent.trim()==='สั่งซื้อสินค้า')place.textContent='ยืนยันคำสั่งซื้อแบบเก็บเงินปลายทาง';
+    main.querySelectorAll('.checkout-form input,.checkout-form textarea').forEach(el=>{el.setAttribute('aria-required',el.id==='marketing-consent'?'false':'true')});
   }
 
   function annotateRealMedia(){if(!isHome())return;document.querySelectorAll('.video-feed,.review-grid,.reviews-grid,[class*="review-grid"]').forEach(section=>{if(visible(section))section.dataset.kchMasterRealContent='1'})}
@@ -169,6 +239,8 @@
   function apply(){
     markMaster();injectCommerceStyles();assistantSurface();
     if(isProduct())enhanceProductDetail();
+    if(isCart())enhanceCart();
+    if(isCheckout())enhanceCheckout();
     if(!isHome())return;
     normalizeHomeLabels();upgradeHeroCopy();placeShortcuts();const grid=promoGrid();placeProducts(grid);annotateRealMedia();trustStrip();
   }
@@ -182,5 +254,5 @@
     window.addEventListener('popstate',()=>setTimeout(schedule,0),{passive:true});window.addEventListener('load',schedule,{once:true});setTimeout(schedule,120);setTimeout(schedule,600);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
-  window.__KCH_MASTER_REFERENCE_2026__={refresh:schedule,openAssistant,version:'2026.09.1'};
+  window.__KCH_MASTER_REFERENCE_2026__={refresh:schedule,openAssistant,version:'2026.09.3'};
 })();
