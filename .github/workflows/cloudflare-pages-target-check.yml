@@ -17,6 +17,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       PROJECT_NAME: khonchaiherb-commerce
+      EXPECTED_PRODUCTION_BRANCH: storefront-social-commerce
     steps:
       - name: Verify credentials are present
         shell: bash
@@ -25,7 +26,7 @@ jobs:
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
 
-      - name: Read Pages project metadata (read only)
+      - name: Read and validate Pages production target
         shell: bash
         run: |
           set -euo pipefail
@@ -35,17 +36,20 @@ jobs:
             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PROJECT_NAME" \
             > pages-project.json
           python3 - <<'PY'
-          import json
+          import json, os
           from pathlib import Path
           d=json.loads(Path('pages-project.json').read_text())
           if not d.get('success'):
               raise SystemExit('Cloudflare Pages project metadata request was not successful')
           r=d.get('result') or {}
+          actual=str(r.get('production_branch') or '')
+          expected=os.environ['EXPECTED_PRODUCTION_BRANCH']
           print('project='+str(r.get('name') or ''))
           print('subdomain='+str(r.get('subdomain') or ''))
-          print('production_branch='+str(r.get('production_branch') or ''))
+          print('production_branch='+actual)
           domains=r.get('domains') or []
           print('domains='+','.join(str(x) for x in domains))
-          if not r.get('production_branch'):
-              raise SystemExit('Pages project did not report a production_branch')
+          if actual != expected:
+              raise SystemExit(f'Cloudflare production_branch mismatch: expected {expected}, got {actual or "<empty>"}')
+          print('Cloudflare production target: VERIFIED')
           PY
