@@ -2,7 +2,7 @@
 (()=>{
   'use strict';
   if(typeof document==='undefined')return;
-  const BUILD='1.0.10';
+  const BUILD='1.0.11';
   if(window.__KCH_SEARCH_AUTHORITY__===BUILD)return;
   window.__KCH_SEARCH_AUTHORITY__=BUILD;
 
@@ -80,11 +80,12 @@
   // Never overwrite the input currently being edited. Browser typing, mobile
   // IME, autofill and automation own that live value until their input event is
   // committed. Authority mirrors the canonical query only to sibling or newly
-  // rendered search controls. If the editing node is replaced, the replacement
-  // is no longer === source and is hydrated automatically.
+  // rendered search controls. A focused search field is always protected,
+  // including from stale boot/settle timers that were scheduled before focus.
   function syncReplacementInputs(displayQuery=activeDisplayQuery,source=null){
     const value=String(displayQuery??'');
     inputs().forEach(input=>{
+      if(document.activeElement===input)return;
       if(source?.isConnected&&input===source)return;
       if(input.value!==value)input.value=value;
     });
@@ -235,12 +236,11 @@
     const focused=document.activeElement===target;
     const owned=target===editingInput||target===activeInput||focused;
 
-    // Search Authority listens at Window capture so it always receives the
-    // customer's browser event before older Document capture handlers can stop
-    // propagation. Only a synthetic empty event is quarantined: real browser
-    // clears remain authoritative, while legacy scripted resets cannot erase a
-    // live customer query.
-    if(masterActive()&&!q&&event.isTrusted===false&&activeQuery){
+    // Older scripted empty resets may not erase a live query from a stale or
+    // unfocused control. The actively edited/focused control always owns a
+    // clear, regardless of whether automation/browser integration marks its
+    // event trusted or synthetic.
+    if(masterActive()&&!q&&event.isTrusted===false&&activeQuery&&!owned){
       event.stopImmediatePropagation();
       target.value=activeDisplayQuery;
       schedule(activeDisplayQuery,editingInput?.isConnected?editingInput:null);
