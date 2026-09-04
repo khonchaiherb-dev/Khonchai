@@ -13,7 +13,7 @@ for(const forbidden of ['INSERT INTO','UPDATE products','UPDATE orders','DELETE 
 for(const token of ['/api/checkout-quote','/api/orders','stopImmediatePropagation','customer-district','customer-province','customer-postal','idempotencyKey','paymentMethod:\'COD\'','ระบบจะไม่สร้างเลขออเดอร์จำลอง','addCanonicalProduct','openOrders'])assert.ok(integrity.includes(token),`commerce integrity missing: ${token}`);
 assert.ok(!integrity.includes("data={ok:true,orderNo:'KCH'"),'integrity layer must not create local fake orders');
 
-for(const token of ['/api/products','เปรียบเทียบสินค้า','addCanonicalProduct','ไม่ใช้รีวิวหรือยอดขายสมมติ','data-kch-assistant=\'compare\'','data-kch-assistant=\'quick\''])assert.ok(guided.includes(token),`guided sales missing: ${token}`);
+for(const token of ['/api/products','เปรียบเทียบสินค้า','addCanonicalProduct','ไม่ใช้รีวิวหรือยอดขายสมมติ',"dataset.kchAssistant='compare'","dataset.kchAssistant='quick'"])assert.ok(guided.includes(token),`guided sales missing: ${token}`);
 
 for(const token of ['/kch-master-reference-2026.css?v=2026.09.05','/kch-master-reference-2026.js?v=2026.09.05','/kch-commerce-integrity.js?v=2026.09.05','/kch-guided-sales.js?v=2026.09.05'])assert.ok(middleware.includes(token),`middleware missing storefront authority asset: ${token}`);
 const live=middleware.indexOf('/kch-live-catalog-guard.js');
