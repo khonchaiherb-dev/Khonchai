@@ -26,21 +26,20 @@ Mobile-first social-commerce storefront for **KHONCHAIHERB**. The experience use
 ## Data layer
 Cloudflare D1 schema includes products, customers, addresses, orders, order items, payments, shipments, coupons/redemptions, inventory movements, reviews, refunds, receipts, order events and store settings.
 
-Apply migrations in order:
-1. `db/migrations/0001_init.sql`
-2. `db/migrations/0002_production_hardening.sql`
-3. `db/seed.sql` for starter/demo catalog data
+For a fresh production database, prefer `db/bootstrap-production.sql`. If upgrading an existing database, apply every migration in `db/migrations/` in numeric order through the latest migration (`0016_pandan_product.sql` at v1.18.2), then apply the production seed files required by the deployment.
 
 ## Cloudflare Pages deployment
 - Repository: `khonchaiherb-dev/Khonchai`
-- Production branch: `storefront-social-commerce`
+- Production branch: `storefront-production`
 - Framework preset: None
 - Build command: leave empty
 - Build output directory: `public`
 - D1 binding: `DB`
-- Secret: `ADMIN_TOKEN`
+- R2 binding: `MEDIA_BUCKET`
+- Required secrets: `ADMIN_TOKEN`, `AUTH_PEPPER`, `SHIPPING_WEBHOOK_SECRET`
+- OTP/SMS integration: `OTP_WEBHOOK_URL` and optional `OTP_WEBHOOK_TOKEN`
 
-After Git integration is enabled, every push to the production branch can trigger an automatic Cloudflare Pages deployment.
+After Git integration is enabled, every push to `storefront-production` can trigger an automatic Cloudflare Pages deployment. Production changes should land on this branch only after the Quality Check, Browser E2E and D1 Bootstrap checks pass.
 
 ## Before accepting real customer orders
-Replace starter catalog content with verified product data/images, connect the production domain, configure D1, set the admin secret, connect shipping/tracking and COD reconciliation, review privacy/terms/returns content, and run the complete browse → cart → checkout → shipment → collection → receipt test.
+Replace starter catalog content with verified product data/images, connect the production domain, configure D1 + R2, set production secrets, connect shipping/tracking and COD reconciliation, review privacy/terms/returns/PDPA content, enable backups/monitoring/rate limiting, and run the complete browse → cart → checkout → shipment → COD collection/payment → receipt test.
