@@ -1,0 +1,89 @@
+name: KHONCHAIHERB Pages Runtime Config Audit
+
+on:
+  push:
+    branches: [storefront-social-commerce]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: khonchaiherb-pages-runtime-config-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Inspect production bindings and launch flags
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PROJECT_NAME: khonchaiherb-commerce
+    steps:
+      - name: Fetch Pages project configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H 'Content-Type: application/json' \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PROJECT_NAME" \
+            > pages-project.json
+
+      - name: Report sanitized production runtime configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          d=json.load(open('pages-project.json'))
+          if not d.get('success'):
+              raise SystemExit('Pages project lookup failed')
+          r=d.get('result') or {}
+          prod=(r.get('deployment_configs') or {}).get('production') or {}
+          d1=prod.get('d1_databases') or {}
+          r2=prod.get('r2_buckets') or {}
+          envs=prod.get('env_vars') or {}
+          whitelist=['CHECKOUT_ENABLED','COD_ENABLED','ONLINE_PAYMENTS_ENABLED','LEGACY_ADMIN_ENABLED','STAFF_CSRF_ENFORCE','PACKING_REQUIRE_VERIFICATION','ORDER_IDEMPOTENCY_REQUIRED','SITE_ORIGIN']
+          print('production_branch='+str(r.get('production_branch') or ''))
+          print('d1_bindings='+(','.join(sorted(d1.keys())) if d1 else 'none'))
+          for name,cfg in sorted(d1.items()):
+              print(f'd1:{name}:id={str((cfg or {}).get("id") or "")[:8]}...')
+          print('r2_bindings='+(','.join(sorted(r2.keys())) if r2 else 'none'))
+          for name,cfg in sorted(r2.items()):
+              print(f'r2:{name}:bucket={str((cfg or {}).get("name") or "")}')
+          for name in whitelist:
+              cfg=envs.get(name)
+              if not cfg:
+                  print(f'env:{name}=<missing>')
+              elif cfg.get('type')=='plain_text':
+                  print(f'env:{name}={cfg.get("value","")}')
+              else:
+                  print(f'env:{name}=<secret>')
+          with open('runtime-audit.txt','w') as f:
+              f.write('D1_BINDINGS='+(','.join(sorted(d1.keys())) if d1 else 'none')+'\n')
+              f.write('R2_BINDINGS='+(','.join(sorted(r2.keys())) if r2 else 'none')+'\n')
+              for name,cfg in sorted(r2.items()):
+                  f.write(f'R2_{name}={str((cfg or {}).get("name") or "")}\n')
+              for name in whitelist:
+                  cfg=envs.get(name)
+                  val='<missing>' if not cfg else (str(cfg.get('value','')) if cfg.get('type')=='plain_text' else '<secret>')
+                  f.write(f'ENV_{name}={val}\n')
+          PY
+          cat runtime-audit.txt >> "$GITHUB_ENV"
+
+      - name: Publish runtime audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "### KHONCHAIHERB production runtime config" >> "$GITHUB_STEP_SUMMARY"
+          echo "- D1 bindings: $D1_BINDINGS" >> "$GITHUB_STEP_SUMMARY"
+          echo "- R2 bindings: $R2_BINDINGS" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Checkout: $ENV_CHECKOUT_ENABLED" >> "$GITHUB_STEP_SUMMARY"
+          echo "- COD: $ENV_COD_ENABLED" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Packing verification: $ENV_PACKING_REQUIRE_VERIFICATION" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Order idempotency: $ENV_ORDER_IDEMPOTENCY_REQUIRED" >> "$GITHUB_STEP_SUMMARY"
