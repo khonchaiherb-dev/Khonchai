@@ -1,3 +1,4 @@
+// KHONCHAIHERB production health contract — storefront visual changes must not alter commerce readiness semantics.
 const bool=v=>String(v??'').toLowerCase()==='true';
 
 async function probe(db,sql,binds=[]){
