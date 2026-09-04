@@ -31,13 +31,13 @@ test('diagnose search input value writer',async({page})=>{
   await page.addStyleTag({path:'public/tshop-v132-conversion-storefront.css'});
   await page.addStyleTag({path:'public/tshop-v1321-search-visibility-fix.css'});
   await page.addScriptTag({path:'public/kch-conversion-storefront.js'});
-  await page.addScriptTag({path:'public/kch-search-authority.js'});
-  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.8');
 
   const search=page.locator('.tshop-searchbox input');
   await expect(search).toHaveCount(1);
   await search.evaluate(el=>{el.dataset.kchE2eSearchNode='diagnostic'});
 
+  // Instrument before Search Authority is injected so we can see the exact
+  // browser event/value that the authority receives at Window capture.
   await page.evaluate(()=>{
     const proto=HTMLInputElement.prototype;
     const descriptor=Object.getOwnPropertyDescriptor(proto,'value');
@@ -49,19 +49,27 @@ test('diagnose search input value writer',async({page})=>{
       get:descriptor.get,
       set(value){
         if(this.matches?.('.tshop-searchbox input,#kch-v134-search')){
-          diag.writes.push({at:Math.round(performance.now()*10)/10,id:this.id||'',value:String(value??''),connected:this.isConnected,focused:document.activeElement===this,stack:shortStack()});
-          if(diag.writes.length>80)diag.writes.shift();
+          diag.writes.push({at:Math.round(performance.now()*10)/10,id:this.id||'',value:String(value??''),connected:this.isConnected,focused:document.activeElement===this,authority:window.__KCH_SEARCH_AUTHORITY_API__?.get?.()??null,stack:shortStack()});
+          if(diag.writes.length>120)diag.writes.shift();
         }
         return descriptor.set.call(this,value);
       }
     });
-    for(const type of ['beforeinput','input','change','search'])document.addEventListener(type,event=>{
+    const record=(scope,type,event)=>{
       const target=event.target;
       if(!target?.matches?.('.tshop-searchbox input,#kch-v134-search'))return;
-      diag.events.push({at:Math.round(performance.now()*10)/10,type,value:String(target.value??''),trusted:event.isTrusted,focused:document.activeElement===target});
-      if(diag.events.length>80)diag.events.shift();
-    },true);
+      diag.events.push({at:Math.round(performance.now()*10)/10,scope,type,value:String(target.value??''),trusted:event.isTrusted,inputType:event.inputType||'',data:event.data??null,focused:document.activeElement===target,phase:event.eventPhase,authority:window.__KCH_SEARCH_AUTHORITY_API__?.get?.()??null});
+      if(diag.events.length>160)diag.events.shift();
+    };
+    for(const type of ['beforeinput','input','change','search']){
+      window.addEventListener(type,event=>record('window-before',type,event),true);
+      document.addEventListener(type,event=>record('document',type,event),true);
+      window.addEventListener(type,event=>record('window-bubble',type,event),false);
+    }
   });
+
+  await page.addScriptTag({path:'public/kch-search-authority.js'});
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.8');
 
   await search.fill('ชารางจืด');
   await page.waitForTimeout(1200);
@@ -69,6 +77,7 @@ test('diagnose search input value writer',async({page})=>{
     value:document.querySelector('.tshop-searchbox input')?.value??null,
     sameNode:document.querySelector('.tshop-searchbox input')?.dataset?.kchE2eSearchNode||null,
     authority:window.__KCH_SEARCH_AUTHORITY_API__?.get?.()??null,
+    master:window.__KCH_MASTER_SEARCH__?.get?.()??window.__KCH_MASTER_SEARCH__?.query??null,
     writes:window.__KCH_E2E_SEARCH_WRITER_DIAG__?.writes||[],
     events:window.__KCH_E2E_SEARCH_WRITER_DIAG__?.events||[]
   }));
