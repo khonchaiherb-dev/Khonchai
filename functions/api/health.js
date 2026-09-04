@@ -55,7 +55,12 @@ export async function onRequestGet({env}){
     ok:databaseReady&&catalogSchemaReady&&orderSchemaReady,
     service:'khonchaiherb-commerce',
     version:'1.18.2',
-    d1:databaseBound,
+    // Compatibility contract: legacy storefronts historically read `d1` as
+    // "order intake is ready". Keep that consumer safe while exposing the
+    // actual binding state separately as d1Bound/databaseBound.
+    d1:codLaunchReady,
+    d1Bound:databaseBound,
+    databaseBound,
     databaseReady,
     catalogSchemaReady,
     orderSchemaReady,
@@ -63,6 +68,7 @@ export async function onRequestGet({env}){
     checkoutEnabled,
     codConfigured,
     codLaunchReady,
+    orderIntakeReady:codLaunchReady,
     launchBlockers:blockers,
     catalogProbeError:catalogProbe&&!catalogProbe.ok?catalogProbe.error:null,
     orderProbeError:orderProbe&&!orderProbe.ok?orderProbe.error:null,
