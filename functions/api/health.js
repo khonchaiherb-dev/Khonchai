@@ -61,7 +61,7 @@ export async function onRequestGet({env}){
   return Response.json({
     ok:databaseReady&&catalogSchemaReady&&orderSchemaReady,
     service:'khonchaiherb-commerce',
-    version:'1.18.3',
+    version:'1.18.2',
     d1:codLaunchReady,
     d1Bound:databaseBound,
     databaseBound,
