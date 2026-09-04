@@ -1,10 +1,14 @@
 import {sha256Hex,hitRateLimit,securityEvent,json,tableExists} from '../_lib/staff-auth.js';
 function policy(path,method){if(method!=='POST'&&method!=='PUT'&&method!=='PATCH'&&method!=='DELETE')return null;if(path==='/api/orders')return ['orders-create',20,600];if(path==='/api/customer/request-code')return ['customer-otp',6,600];if(path==='/api/staff/login')return ['staff-login',10,600];if(path==='/api/reviews')return ['reviews-write',20,3600];if(path==='/api/commerce-event')return ['commerce-events',300,3600];return ['api-write',240,600]}
 const production=env=>String(env.ENVIRONMENT||'').toLowerCase()==='production'||String(env.PRODUCTION_MODE||'').toLowerCase()==='true';
+const enabled=v=>String(v??'').toLowerCase()==='true';
 const stable=v=>{if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v))return `[${v.map(stable).join(',')}]`;return `{${Object.keys(v).sort().map(k=>`${JSON.stringify(k)}:${stable(v[k])}`).join(',')}}`};
 function withRequestId(response,requestId){const headers=new Headers(response.headers);headers.set('X-Request-ID',requestId);return new Response(response.body,{status:response.status,statusText:response.statusText,headers})}
 async function orderGuard(request,env,url,requestId){
   if(request.method!=='POST'||url.pathname!=='/api/orders')return null;
+  if(!enabled(env.CHECKOUT_ENABLED))return {response:json({error:'checkout_disabled',requestId},503)};
+  if(!enabled(env.COD_ENABLED))return {response:json({error:'cod_disabled',requestId},503)};
+  if(!env.DB)return {response:json({error:'database_not_bound',requestId},503)};
   const max=Math.max(4096,Math.min(262144,Number(env.ORDER_MAX_BODY_BYTES||32768))),raw=await request.clone().text();
   if(new TextEncoder().encode(raw).byteLength>max)return {response:json({error:'request_too_large',requestId},413)};
   let body;try{body=JSON.parse(raw)}catch{return {response:json({error:'invalid_json',requestId},400)}}
