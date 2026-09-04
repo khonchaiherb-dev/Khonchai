@@ -1,17 +1,19 @@
 /* KHONCHAIHERB — canonical customer commerce UI
-   Keeps legacy renderer from surfacing unverified commerce metadata. */
+   One customer-facing commerce authority for verified catalog data. */
 (()=>{
   'use strict';
   if(typeof document==='undefined'||window.__KCH_CANONICAL_COMMERCE_UI__)return;
-  window.__KCH_CANONICAL_COMMERCE_UI__='2026.09.05';
+  window.__KCH_CANONICAL_COMMERCE_UI__='2026.09.05.2';
 
   const state={products:[],loading:false,promise:null,category:''};
   const $=(s,r=document)=>r?.querySelector?.(s)||null;
   const $$=(s,r=document)=>Array.from(r?.querySelectorAll?.(s)||[]);
   const text=el=>String(el?.textContent||'').replace(/\s+/g,' ').trim();
   const clean=v=>String(v??'').trim();
-  const money=n=>{try{return new Intl.NumberFormat('th-TH',{style:'currency',currency:'THB',maximumFractionDigits:0}).format(Number(n)||0)}catch{return `฿${Number(n)||0}`}};
-  const saleReadyRows=rows=>(Array.isArray(rows)?rows:[]).filter(p=>clean(p.slug)&&clean(p.image_url||p.image)&&Number(p.price)>0&&Number(p.available_stock??p.stock)>0);
+  const num=v=>Number(v)||0;
+  const stockOf=p=>Math.max(0,num(p?.available_stock??p?.stock));
+  const money=n=>{try{return new Intl.NumberFormat('th-TH',{style:'currency',currency:'THB',maximumFractionDigits:0}).format(num(n))}catch{return `฿${num(n)}`}};
+  const saleReadyRows=rows=>(Array.isArray(rows)?rows:[]).filter(p=>clean(p.slug)&&clean(p.image_url||p.image)&&num(p.price)>0&&stockOf(p)>0);
 
   async function products(){
     if(state.products.length)return state.products;
@@ -32,11 +34,12 @@
 
   function currentIdentity(){
     let id=null,slug='';
-    try{if(typeof selected!=='undefined'&&selected){id=Number(selected.id)||null;slug=clean(selected.slug)}}catch{}
+    try{if(typeof selected!=='undefined'&&selected){id=num(selected.id)||null;slug=clean(selected.slug)}}catch{}
     if(!slug){const m=String(location.hash||'').match(/product\/([^/?#]+)/i);if(m)try{slug=decodeURIComponent(m[1])}catch{slug=m[1]}}
+    if(!slug){const m=String(location.pathname||'').match(/\/product\/([^/?#]+)/i);if(m)try{slug=decodeURIComponent(m[1])}catch{slug=m[1]}}
     return {id,slug};
   }
-  function findLive(rows,id,slug=''){return rows.find(p=>id&&Number(p.id)===Number(id))||rows.find(p=>slug&&clean(p.slug)===clean(slug))||null}
+  function findLive(rows,id,slug=''){return (Array.isArray(rows)?rows:[]).find(p=>id&&num(p.id)===num(id))||(Array.isArray(rows)?rows:[]).find(p=>slug&&clean(p.slug)===clean(slug))||null}
 
   function removeLegacyClaims(scope=document){
     $$('.rating,.review-promo,.tshop-meta',scope).forEach(el=>el.remove());
@@ -67,6 +70,7 @@
   function ensureCanonicalStyles(){
     if($('#kch-canonical-commerce-style'))return;
     const style=document.createElement('style');style.id='kch-canonical-commerce-style';style.textContent=`
+      html body.kch-master-2026 #app [hidden],html body.kch-master-2026 #app .kch-master-range[hidden],html body.kch-master-2026 #app .kch-master-range[aria-hidden="true"]{display:none!important}
       body.kch-master-2026 .v118-hero-showcase[data-kch-live-hero-count]{align-items:center!important;min-height:330px!important}
       body.kch-master-2026 .v118-hero-showcase .kch-live-hero-product{cursor:pointer!important;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease!important}
       body.kch-master-2026 .v118-hero-showcase .kch-live-hero-product:hover{border-color:rgba(11,100,64,.28)!important;box-shadow:0 24px 52px rgba(16,73,43,.16)!important}
@@ -74,53 +78,71 @@
       body.kch-master-2026 .v118-hero-showcase[data-kch-live-hero-count="1"] .kch-live-hero-product{width:min(360px,82%)!important;height:330px!important;transform:none!important;padding:13px!important;border-radius:26px!important;background:linear-gradient(145deg,rgba(255,255,255,.99),rgba(246,251,247,.96))!important}
       body.kch-master-2026 .v118-hero-showcase[data-kch-live-hero-count="1"] .kch-live-hero-product .visual{height:250px!important;border-radius:19px!important;background:radial-gradient(circle at 50% 42%,#fff 0,#f6faf6 48%,#eaf4eb 100%)!important}
       body.kch-master-2026 .v118-hero-showcase[data-kch-live-hero-count="1"] .kch-live-hero-product>span{grid-template-columns:1fr auto!important;align-items:center!important;gap:12px!important;padding:12px 4px 2px!important}
-      body.kch-master-2026 .v118-hero-showcase[data-kch-live-hero-count="1"] .kch-live-hero-product>span b{font-size:12px!important;line-height:1.35!important}
-      body.kch-master-2026 .v118-hero-showcase[data-kch-live-hero-count="1"] .kch-live-hero-product>span small{font-size:18px!important}
+      body.kch-master-2026 .v118-hero-showcase[data-kch-live-hero-count="1"] .kch-live-hero-product>span b{font-size:15px!important;line-height:1.4!important}
+      body.kch-master-2026 .v118-hero-showcase[data-kch-live-hero-count="1"] .kch-live-hero-product>span small{font-size:20px!important}
       body.kch-master-2026 #product-grid[data-kch-canonical-product-feed="1"] .kch-live-product-card{cursor:pointer!important}
       body.kch-master-2026 #product-grid[data-kch-canonical-product-feed="1"] .kch-live-product-card .visual{background:linear-gradient(145deg,#fbfdfb,#eef6f0)!important}
       body.kch-master-2026 #product-grid[data-kch-canonical-product-feed="1"] .kch-live-product-card .visual img{width:100%!important;height:100%!important;object-fit:contain!important;padding:12px!important}
-      body.kch-master-2026 .kch-live-product-status{display:inline-flex!important;align-items:center!important;width:max-content!important;margin-top:7px!important;padding:4px 8px!important;border-radius:999px!important;background:#edf7ef!important;color:#126640!important;font-size:8.5px!important;font-weight:850!important}
-      body.kch-master-2026 .kch-catalog-empty{grid-column:1/-1!important;padding:38px 22px!important;border:1px solid #e1ebe4!important;border-radius:18px!important;background:#f8fbf8!important;color:#547064!important;text-align:center!important;font-size:11px!important}
+      body.kch-master-2026 .kch-live-product-status{display:inline-flex!important;align-items:center!important;width:max-content!important;margin-top:8px!important;padding:6px 10px!important;border-radius:999px!important;background:#edf7ef!important;color:#126640!important;font-size:14px!important;line-height:1.35!important;font-weight:850!important}
+      body.kch-master-2026 .kch-catalog-empty{grid-column:1/-1!important;padding:38px 22px!important;border:1px solid #e1ebe4!important;border-radius:18px!important;background:#f8fbf8!important;color:#547064!important;text-align:center!important;font-size:15px!important;line-height:1.6!important}
       body.kch-master-2026 .kch-catalog-categories{width:min(1280px,calc(100% - 44px))!important;margin:20px auto 0!important;padding:18px 18px 16px!important;border:1px solid #e3ebe5!important;border-radius:20px!important;background:linear-gradient(145deg,#fff,#f8fbf8)!important;box-shadow:0 9px 28px rgba(9,70,40,.055)!important}
       body.kch-master-2026 .kch-catalog-category-head{display:flex!important;align-items:end!important;justify-content:space-between!important;gap:18px!important;margin-bottom:13px!important}
-      body.kch-master-2026 .kch-catalog-category-head>span{display:grid!important;gap:2px!important}body.kch-master-2026 .kch-catalog-category-head b{color:#173f2d!important;font-size:17px!important}body.kch-master-2026 .kch-catalog-category-head small{color:#748078!important;font-size:10px!important;line-height:1.5!important}
+      body.kch-master-2026 .kch-catalog-category-head>span{display:grid!important;gap:3px!important}body.kch-master-2026 .kch-catalog-category-head b{color:#173f2d!important;font-size:19px!important}body.kch-master-2026 .kch-catalog-category-head small{color:#748078!important;font-size:14px!important;line-height:1.5!important}
       body.kch-master-2026 .kch-catalog-category-list{display:flex!important;align-items:flex-start!important;gap:13px!important;overflow-x:auto!important;overscroll-behavior-inline:contain!important;scrollbar-width:none!important;padding:2px 1px 4px!important}.kch-catalog-category-list::-webkit-scrollbar{display:none!important}
-      body.kch-master-2026 .kch-catalog-category{flex:0 0 auto!important;display:grid!important;justify-items:center!important;gap:7px!important;width:92px!important;min-height:100px!important;padding:5px!important;border:0!important;border-radius:15px!important;background:transparent!important;color:#315440!important;text-align:center!important;font:850 10px/1.35 'Noto Sans Thai',sans-serif!important}
-      body.kch-master-2026 .kch-catalog-category-icon{display:grid!important;place-items:center!important;width:62px!important;height:62px!important;border:1px solid #e0e9e2!important;border-radius:50%!important;background:linear-gradient(145deg,#f8fbf8,#eaf4ec)!important;color:#137b4d!important;box-shadow:0 5px 15px rgba(17,77,46,.06)!important;transition:transform .18s ease,border-color .18s ease,background .18s ease!important}.kch-catalog-category-icon .material-symbols-rounded{font-size:28px!important}
+      body.kch-master-2026 .kch-catalog-category{flex:0 0 auto!important;display:grid!important;justify-items:center!important;gap:8px!important;width:104px!important;min-height:108px!important;padding:5px!important;border:0!important;border-radius:15px!important;background:transparent!important;color:#315440!important;text-align:center!important;font:850 14px/1.4 'Noto Sans Thai',sans-serif!important}
+      body.kch-master-2026 .kch-catalog-category-icon{display:grid!important;place-items:center!important;width:64px!important;height:64px!important;border:1px solid #e0e9e2!important;border-radius:50%!important;background:linear-gradient(145deg,#f8fbf8,#eaf4ec)!important;color:#137b4d!important;box-shadow:0 5px 15px rgba(17,77,46,.06)!important;transition:transform .18s ease,border-color .18s ease,background .18s ease!important}.kch-catalog-category-icon .material-symbols-rounded{font-size:29px!important}
       body.kch-master-2026 .kch-catalog-category:hover .kch-catalog-category-icon,body.kch-master-2026 .kch-catalog-category.active .kch-catalog-category-icon{transform:translateY(-2px)!important;border-color:#9bc8aa!important;background:#e9f5eb!important}body.kch-master-2026 .kch-catalog-category.active{color:#075031!important}
-      @media(max-width:699px){body.kch-master-2026 .v118-hero-showcase[data-kch-live-hero-count="1"]{display:flex!important;overflow:visible!important}body.kch-master-2026 .v118-hero-showcase[data-kch-live-hero-count="1"] .kch-live-hero-product{width:min(100%,330px)!important;height:300px!important}body.kch-master-2026 .v118-hero-showcase[data-kch-live-hero-count="1"] .kch-live-hero-product .visual{height:220px!important}body.kch-master-2026 .kch-catalog-categories{width:calc(100% - 24px)!important;margin-top:14px!important;padding:14px 12px 12px!important;border-radius:18px!important}body.kch-master-2026 .kch-catalog-category-head{align-items:start!important;margin-bottom:10px!important}body.kch-master-2026 .kch-catalog-category-head b{font-size:16px!important}body.kch-master-2026 .kch-catalog-category-head small{font-size:9px!important}body.kch-master-2026 .kch-catalog-category-list{gap:9px!important}body.kch-master-2026 .kch-catalog-category{width:82px!important;min-height:92px!important;font-size:9.5px!important}body.kch-master-2026 .kch-catalog-category-icon{width:56px!important;height:56px!important}}
+      body.kch-master-2026 .kch-canonical-pdp{--kch-pdp-green:#075031;--kch-pdp-line:#dfe9e2}
+      body.kch-master-2026 .kch-canonical-purchase-panel{display:grid!important;gap:14px!important;margin:16px 0!important;padding:18px!important;border:1px solid var(--kch-pdp-line)!important;border-radius:18px!important;background:linear-gradient(145deg,#fff,#f6faf7)!important;box-shadow:0 12px 30px rgba(9,70,40,.06)!important;color:#173f2d!important}
+      body.kch-master-2026 .kch-canonical-pdp-status-row{display:flex!important;flex-wrap:wrap!important;align-items:center!important;gap:8px!important}
+      body.kch-master-2026 .kch-canonical-pdp-status{display:inline-flex!important;align-items:center!important;min-height:34px!important;padding:5px 11px!important;border-radius:999px!important;background:#e8f5eb!important;color:#126640!important;font-size:14px!important;font-weight:900!important}
+      body.kch-master-2026 .kch-canonical-pdp-status[data-ready="0"]{background:#f5f1e9!important;color:#86672d!important}
+      body.kch-master-2026 .kch-canonical-pdp-category{font-size:14px!important;color:#63766b!important;font-weight:750!important}
+      body.kch-master-2026 .kch-canonical-pdp-facts{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:9px!important}
+      body.kch-master-2026 .kch-canonical-pdp-fact{display:flex!important;align-items:flex-start!important;gap:9px!important;min-height:72px!important;padding:12px!important;border:1px solid #e4ece6!important;border-radius:14px!important;background:#fff!important}
+      body.kch-master-2026 .kch-canonical-pdp-fact .material-symbols-rounded{font-size:22px!important;color:#137b4d!important}
+      body.kch-master-2026 .kch-canonical-pdp-fact span:last-child{display:grid!important;gap:3px!important}body.kch-master-2026 .kch-canonical-pdp-fact b{font-size:15px!important;line-height:1.35!important}body.kch-master-2026 .kch-canonical-pdp-fact small{font-size:14px!important;line-height:1.5!important;color:#687b70!important}
+      body.kch-master-2026 .kch-canonical-pdp :where([data-add],[data-buy]){min-height:50px!important;font-size:16px!important;font-weight:900!important;border-radius:14px!important}
+      body.kch-master-2026 .kch-canonical-pdp :where([data-add],[data-buy])[disabled]{cursor:not-allowed!important;opacity:.55!important}
+      body.kch-master-2026 .kch-canonical-cart-row{border-color:#dfe9e2!important;background:#fff!important}
+      body.kch-master-2026 .kch-canonical-cart-row .grow>b{font-size:16px!important;line-height:1.4!important;color:#183f2e!important}body.kch-master-2026 .kch-canonical-cart-row .grow>small{font-size:14px!important;line-height:1.45!important;color:#6a7b71!important}body.kch-master-2026 .kch-canonical-cart-row .grow>strong{font-size:18px!important;color:#c92c27!important}
+      body.kch-master-2026 .kch-canonical-cart-unavailable{opacity:.7!important;background:#faf8f3!important}
+      body.kch-master-2026 .kch-canonical-cart-summary{display:grid!important;gap:12px!important;margin:14px 0!important;padding:18px!important;border:1px solid #dfe9e2!important;border-radius:18px!important;background:linear-gradient(145deg,#fff,#f6faf7)!important;color:#173f2d!important;box-shadow:0 10px 26px rgba(9,70,40,.06)!important}
+      body.kch-master-2026 .kch-canonical-cart-summary-head{display:flex!important;justify-content:space-between!important;align-items:center!important;gap:12px!important}body.kch-master-2026 .kch-canonical-cart-summary-head b{font-size:16px!important}body.kch-master-2026 .kch-canonical-cart-summary-head strong{font-size:22px!important;color:#c92c27!important}
+      body.kch-master-2026 .kch-canonical-cart-summary-note{display:flex!important;align-items:flex-start!important;gap:8px!important;padding:11px!important;border-radius:13px!important;background:#eef7f0!important;color:#365f49!important;font-size:14px!important;line-height:1.55!important}.kch-canonical-cart-summary-note .material-symbols-rounded{font-size:21px!important;color:#137b4d!important}
+      body.kch-master-2026 .kch-canonical-cart-summary small{font-size:14px!important;line-height:1.55!important;color:#6a7b71!important}
+      @media(max-width:699px){body.kch-master-2026 .v118-hero-showcase[data-kch-live-hero-count="1"]{display:flex!important;overflow:visible!important}body.kch-master-2026 .v118-hero-showcase[data-kch-live-hero-count="1"] .kch-live-hero-product{width:min(100%,330px)!important;height:300px!important}body.kch-master-2026 .v118-hero-showcase[data-kch-live-hero-count="1"] .kch-live-hero-product .visual{height:220px!important}body.kch-master-2026 .kch-catalog-categories{width:calc(100% - 24px)!important;margin-top:14px!important;padding:14px 12px 12px!important;border-radius:18px!important}body.kch-master-2026 .kch-catalog-category-head{align-items:start!important;margin-bottom:10px!important}body.kch-master-2026 .kch-catalog-category-head b{font-size:18px!important}body.kch-master-2026 .kch-catalog-category-head small{font-size:14px!important}body.kch-master-2026 .kch-catalog-category-list{gap:9px!important}body.kch-master-2026 .kch-catalog-category{width:94px!important;min-height:100px!important;font-size:14px!important}body.kch-master-2026 .kch-catalog-category-icon{width:58px!important;height:58px!important}body.kch-master-2026 .kch-canonical-purchase-panel{margin:12px 10px!important;padding:14px!important;border-radius:16px!important}body.kch-master-2026 .kch-canonical-pdp-facts{grid-template-columns:1fr!important}body.kch-master-2026 .kch-canonical-pdp-fact{min-height:0!important}body.kch-master-2026 .kch-canonical-cart-summary{margin:12px!important;padding:15px!important}}
     `;(document.head||document.documentElement).appendChild(style);
   }
 
   function makeHeroCard(p,index){
-    const button=document.createElement('button');button.type='button';button.className=`v118-featured-product f${index+1} kch-live-hero-product`;button.dataset.kchLiveHeroProduct=String(Number(p.id)||'');button.dataset.kchLiveHeroSlug=clean(p.slug);button.setAttribute('aria-label',`ดู ${clean(p.name)}`);
+    const button=document.createElement('button');button.type='button';button.className=`v118-featured-product f${index+1} kch-live-hero-product`;button.dataset.kchLiveHeroProduct=String(num(p.id)||'');button.dataset.kchLiveHeroSlug=clean(p.slug);button.setAttribute('aria-label',`ดู ${clean(p.name)}`);
     const visual=document.createElement('div');visual.className='visual';const img=document.createElement('img');img.src=clean(p.image_url||p.image);img.alt=clean(p.name);img.loading=index===0?'eager':'lazy';img.decoding='async';if(index===0)img.fetchPriority='high';visual.appendChild(img);
     const copy=document.createElement('span'),name=document.createElement('b'),price=document.createElement('small');name.textContent=clean(p.name);price.textContent=money(p.price);copy.append(name,price);button.append(visual,copy);
     button.addEventListener('click',()=>{const slug=clean(p.slug);if(slug)location.href=`/product/${encodeURIComponent(slug)}`});return button;
   }
 
   function makeHomeProductCard(p,index){
-    const article=document.createElement('article');article.className='tshop-card kch-live-product-card';article.dataset.product=clean(p.slug);article.dataset.kchLiveProduct=String(Number(p.id)||'');article.tabIndex=0;article.setAttribute('role','link');article.setAttribute('aria-label',`ดู ${clean(p.name)}`);
+    const article=document.createElement('article');article.className='tshop-card kch-live-product-card';article.dataset.product=clean(p.slug);article.dataset.kchLiveProduct=String(num(p.id)||'');article.tabIndex=0;article.setAttribute('role','link');article.setAttribute('aria-label',`ดู ${clean(p.name)}`);
     const visual=document.createElement('div');visual.className='visual';const img=document.createElement('img');img.src=clean(p.image_url||p.image);img.alt=clean(p.name);img.loading=index<4?'eager':'lazy';img.decoding='async';visual.appendChild(img);
     const info=document.createElement('div');info.className='tshop-card-info';
     const title=document.createElement('div');title.className='tshop-card-title';const badge=document.createElement('span');badge.className='shop-badge';badge.textContent='Official';title.append(badge,document.createTextNode(clean(p.name)));
     const tags=document.createElement('div');tags.className='tshop-card-tags';if(clean(p.category)){const category=document.createElement('span');category.className='shipping-chip';category.textContent=clean(p.category);tags.appendChild(category)}
     const priceLine=document.createElement('div');priceLine.className='tshop-price-line';const price=document.createElement('span');price.className='tshop-price';price.textContent=money(p.price);priceLine.appendChild(price);
     const status=document.createElement('span');status.className='kch-live-product-status';status.textContent='พร้อมสั่งซื้อ';
-    const add=document.createElement('button');add.type='button';add.className='tshop-add';add.dataset.add=String(Number(p.id)||'');add.setAttribute('aria-label',`เพิ่ม ${clean(p.name)} ลงตะกร้า`);const icon=document.createElement('span');icon.className='material-symbols-rounded';icon.textContent='add_shopping_cart';add.appendChild(icon);
+    const add=document.createElement('button');add.type='button';add.className='tshop-add';add.dataset.add=String(num(p.id)||'');add.setAttribute('aria-label',`เพิ่ม ${clean(p.name)} ลงตะกร้า`);const icon=document.createElement('span');icon.className='material-symbols-rounded';icon.textContent='add_shopping_cart';add.appendChild(icon);
     info.append(title,tags,priceLine,status,add);article.append(visual,info);
     const open=()=>{const slug=clean(p.slug);if(slug)location.href=`/product/${encodeURIComponent(slug)}`};article.addEventListener('click',e=>{if(!e.target.closest('button'))open()});article.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}});return article;
   }
 
   async function canonicalizeHero(){
     const hero=$('.tshop-hero');const showcase=$('.v118-hero-showcase',hero);if(!hero||!showcase)return;
-    ensureCanonicalStyles();
     const rows=saleReadyRows(await products()).slice(0,3);
-    const signature=rows.map(p=>`${Number(p.id)||0}:${Number(p.price)||0}:${Number(p.available_stock??p.stock)||0}:${clean(p.image_url||p.image)}`).join('|')||'empty';
+    const signature=rows.map(p=>`${num(p.id)}:${num(p.price)}:${stockOf(p)}:${clean(p.image_url||p.image)}`).join('|')||'empty';
     if(showcase.dataset.kchCanonicalHeroSignature===signature&&$$('.kch-live-hero-product',showcase).length===rows.length)return;
     showcase.replaceChildren();showcase.dataset.kchCanonicalHeroSignature=signature;showcase.dataset.kchLiveHeroCount=String(rows.length);hero.dataset.kchCanonicalHero='catalog';
-    if(!rows.length){showcase.hidden=true;return}
-    showcase.hidden=false;rows.forEach((p,i)=>showcase.appendChild(makeHeroCard(p,i)));
+    if(!rows.length){showcase.hidden=true;showcase.setAttribute('aria-hidden','true');return}
+    showcase.hidden=false;showcase.removeAttribute('aria-hidden');rows.forEach((p,i)=>showcase.appendChild(makeHeroCard(p,i)));
   }
 
   function makeCategoryButton(value,label,iconName){
@@ -131,7 +153,6 @@
 
   async function canonicalizeCatalogCategories(){
     const shop=$('.v118-shop-first')||$('#product-grid')?.closest('.tshop-section')||$('#product-grid');if(!shop)return;
-    ensureCanonicalStyles();
     const rows=saleReadyRows(await products());
     const categories=[...new Set(rows.map(p=>clean(p.category)).filter(Boolean))];
     let shelf=$('.kch-catalog-categories');
@@ -144,7 +165,7 @@
     shelf.dataset.kchCatalogCategorySignature=signature;
     const head=document.createElement('div');head.className='kch-catalog-category-head';const copy=document.createElement('span');const title=document.createElement('b');title.textContent='เลือกตามหมวดสินค้า';const note=document.createElement('small');note.textContent='แสดงจากสินค้าที่ผ่านการตรวจสอบและพร้อมจำหน่ายจริง';copy.append(title,note);head.appendChild(copy);
     const list=document.createElement('div');list.className='kch-catalog-category-list';list.appendChild(makeCategoryButton('','สินค้าทั้งหมด','storefront'));
-    categories.forEach(category=>list.appendChild(makeCategoryButton(category,category,'spa')));
+    categories.forEach(category=>list.appendChild(makeCategoryButton(category,category,'spa'));
     shelf.replaceChildren(head,list);
     list.addEventListener('click',event=>{
       const button=event.target.closest?.('[data-kch-catalog-category]');if(!button)return;
@@ -156,57 +177,100 @@
 
   async function canonicalizeHomeFeed(){
     const grid=$('#product-grid');if(!grid)return;
-    ensureCanonicalStyles();removeLegacyHomeMerchandising();
+    removeLegacyHomeMerchandising();
     const liveRows=saleReadyRows(await products());
     const rows=state.category?liveRows.filter(p=>clean(p.category)===state.category):liveRows;
-    const signature=`${state.category||'all'}::${rows.map(p=>`${Number(p.id)||0}:${Number(p.price)||0}:${Number(p.available_stock??p.stock)||0}:${clean(p.image_url||p.image)}`).join('|')||'empty'}`;
+    const signature=`${state.category||'all'}::${rows.map(p=>`${num(p.id)}:${num(p.price)}:${stockOf(p)}:${clean(p.image_url||p.image)}`).join('|')||'empty'}`;
     if(grid.dataset.kchCanonicalFeedSignature===signature&&$$('.kch-live-product-card',grid).length===rows.length)return;
     grid.replaceChildren();grid.dataset.kchCanonicalProductFeed='1';grid.dataset.kchCanonicalFeedSignature=signature;grid.dataset.kchCatalogCategory=state.category;
     if(!rows.length){const empty=document.createElement('div');empty.className='kch-catalog-empty';empty.textContent=state.category?'ยังไม่มีสินค้าที่พร้อมจำหน่ายในหมวดนี้':'ขณะนี้ยังไม่มีสินค้าที่ผ่านการตรวจสอบและพร้อมจำหน่าย';grid.appendChild(empty);return}
     rows.forEach((p,i)=>grid.appendChild(makeHomeProductCard(p,i)));
   }
 
+  function makePdpFact(icon,title,detail){
+    const fact=document.createElement('div');fact.className='kch-canonical-pdp-fact';
+    const symbol=document.createElement('span');symbol.className='material-symbols-rounded';symbol.textContent=icon;
+    const copy=document.createElement('span'),b=document.createElement('b'),small=document.createElement('small');b.textContent=title;small.textContent=detail;copy.append(b,small);fact.append(symbol,copy);return fact;
+  }
+
+  function renderPdpPurchasePanel(root,p){
+    const host=$('.v115-pdp-info-pane',root)||$('.detail',root)||$('.kch-pdp-20',root)||root;
+    if(!host||host===document)return;
+    let panel=$('.kch-canonical-purchase-panel',host);if(!panel){panel=document.createElement('section');panel.className='kch-canonical-purchase-panel';panel.setAttribute('aria-label','ข้อมูลก่อนสั่งซื้อ');host.appendChild(panel)}
+    const ready=stockOf(p)>0&&num(p.price)>0&&Boolean(clean(p.image_url||p.image));
+    const signature=`${num(p.id)}:${num(p.price)}:${stockOf(p)}:${clean(p.category)}:${ready?'1':'0'}`;if(panel.dataset.signature===signature)return;panel.dataset.signature=signature;
+    const statusRow=document.createElement('div');statusRow.className='kch-canonical-pdp-status-row';
+    const status=document.createElement('span');status.className='kch-canonical-pdp-status';status.dataset.ready=ready?'1':'0';status.textContent=ready?'พร้อมสั่งซื้อ':'ยังไม่พร้อมสั่งซื้อ';statusRow.appendChild(status);
+    if(clean(p.category)){const category=document.createElement('span');category.className='kch-canonical-pdp-category';category.textContent=clean(p.category);statusRow.appendChild(category)}
+    const facts=document.createElement('div');facts.className='kch-canonical-pdp-facts';
+    facts.append(
+      makePdpFact('inventory_2','สต็อกที่แสดง',`คงเหลือ ${stockOf(p)} ชิ้น`),
+      makePdpFact('payments','เก็บเงินปลายทาง','รองรับการชำระเงินแบบ COD'),
+      makePdpFact('local_shipping','จัดส่งและติดตาม','ตรวจสอบที่อยู่และค่าจัดส่งก่อนยืนยันคำสั่งซื้อ')
+    );
+    panel.replaceChildren(statusRow,facts);
+    $$('[data-add],[data-buy]',root).forEach(button=>{button.disabled=!ready;button.setAttribute('aria-disabled',ready?'false':'true')});
+  }
+
   async function canonicalizeProduct(){
     const identity=currentIdentity();if(!identity.id&&!identity.slug)return;
     const rows=await products(),p=findLive(rows,identity.id,identity.slug);if(!p)return;
     const root=$('.kch-pdp-20,.v118-signature-pdp,.detail')?.closest('.shell')||$('#app')||document;
+    root.classList?.add('kch-canonical-pdp');
     const title=$('.pdp-title',root)||$('.detail h1',root);if(title)title.textContent=clean(p.name);
     const desc=$('.pdp-description',root)||$('.detail>p',root);if(desc)desc.textContent=clean(p.description)||'ดูรายละเอียดผลิตภัณฑ์และข้อมูลที่ร้านยืนยันก่อนสั่งซื้อ';
     const price=$('.pdp-price',root)||$('.pprice b',root);if(price)price.textContent=money(p.price);
-    const old=$('.pprice del',root);const discount=$('.pprice span',root);const compare=Number(p.compare_at_price)||0,livePrice=Number(p.price)||0;
+    const old=$('.pprice del',root);const discount=$('.pprice span',root);const compare=num(p.compare_at_price),livePrice=num(p.price);
     if(old){if(compare>livePrice){old.hidden=false;old.textContent=money(compare)}else old.remove()}
     if(discount){if(compare>livePrice){discount.hidden=false;discount.textContent=`ลด ${Math.round((1-livePrice/compare)*100)}%`}else discount.remove()}
-    $$('.stats span,.pdp-sold span',root).forEach(el=>{const t=text(el);if(/คงเหลือ|สต๊อก/.test(t))el.textContent=`คงเหลือ ${Number(p.available_stock??p.stock)||0}`});
-    const productCount=$('.shop-stats>div:first-child b',root);if(productCount)productCount.textContent=String(rows.length);
+    $$('.stats span,.pdp-sold span',root).forEach(el=>{const t=text(el);if(/คงเหลือ|สต๊อก/.test(t))el.textContent=`คงเหลือ ${stockOf(p)}`});
+    const productCount=$('.shop-stats>div:first-child b',root);if(productCount)productCount.textContent=String(saleReadyRows(rows).length);
     setImage($('.pdp-media .visual',root)||$('.visual.large',root),p);
     root.dataset.kchCanonicalProduct=String(p.id);
-    removeLegacyClaims(root);
+    removeLegacyClaims(root);renderPdpPurchasePanel(root,p);
   }
 
   function cartRows(){try{const x=JSON.parse(localStorage.getItem('kch-cart')||'[]');return Array.isArray(x)?x:[]}catch{return []}}
+  function itemQty(item){return Math.max(1,num(item?.qty??item?.quantity)||1)}
+
+  function renderCartSummary(domRows,rows){
+    if(!domRows.length)return;
+    const host=domRows[0].parentElement;if(!host)return;
+    let summary=$('.kch-canonical-cart-summary',host);if(!summary){summary=document.createElement('section');summary.className='kch-canonical-cart-summary';summary.setAttribute('aria-label','สรุปตะกร้าสินค้า');host.appendChild(summary)}
+    let subtotal=0,valid=0;
+    rows.forEach(item=>{const live=findLive(state.products,item.id,item.slug);if(!live||num(live.price)<=0||stockOf(live)<=0)return;subtotal+=num(live.price)*itemQty(item);valid+=1});
+    const signature=`${subtotal}:${valid}:${rows.length}`;if(summary.dataset.signature===signature)return;summary.dataset.signature=signature;
+    const head=document.createElement('div');head.className='kch-canonical-cart-summary-head';const label=document.createElement('b'),total=document.createElement('strong');label.textContent='ยอดรวมสินค้า';total.textContent=money(subtotal);head.append(label,total);
+    const note=document.createElement('div');note.className='kch-canonical-cart-summary-note';const icon=document.createElement('span');icon.className='material-symbols-rounded';icon.textContent='payments';const copy=document.createElement('span');copy.textContent='รองรับเก็บเงินปลายทาง (COD) โดยตรวจสอบที่อยู่ วิธีจัดส่ง และยอดสุดท้ายอีกครั้งในขั้นตอนชำระเงิน';note.append(icon,copy);
+    const small=document.createElement('small');small.textContent=valid===rows.length?'รายการในตะกร้าเชื่อมกับข้อมูลสินค้าที่ร้านพร้อมจำหน่าย':'มีบางรายการที่ไม่พร้อมจำหน่าย กรุณาตรวจสอบก่อนดำเนินการต่อ';
+    summary.replaceChildren(head,note,small);
+  }
+
   async function canonicalizeCart(){
     const domRows=$$('.cartrow');if(!domRows.length)return;
     await products();const rows=cartRows();
     domRows.forEach((row,i)=>{
       const item=rows[i];if(!item)return;
-      const live=findLive(state.products,item.id,item.slug)||item;
-      const name=$('.grow>b',row);if(name)name.textContent=clean(live.name||item.name);
-      const category=$('.grow>small',row);if(category)category.textContent=clean(live.category||live.cat||item.category||item.cat||'สินค้า');
-      const price=$('.grow>strong',row);if(price)price.textContent=money(live.price||item.price);
-      setImage($('.visual',row),{...live,image_url:live.image_url||live.image||item.image_url||item.image});
+      const live=findLive(state.products,item.id,item.slug);const source=live||item;const ready=Boolean(live)&&num(live.price)>0&&stockOf(live)>0;
+      row.classList.add('kch-canonical-cart-row');row.classList.toggle('kch-canonical-cart-unavailable',!ready);row.dataset.kchCartReady=ready?'1':'0';
+      const name=$('.grow>b',row);if(name)name.textContent=clean(source.name||item.name);
+      const category=$('.grow>small',row);if(category)category.textContent=ready?clean(source.category||source.cat||item.category||item.cat||'สินค้า'):'รายการนี้ยังไม่พร้อมจำหน่าย';
+      const price=$('.grow>strong',row);if(price)price.textContent=ready?money(source.price):'—';
+      setImage($('.visual',row),{...source,image_url:source.image_url||source.image||item.image_url||item.image});
     });
-    removeLegacyClaims($('#app')||document);
+    renderCartSummary(domRows,rows);removeLegacyClaims($('#app')||document);
   }
 
   async function interceptPurchase(target,e){
-    const rawId=Number(target.dataset.add||target.dataset.buy||target.dataset.productId||0);const identity=currentIdentity();const rows=await products();
+    const rawId=num(target.dataset.add||target.dataset.buy||target.dataset.productId);const identity=currentIdentity();const rows=await products();
     const p=findLive(rows,rawId||identity.id,identity.slug);if(!p)return false;
     e.preventDefault();e.stopImmediatePropagation();
-    const qty=Math.max(1,Math.min(20,Number($('#qty')?.textContent)||1));
+    if(num(p.price)<=0||stockOf(p)<=0)return true;
+    const qty=Math.max(1,Math.min(20,num($('#qty')?.textContent)||1,stockOf(p)||1));
     const out=window.KCHCommerceIntegrity?.addCanonicalProduct?.(p,qty);
     if(!out?.ok)return true;
     if(target.hasAttribute('data-buy')){window.KCHCommerceIntegrity?.openCheckout?.();return true}
-    const original=target.textContent;target.textContent='เพิ่มแล้ว';target.disabled=true;setTimeout(()=>{if(target.isConnected){target.disabled=false;target.textContent=original}},650);return true;
+    const original=target.innerHTML;target.textContent='เพิ่มแล้ว';target.disabled=true;setTimeout(()=>{if(target.isConnected){target.disabled=false;target.innerHTML=original}},650);return true;
   }
 
   function routeAuthority(e){
@@ -216,7 +280,7 @@
   }
 
   async function run(){
-    removeLegacyClaims();removeLegacyHomeMerchandising();
+    ensureCanonicalStyles();removeLegacyClaims();removeLegacyHomeMerchandising();
     await Promise.allSettled([canonicalizeHero(),canonicalizeCatalogCategories(),canonicalizeHomeFeed(),canonicalizeProduct(),canonicalizeCart()]);
   }
 
@@ -226,6 +290,7 @@
     interceptPurchase(buy,e).catch(()=>{});
   },true);
   window.addEventListener('hashchange',()=>setTimeout(run,0),{passive:true});
+  window.addEventListener('popstate',()=>setTimeout(run,0),{passive:true});
   const observer=new MutationObserver(records=>{if(records.some(r=>r.addedNodes?.length||r.removedNodes?.length))schedule()});observer.observe(document.documentElement,{childList:true,subtree:true});
   let raf=0;function schedule(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;run()})}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});else schedule();
