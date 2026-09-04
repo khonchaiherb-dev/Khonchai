@@ -2,9 +2,9 @@ name: Storefront Quality Check
 
 on:
   push:
-    branches: [storefront-social-commerce]
+    branches: [storefront-social-commerce, storefront-production]
   pull_request:
-    branches: [storefront-social-commerce]
+    branches: [storefront-social-commerce, storefront-production]
 
 jobs:
   verify:
