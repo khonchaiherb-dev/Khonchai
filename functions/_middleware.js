@@ -21,6 +21,7 @@ const canonicalRedirect=(request,env,u)=>{
 const withCanonicalMetadata=(response,env,pathname='')=>{
   const type=String(response.headers.get('content-type')||'').toLowerCase();
   if(!type.includes('text/html')||typeof HTMLRewriter==='undefined')return response;
+  if(/^\/product\/[^/]+\/?$/.test(String(pathname||'')))return response;
   const origin=canonicalOrigin(env);
   const canonicalPath=!pathname||pathname==='/'||pathname==='/index.html'?'/':pathname;
   const pageUrl=new URL(canonicalPath,`${origin}/`).toString();
