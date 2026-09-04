@@ -7,7 +7,10 @@
     "LEGACY_ADMIN_ENABLED": "false",
     "STAFF_CSRF_ENFORCE": "true",
     "PACKING_REQUIRE_VERIFICATION": "true",
-    "ORDER_IDEMPOTENCY_REQUIRED": "true"
+    "ORDER_IDEMPOTENCY_REQUIRED": "true",
+    "CHECKOUT_ENABLED": "true",
+    "COD_ENABLED": "true",
+    "ONLINE_PAYMENTS_ENABLED": "false"
   },
   "d1_databases": [
     {
