@@ -67,6 +67,93 @@ jobs:
           [ "$ready" = "1" ] || { echo 'Verified product/media/storefront guard did not become ready.' >&2; exit 1; }
           echo 'Commerce launch surface: READY'
 
+      - name: Repair missing production security baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H 'Content-Type: application/json' \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PAGES_PROJECT" \
+            > pages-security-before.json
+          python3 - <<'PY'
+          import json,secrets
+          from pathlib import Path
+          d=json.load(open('pages-security-before.json'))
+          if not d.get('success'):
+              raise SystemExit('Cloudflare Pages project lookup failed')
+          prod=((d.get('result') or {}).get('deployment_configs') or {}).get('production') or {}
+          current=prod.get('env_vars') or {}
+          patch={
+            'LEGACY_ADMIN_ENABLED':{'type':'plain_text','value':'false'},
+            'STAFF_CSRF_ENFORCE':{'type':'plain_text','value':'true'},
+            'PACKING_REQUIRE_VERIFICATION':{'type':'plain_text','value':'true'},
+            'ORDER_IDEMPOTENCY_REQUIRED':{'type':'plain_text','value':'true'},
+          }
+          generated=[]
+          for name in ('ADMIN_TOKEN','AUTH_PEPPER','RATE_LIMIT_PEPPER'):
+              if not current.get(name):
+                  patch[name]={'type':'secret_text','value':secrets.token_hex(32)}
+                  generated.append(name)
+          Path('security-baseline-patch.json').write_text(json.dumps({'deployment_configs':{'production':{'env_vars':patch}}}))
+          print('Security baseline plain flags enforced.')
+          print('Generated only missing secret keys: '+(','.join(generated) if generated else 'none'))
+          PY
+          curl --fail --silent --show-error -X PATCH \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data @security-baseline-patch.json \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PAGES_PROJECT" \
+            > security-baseline-result.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open('security-baseline-result.json'))
+          assert d.get('success') is True, d.get('errors')
+          print('Production security baseline configuration accepted by Cloudflare.')
+          PY
+
+      - name: Deploy security baseline before COD
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHA=$(git rev-parse HEAD)
+          npx --yes wrangler@latest pages deploy public \
+            --project-name="$PAGES_PROJECT" \
+            --branch="storefront-social-commerce" \
+            --commit-hash="$SHA" \
+            --commit-message="enforce production security baseline before COD"
+
+      - name: Wait for repaired security baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for attempt in $(seq 1 60); do
+            curl --silent --show-error --location --max-time 20 "$SITE_ORIGIN/api/health" > health-security-repaired.json || true
+            if python3 - <<'PY'
+          import json
+          try: h=json.load(open('health-security-repaired.json'))
+          except Exception: raise SystemExit(1)
+          checks=[
+            h.get('packingVerificationRequired') is True,
+            h.get('orderIdempotencyRequired') is True,
+            h.get('staffCsrfEnforced') is True,
+            h.get('legacyBrowserAdminEnabled') is False,
+            h.get('adminBridgeConfigured') is True,
+            h.get('customerAuthConfigured') is True,
+            h.get('rateLimitPepperConfigured') is True,
+            h.get('securityBaselineConfigured') is True,
+          ]
+          raise SystemExit(0 if all(checks) else 1)
+          PY
+            then ok=1; break; fi
+            sleep 3
+          done
+          [ "$ok" = "1" ] || { echo 'Production security baseline did not become ready after repair.' >&2; exit 1; }
+          echo 'Production security baseline: READY'
+
       - name: Report sanitized security gates
         id: preflight
         shell: bash
@@ -182,6 +269,7 @@ jobs:
           echo '- Verified product: Rang Jued 30 sachets' >> "$GITHUB_STEP_SUMMARY"
           echo '- Launch price: THB 120' >> "$GITHUB_STEP_SUMMARY"
           echo '- Web safety stock cap: 1' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Security baseline: ENFORCED' >> "$GITHUB_STEP_SUMMARY"
           echo '- Checkout: ENABLED' >> "$GITHUB_STEP_SUMMARY"
           echo '- COD: ENABLED' >> "$GITHUB_STEP_SUMMARY"
           echo '- Online payment: DISABLED' >> "$GITHUB_STEP_SUMMARY"
