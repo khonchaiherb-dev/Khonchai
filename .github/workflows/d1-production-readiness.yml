@@ -57,8 +57,9 @@ jobs:
           set -euo pipefail
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "### Production D1 readiness: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
-            echo "Cloudflare API token is not available to this workflow." >> "$GITHUB_STEP_SUMMARY"
+            echo "### Production D1 readiness: BLOCKED" >> "$GITHUB_STEP_SUMMARY"
+            echo "Cloudflare API token is not available to this workflow. Production readiness cannot be asserted safely." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
           else
             echo "available=true" >> "$GITHUB_OUTPUT"
           fi
@@ -146,9 +147,9 @@ jobs:
 
           if [ -z "$selected" ]; then
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "### Production D1 readiness: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Production D1 readiness: BLOCKED" >> "$GITHUB_STEP_SUMMARY"
             echo "The API token could not find or read the configured D1 database in any accessible account. Check Cloudflare Account ID and grant the token D1 Read permission." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+            exit 1
           fi
 
           echo "::add-mask::$selected"
@@ -171,9 +172,9 @@ jobs:
           cat d1-readiness.txt
           if [ "$code" -ne 0 ]; then
             echo "ready=unknown" >> "$GITHUB_OUTPUT"
-            echo "### Production D1 readiness: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Production D1 readiness: BLOCKED" >> "$GITHUB_STEP_SUMMARY"
             echo "Remote read-only schema query could not be completed." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+            exit 1
           fi
           missing=0
           for table in commerce_sources source_assets source_reviews source_product_links; do
@@ -225,9 +226,9 @@ jobs:
           cat d1-revenue-readiness.txt
           if [ "$code" -ne 0 ]; then
             echo "ready=unknown" >> "$GITHUB_OUTPUT"
-            echo "### Revenue recovery schema: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Revenue recovery schema: BLOCKED" >> "$GITHUB_STEP_SUMMARY"
             echo "Remote read-only revenue schema query could not be completed." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+            exit 1
           fi
           missing=0
           for table in payment_attempts payment_provider_events checkout_sessions checkout_recovery_events cod_risk_assessments; do
@@ -260,9 +261,9 @@ jobs:
           cat d1-support-readiness.txt
           if [ "$code" -ne 0 ]; then
             echo "ready=unknown" >> "$GITHUB_OUTPUT"
-            echo "### Support platform schema: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Support platform schema: BLOCKED" >> "$GITHUB_STEP_SUMMARY"
             echo "Remote read-only support schema query could not be completed." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+            exit 1
           fi
           missing=0
           for table in support_tickets support_messages support_ticket_events support_satisfaction; do
