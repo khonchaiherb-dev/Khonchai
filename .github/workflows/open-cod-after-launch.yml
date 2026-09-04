@@ -311,9 +311,16 @@ jobs:
           set -euo pipefail
           code=$(curl --silent --show-error --location --max-time 20 --output invalid-order.json --write-out '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data '{"items":[]}' "$SITE_ORIGIN/api/orders")
-          [ "$code" = "400" ] || { echo "Expected safe empty-order validation HTTP 400 after COD opening, got $code" >&2; exit 1; }
-          grep -Fq 'empty_order' invalid-order.json
-          echo 'Order API is open behind validation; no order was created.'
+          if [ "$code" = "428" ]; then
+            grep -Fq 'idempotency_key_required' invalid-order.json
+            echo 'Order API is open and protected by idempotency validation; no order was created.'
+          elif [ "$code" = "400" ]; then
+            grep -Fq 'empty_order' invalid-order.json
+            echo 'Order API is open behind empty-cart validation; no order was created.'
+          else
+            echo "Expected safe order validation HTTP 428 or 400 after COD opening, got $code" >&2
+            exit 1
+          fi
 
       - name: Publish launch verdict
         shell: bash
