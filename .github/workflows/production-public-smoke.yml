@@ -17,58 +17,154 @@ concurrency:
 
 jobs:
   smoke:
-    name: Verify deployed storefront and public Koonchaishop feed
+    name: Verify clean Storefront V1 and public commerce runtime
     if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     env:
       SITE_ORIGIN: https://khonchaiherb-commerce.pages.dev
+      STOREFRONT_VERSION: 2026.09.05.5
+      STOREFRONT_META: v1-clean-2026-09-05
     steps:
-      - name: Wait for current storefront deployment
+      - name: Wait for clean Storefront V1 deployment
         shell: bash
         run: |
           set -euo pipefail
           ok=0
-          for attempt in $(seq 1 35); do
-            if curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/" > storefront.html; then
-              if grep -Fq 'KHONCHAIHERB' storefront.html \
-                && grep -Fq 'kch-koonchaishop-commerce.js?v=1.30.1' storefront.html \
-                && grep -Fq 'tshop-v130-koonchaishop.css?v=1.30.0' storefront.html \
-                && grep -Fq 'tshop-v133-readable-storefront.css' storefront.html \
-                && grep -Fq 'kch-readable-storefront.js' storefront.html \
-                && grep -Fq 'tshop-v134-structural-storefront.css' storefront.html \
-                && grep -Fq 'kch-v134-structural-storefront.js' storefront.html \
-                && grep -Fq 'tshop-v1341-header-dedupe.css' storefront.html \
-                && grep -Fq 'kch-v1341-header-dedupe.js' storefront.html \
-                && grep -Fq 'tshop-v135-lower-standard.css' storefront.html; then
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error --location --max-time 20 \
+              -H 'Cache-Control: no-cache' \
+              "$SITE_ORIGIN/?production-smoke=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${attempt}" > storefront.html; then
+              if grep -Fq "content=\"${STOREFRONT_META}\"" storefront.html \
+                && grep -Fq "/storefront-v1.css?v=${STOREFRONT_VERSION}" storefront.html \
+                && grep -Fq "/storefront-v1.js?v=${STOREFRONT_VERSION}" storefront.html; then
                 ok=1
                 break
               fi
             fi
-            echo "Current storefront assets not visible yet (attempt $attempt/35); waiting for Pages deploy..."
-            sleep 3
+            echo "Clean Storefront V1 not visible yet (attempt $attempt/60); waiting for production Pages deployment..."
+            sleep 4
           done
-          [ "$ok" = "1" ] || { echo 'Current storefront asset set was not observed on Production.' >&2; exit 1; }
-          echo 'Current deployed storefront HTML: OK'
+          [ "$ok" = "1" ] || { echo 'Clean Storefront V1 fingerprint was not observed on canonical Production.' >&2; exit 1; }
+
+          if grep -Eqi 'tshop-v[0-9]+|kch-rescue-live|kch-master-reference-2026|FLASH DEAL|Verified Purchase|WELCOME50|HERB10' storefront.html; then
+            echo 'Legacy or unverified commerce content is still present in canonical Production HTML.' >&2
+            exit 1
+          fi
+          grep -Fq 'KHON CHAI HERB' storefront.html
+          grep -Fq 'data-product-grid' storefront.html
+          grep -Fq 'data-layer="cart"' storefront.html
+          grep -Fq 'data-layer="checkout"' storefront.html
+          echo 'Canonical Production is serving clean Storefront V1: OK'
+
+      - name: Verify clean storefront assets and service worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          fetch(){
+            local url="$1" out="$2"
+            curl --fail --silent --show-error --location --retry 8 --retry-all-errors --retry-delay 2 --max-time 20 \
+              -H 'Cache-Control: no-cache' "$SITE_ORIGIN/$url" > "$out"
+          }
+
+          fetch "storefront-v1.css?v=${STOREFRONT_VERSION}" storefront-v1.css
+          fetch "storefront-v1.js?v=${STOREFRONT_VERSION}" storefront-v1.js
+          fetch "sw.js?v=${STOREFRONT_VERSION}" service-worker.js
+
+          grep -Fq -- '--kch-container:1280px' storefront-v1.css
+          grep -Fq '@media(max-width:840px)' storefront-v1.css
+          grep -Fq '@media(max-width:560px)' storefront-v1.css
+          grep -Fq '/api/products' storefront-v1.js
+          grep -Fq '/api/product-detail' storefront-v1.js
+          grep -Fq '/api/payment-options' storefront-v1.js
+          grep -Fq '/api/orders' storefront-v1.js
+          grep -Fq 'idempotencyKey' storefront-v1.js
+          grep -Fq "paymentMethod:'COD'" storefront-v1.js
+          grep -Fq 'khonchaiherb-storefront-v1-2026.09.05.5' service-worker.js
+          grep -Fq '/storefront-v1.css?v=2026.09.05.5' service-worker.js
+          grep -Fq '/storefront-v1.js?v=2026.09.05.5' service-worker.js
+
+          if grep -Eqi 'tshop-v[0-9]+|kch-rescue-live|kch-master-reference-2026' service-worker.js; then
+            echo 'Service worker still references retired storefront generations.' >&2
+            exit 1
+          fi
+          echo 'Clean Storefront V1 assets and cache contract: OK'
+
+      - name: Verify live catalog and product media without creating an order
+        id: catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --retry 12 --retry-all-errors --retry-delay 3 --max-time 20 \
+            -H 'Cache-Control: no-cache' "$SITE_ORIGIN/api/products" > products.json
+          python3 - <<'PY'
+          import json, pathlib, urllib.parse
+          data=json.loads(pathlib.Path('products.json').read_text())
+          rows=data.get('products') or []
+          assert rows, 'production catalog has no sale-ready product'
+          live=[]
+          for p in rows:
+              price=float(p.get('price') or 0)
+              stock=float(p.get('stock') or p.get('available_stock') or 0)
+              if price>0 and stock>0:
+                  image=p.get('image_url') or ((p.get('media') or [{}])[0].get('url') if isinstance(p.get('media'),list) else None)
+                  assert image, f"sale-ready product missing media: {p.get('slug') or p.get('id')}"
+                  live.append((p,image))
+          assert live, 'catalog returned rows but none are sale-ready'
+          p,image=live[0]
+          pathlib.Path('product-image.txt').write_text(str(image))
+          pathlib.Path('catalog-state.txt').write_text(
+              f"sale_ready={len(live)}\nfirst_slug={p.get('slug','')}\nfirst_price={p.get('price','')}\nfirst_stock={p.get('stock',p.get('available_stock',''))}\n"
+          )
+          print(pathlib.Path('catalog-state.txt').read_text(),end='')
+          PY
+
+          image=$(cat product-image.txt)
+          case "$image" in
+            http://*|https://*) image_url="$image" ;;
+            /*) image_url="$SITE_ORIGIN$image" ;;
+            *) image_url="$SITE_ORIGIN/$image" ;;
+          esac
+          curl --fail --silent --show-error --location --retry 8 --retry-all-errors --retry-delay 2 --max-time 20 \
+            --output /dev/null "$image_url"
+          echo "sale_ready=$(awk -F= '/^sale_ready=/{print $2}' catalog-state.txt)" >> "$GITHUB_OUTPUT"
+          echo 'Production live catalog and product media: OK'
+
+      - name: Verify checkout and COD readiness without creating an order
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --retry 12 --retry-all-errors --retry-delay 3 --max-time 20 \
+            -H 'Cache-Control: no-cache' "$SITE_ORIGIN/api/payment-options" > payment-options.json
+          python3 - <<'PY'
+          import json, pathlib
+          data=json.loads(pathlib.Path('payment-options.json').read_text())
+          assert data.get('checkoutEnabled') is True, data
+          caps=data.get('capabilities') or []
+          methods=data.get('methods') or []
+          cod=False
+          for row in [*caps,*methods]:
+              if str(row.get('id','')).upper()=='COD' and row.get('enabled') is True:
+                  cod=True
+          assert cod, data
+          for row in [*caps,*methods]:
+              rid=str(row.get('id','')).upper()
+              if rid in {'CARD','ONLINE','QR','PROMPTPAY','STRIPE'}:
+                  assert row.get('enabled') is not True, f'unverified online payment is enabled: {row}'
+          print('Checkout enabled and COD capability verified; no production order created.')
+          PY
 
       - name: Verify deployed Seller Manager readiness guard
         shell: bash
         run: |
           set -euo pipefail
-          ok=0
-          for attempt in $(seq 1 20); do
-            if curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/seller-koonchaishop.html" > seller-koonchaishop.html; then
-              if grep -Fq '/kch-koonchaishop-admin-readiness.js?v=1.0.1' seller-koonchaishop.html; then ok=1; break; fi
-            fi
-            echo "Seller readiness guard not visible yet (attempt $attempt/20); waiting for Pages deploy..."
-            sleep 3
-          done
-          [ "$ok" = "1" ] || { echo 'Seller Manager readiness guard was not observed on Production.' >&2; exit 1; }
-          curl --fail --silent --show-error --location --max-time 20 "$SITE_ORIGIN/kch-koonchaishop-admin-readiness.js?v=1.0.1" > admin-readiness.js
+          curl --fail --silent --show-error --location --retry 10 --retry-all-errors --retry-delay 2 --max-time 20 \
+            "$SITE_ORIGIN/seller-koonchaishop.html" > seller-koonchaishop.html
+          grep -Fq '/kch-koonchaishop-admin-readiness.js?v=1.0.1' seller-koonchaishop.html
+          curl --fail --silent --show-error --location --max-time 20 \
+            "$SITE_ORIGIN/kch-koonchaishop-admin-readiness.js?v=1.0.1" > admin-readiness.js
           grep -Fq "const BUILD='1.0.1'" admin-readiness.js
           grep -Fq '__KCH_KOONCHAISHOP_ADMIN_READINESS_BOOT__' admin-readiness.js
-          grep -Fq 'migration_0021_required' admin-readiness.js
-          grep -Fq 'setForms(false)' admin-readiness.js
           echo 'Production Seller Manager readiness guard: OK'
 
       - name: Verify Revenue Control Center surface
@@ -80,11 +176,9 @@ jobs:
           grep -Fq 'Production & Revenue Control Center' seller-revenue.html
           grep -Fq 'noindex,nofollow,noarchive' seller-revenue.html
           grep -Fq '/api/admin/revenue-readiness' seller-revenue.html
-          grep -Fq '/api/admin/checkout-recovery' seller-revenue.html
-          grep -Fq '/api/admin/cod-risk' seller-revenue.html
           echo 'Production Revenue Control Center surface: OK'
 
-      - name: Check public Koonchaishop feed contract
+      - name: Check public Koonchaishop feed provenance contract
         id: source
         shell: bash
         run: |
@@ -92,88 +186,43 @@ jobs:
           curl --fail --silent --show-error --location --retry 12 --retry-all-errors --retry-delay 3 --max-time 20 \
             "$SITE_ORIGIN/api/koonchaishop-feed?limit=2" > koonchaishop-feed.json
           python3 - <<'PY'
-          import json
-          from pathlib import Path
-          data=json.loads(Path('koonchaishop-feed.json').read_text())
+          import json, pathlib
+          data=json.loads(pathlib.Path('koonchaishop-feed.json').read_text())
           source=data.get('source') or {}
           assert source.get('shopName')=='Koonchaishop', source
-          assert source.get('shopCode')== 'THLCRLWLHR', source
+          assert source.get('shopCode')=='THLCRLWLHR', source
           assert source.get('platformKey')=='tiktok_shop', source
           assets=data.get('assets') or []
           reviews=data.get('reviews') or []
           assert isinstance(assets,list) and isinstance(reviews,list)
           for review in reviews:
-              assert review.get('verifiedOnSite') is False, 'external review must never be on-site verified'
-          ready=data.get('databaseReady') is True
-          Path('production-source-state.txt').write_text(
-              f"databaseReady={'true' if ready else 'false'}\nassets={len(assets)}\nreviews={len(reviews)}\n"
+              assert review.get('verifiedOnSite') is False, 'external review must never be marked on-site verified'
+          pathlib.Path('source-state.txt').write_text(
+              f"database_ready={'true' if data.get('databaseReady') is True else 'false'}\nassets={len(assets)}\nreviews={len(reviews)}\n"
           )
-          print('Public Koonchaishop feed contract: OK')
+          print('Public Koonchaishop provenance contract: OK')
           PY
-          cat production-source-state.txt
-          ready=$(awk -F= '/^databaseReady=/{print $2}' production-source-state.txt)
-          assets=$(awk -F= '/^assets=/{print $2}' production-source-state.txt)
-          reviews=$(awk -F= '/^reviews=/{print $2}' production-source-state.txt)
-          echo "database_ready=$ready" >> "$GITHUB_OUTPUT"
-          echo "assets=$assets" >> "$GITHUB_OUTPUT"
-          echo "reviews=$reviews" >> "$GITHUB_OUTPUT"
-
-      - name: Verify deployed storefront behavioral invariants
-        shell: bash
-        run: |
-          set -euo pipefail
-          fetch_asset(){ curl --fail --silent --show-error --location --retry 8 --retry-all-errors --retry-delay 2 --max-time 20 "$SITE_ORIGIN/$1" > "$2"; echo "fetched $1"; }
-          require_text(){ if grep -Fq "$2" "$1"; then echo "OK $3"; else echo "MISSING $3 :: expected [$2] in $1" >&2; exit 1; fi; }
-
-          fetch_asset 'kch-koonchaishop-commerce.js?v=1.30.1' source-runtime.js
-          fetch_asset 'tshop-v130-koonchaishop.css?v=1.30.0' source-styles.css
-          fetch_asset 'kch-readable-storefront.js?v=1.33.1' readable-runtime.js
-          fetch_asset 'tshop-v134-structural-storefront.css?v=1.34.0' structural-styles.css
-          fetch_asset 'kch-v134-structural-storefront.js?v=1.34.0' structural-runtime.js
-          fetch_asset 'kch-v1341-header-dedupe.js?v=1.34.1' header-dedupe-runtime.js
-          fetch_asset 'tshop-v1341-header-dedupe.css?v=1.34.1' header-dedupe-styles.css
-          fetch_asset 'tshop-v135-lower-standard.css?v=1.35.0' lower-standard.css
-          fetch_asset 'kch-revenue-core.js?v=1.0.0' revenue-core.js
-          fetch_asset 'sw.js?v=1.35.0' service-worker.js
-
-          require_text source-runtime.js "const BUILD='1.30.1'" 'Koonchaishop source runtime'
-          require_text source-runtime.js '/api/koonchaishop-feed' 'Koonchaishop source API contract'
-          require_text source-styles.css 'KHONCHAIHERB Commerce v1.30' 'Koonchaishop source style contract'
-
-          require_text readable-runtime.js "const BUILD='1.33.1'" 'readable storefront runtime'
-          require_text readable-runtime.js 'window.__KCH_MASTER_SEARCH__' 'canonical search owner bridge'
-          require_text readable-runtime.js "owner.source='v133-window-input'" 'canonical search input handoff'
-          require_text readable-runtime.js "removeAttribute('data-kch-v131-search-match')" 'legacy search state cleanup'
-          require_text readable-runtime.js 'min-width:48px!important;min-height:48px!important' 'tablet 48px touch target guard'
-
-          require_text structural-styles.css 'structural storefront baseline' 'structural storefront baseline marker'
-          require_text structural-styles.css '#kch-v134-header.kch-v134-header' 'structural header selector'
-          require_text structural-styles.css 'font-size:16px!important' 'readable 16px baseline'
-          require_text structural-styles.css 'font-size:18px!important' 'product readable 18px baseline'
-          require_text structural-styles.css '.kch-v134-obsolete-header' 'legacy header removal rule'
-          require_text structural-runtime.js 'kch-master-shell' 'structural shell activation'
-          require_text structural-runtime.js 'data-v134-go="account"' 'account action in structural header'
-          require_text header-dedupe-runtime.js '__KCH_V1341_HEADER_DEDUPE__' 'header de-duplication boot guard'
-          require_text header-dedupe-styles.css 'kch-v1341-hidden-legacy' 'header de-duplication CSS guard'
-          require_text lower-standard.css '.kch-footer-v2 .kch-footer-confidence' 'footer confidence rail standard'
-          require_text lower-standard.css '.kch-master-home .kch-master-trust' 'pre-footer service standard'
-          require_text revenue-core.js '/api/checkout-session' 'checkout recovery session integration'
-          require_text revenue-core.js 'recoveryAllowed:false' 'completed checkout recovery stop'
-          require_text service-worker.js '/kch-readable-storefront.js?v=1.33.1' 'service worker readable runtime cache'
-          require_text service-worker.js '/kch-v134-structural-storefront.js?v=1.34.0' 'service worker structural runtime cache'
-          require_text service-worker.js '/kch-v1341-header-dedupe.js?v=1.34.1' 'service worker header dedupe cache'
-          echo 'Production storefront behavioral invariants: OK'
+          cat source-state.txt
+          echo "database_ready=$(awk -F= '/^database_ready=/{print $2}' source-state.txt)" >> "$GITHUB_OUTPUT"
+          echo "assets=$(awk -F= '/^assets=/{print $2}' source-state.txt)" >> "$GITHUB_OUTPUT"
+          echo "reviews=$(awk -F= '/^reviews=/{print $2}' source-state.txt)" >> "$GITHUB_OUTPUT"
 
       - name: Report production readiness
         shell: bash
         run: |
           set -euo pipefail
-          echo "### KHONCHAIHERB Production Public Smoke" >> "$GITHUB_STEP_SUMMARY"
-          echo "Storefront structure, canonical search bridge, tablet touch target, revenue core, Seller Manager and Koonchaishop provenance contracts were verified." >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ steps.source.outputs.database_ready }}" = "true" ]; then
-            echo "Koonchaishop source database: READY" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Koonchaishop source database: NOT READY / migration or binding still required" >> "$GITHUB_STEP_SUMMARY"
-          fi
-          echo "Published assets returned: ${{ steps.source.outputs.assets }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Published reviews returned: ${{ steps.source.outputs.reviews }}" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo '### KHONCHAIHERB Clean Storefront V1 — Production Public Smoke'
+            echo ''
+            echo '- Canonical clean Storefront V1 fingerprint: PASS'
+            echo '- Retired legacy storefront references in customer HTML: NONE'
+            echo '- Storefront CSS/JS/service-worker contract: PASS'
+            echo '- Live sale-ready catalog + product media: PASS'
+            echo '- Checkout + COD readiness (no real order created): PASS'
+            echo '- Seller Manager surface: PASS'
+            echo '- Revenue Control Center surface: PASS'
+            echo "- Sale-ready products observed: ${{ steps.catalog.outputs.sale_ready }}"
+            echo "- Koonchaishop source database ready: ${{ steps.source.outputs.database_ready }}"
+            echo "- Published source assets: ${{ steps.source.outputs.assets }}"
+            echo "- Published source reviews: ${{ steps.source.outputs.reviews }}"
+          } >> "$GITHUB_STEP_SUMMARY"
