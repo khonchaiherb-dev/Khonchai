@@ -28,6 +28,8 @@ jobs:
       STOREFRONT_POSTPURCHASE_ASSET: /storefront-v1-postpurchase.js?v=2026.09.05.1
       STOREFRONT_CHECKOUT_RECOVERY_CSS: /storefront-v1-checkout-recovery.css?v=2026.09.05.1
       STOREFRONT_CHECKOUT_RECOVERY_ASSET: /storefront-v1-checkout-recovery.js?v=2026.09.05.1
+      STOREFRONT_CHECKOUT_QUOTE_CSS: /storefront-v1-checkout-quote.css?v=2026.09.05.1
+      STOREFRONT_CHECKOUT_QUOTE_ASSET: /storefront-v1-checkout-quote.js?v=2026.09.05.1
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -78,7 +80,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -f canonical-home.html canonical-headers.txt payment-options.json commerce.css postpurchase.js checkout-recovery.css checkout-recovery.js order-status-invalid.json
+          rm -f canonical-home.html canonical-headers.txt payment-options.json commerce.css postpurchase.js \
+            checkout-recovery.css checkout-recovery.js checkout-quote.css checkout-quote.js \
+            order-status-invalid.json products.json product-detail.json quote-request.json checkout-quote.json selected-slug.txt
           ok=0
           for attempt in $(seq 1 12); do
             echo "Canonical verification attempt $attempt/12"
@@ -90,27 +94,75 @@ jobs:
               && grep -Fq "$STOREFRONT_POSTPURCHASE_ASSET" canonical-home.html \
               && grep -Fq "$STOREFRONT_CHECKOUT_RECOVERY_CSS" canonical-home.html \
               && grep -Fq "$STOREFRONT_CHECKOUT_RECOVERY_ASSET" canonical-home.html \
+              && grep -Fq "$STOREFRONT_CHECKOUT_QUOTE_CSS" canonical-home.html \
+              && grep -Fq "$STOREFRONT_CHECKOUT_QUOTE_ASSET" canonical-home.html \
               && grep -Eiq '^X-KCH-Storefront:[[:space:]]*v1-clean' canonical-headers.txt \
-              && curl --fail --silent --show-error --max-time 20 \
-                -o commerce.css "$CANONICAL_ORIGIN$STOREFRONT_COMMERCE_ASSET" \
+              && curl --fail --silent --show-error --max-time 20 -o commerce.css "$CANONICAL_ORIGIN$STOREFRONT_COMMERCE_ASSET" \
               && grep -Fq 'KHONCHAIHERB V1 — sell-now commerce polish' commerce.css \
-              && curl --fail --silent --show-error --max-time 20 \
-                -o postpurchase.js "$CANONICAL_ORIGIN$STOREFRONT_POSTPURCHASE_ASSET" \
+              && curl --fail --silent --show-error --max-time 20 -o postpurchase.js "$CANONICAL_ORIGIN$STOREFRONT_POSTPURCHASE_ASSET" \
               && grep -Fq "ORDER_KEY='kch-last-order'" postpurchase.js \
-              && curl --fail --silent --show-error --max-time 20 \
-                -o checkout-recovery.css "$CANONICAL_ORIGIN$STOREFRONT_CHECKOUT_RECOVERY_CSS" \
+              && curl --fail --silent --show-error --max-time 20 -o checkout-recovery.css "$CANONICAL_ORIGIN$STOREFRONT_CHECKOUT_RECOVERY_CSS" \
               && grep -Fq 'KHONCHAIHERB V1 — checkout recovery presentation' checkout-recovery.css \
-              && curl --fail --silent --show-error --max-time 20 \
-                -o checkout-recovery.js "$CANONICAL_ORIGIN$STOREFRONT_CHECKOUT_RECOVERY_ASSET" \
+              && curl --fail --silent --show-error --max-time 20 -o checkout-recovery.js "$CANONICAL_ORIGIN$STOREFRONT_CHECKOUT_RECOVERY_ASSET" \
               && grep -Fq 'KHONCHAIHERB V1 — checkout recovery' checkout-recovery.js \
               && grep -Fq '#customer-subdistrict' checkout-recovery.js \
-              && curl --fail --silent --show-error --max-time 20 \
-                -o payment-options.json "$CANONICAL_ORIGIN/api/payment-options"; then
+              && curl --fail --silent --show-error --max-time 20 -o checkout-quote.css "$CANONICAL_ORIGIN$STOREFRONT_CHECKOUT_QUOTE_CSS" \
+              && grep -Fq 'KHONCHAIHERB V1 — server checkout quote presentation' checkout-quote.css \
+              && curl --fail --silent --show-error --max-time 20 -o checkout-quote.js "$CANONICAL_ORIGIN$STOREFRONT_CHECKOUT_QUOTE_ASSET" \
+              && grep -Fq 'KHONCHAIHERB V1 — server checkout quote' checkout-quote.js \
+              && grep -Fq '/api/checkout-quote' checkout-quote.js \
+              && curl --fail --silent --show-error --max-time 20 -o payment-options.json "$CANONICAL_ORIGIN/api/payment-options"; then
+
               order_status_code=$(curl --silent --show-error --max-time 20 \
                 -o order-status-invalid.json -w '%{http_code}' \
                 "$CANONICAL_ORIGIN/api/order-status?orderNo=INVALID&phone=0" || true)
-              if python3 - "$order_status_code" <<'PY'
-          import json,sys
+
+              quote_code=000
+              if curl --fail --silent --show-error --max-time 20 -o products.json "$CANONICAL_ORIGIN/api/products" \
+                && python3 - <<'PY' > selected-slug.txt
+          import json
+          from pathlib import Path
+          d=json.loads(Path('products.json').read_text())
+          rows=d.get('products') or []
+          if d.get('ready') is not True or not rows:
+              raise SystemExit('no sale-ready product available for read-only quote verification')
+          p=next((x for x in rows if int(x.get('id') or 0)>0 and float(x.get('price') or 0)>0 and float(x.get('stock') or 0)>0 and x.get('slug')),None)
+          if not p:
+              raise SystemExit('no quoteable sale-ready product found')
+          print(str(p['slug']))
+          PY
+              then
+                slug=$(cat selected-slug.txt)
+                if curl --fail --silent --show-error --max-time 20 --get \
+                    --data-urlencode "slug=$slug" \
+                    -o product-detail.json "$CANONICAL_ORIGIN/api/product-detail" \
+                  && python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('product-detail.json').read_text())
+          p=d.get('product') or {}
+          pid=int(p.get('id') or 0)
+          if pid<=0:
+              raise SystemExit('invalid product detail for quote verification')
+          item={'id':pid,'qty':1}
+          variants=[v for v in (p.get('variants') or []) if int(v.get('id') or 0)>0 and float(v.get('price') or 0)>0 and float(v.get('available_stock') or 0)>0]
+          if variants:
+              item['variantId']=int(variants[0]['id'])
+          elif float(p.get('available_stock') or 0)<=0:
+              raise SystemExit('product has no available stock for quote verification')
+          Path('quote-request.json').write_text(json.dumps({'items':[item]},ensure_ascii=False))
+          PY
+                then
+                  quote_code=$(curl --silent --show-error --max-time 20 \
+                    -o checkout-quote.json -w '%{http_code}' \
+                    -X POST -H 'Content-Type: application/json' \
+                    --data-binary @quote-request.json \
+                    "$CANONICAL_ORIGIN/api/checkout-quote" || true)
+                fi
+              fi
+
+              if python3 - "$order_status_code" "$quote_code" <<'PY'
+          import json,sys,math
           from pathlib import Path
           d=json.loads(Path('payment-options.json').read_text())
           if d.get('checkoutEnabled') is not True:
@@ -121,10 +173,29 @@ jobs:
           cod=any(str(x.get('id','')).upper()=='COD' and x.get('enabled') is True for x in rows if isinstance(x,dict))
           if not cod:
               raise SystemExit('COD is not enabled in payment options')
+
           status_code=sys.argv[1]
           lookup=json.loads(Path('order-status-invalid.json').read_text())
           if status_code!='400' or lookup.get('error')!='invalid_lookup':
               raise SystemExit('order-status privacy lookup gate is not live')
+
+          quote_code=sys.argv[2]
+          if quote_code!='200':
+              raise SystemExit(f'checkout quote returned HTTP {quote_code}')
+          quote=json.loads(Path('checkout-quote.json').read_text())
+          if quote.get('ok') is not True or quote.get('quoteSource')!='server':
+              raise SystemExit('authoritative server checkout quote is not live')
+          lines=quote.get('lines') or []
+          subtotal=float(quote.get('subtotal') or 0)
+          discount=float(quote.get('discount') or 0)
+          shipping=float(quote.get('shipping') or 0)
+          total=float(quote.get('total') or 0)
+          if not lines or subtotal<=0 or discount<0 or shipping<0 or total<0:
+              raise SystemExit('checkout quote totals are invalid')
+          expected=max(0,subtotal-discount+shipping)
+          if not math.isclose(total,expected,abs_tol=0.01):
+              raise SystemExit('checkout quote total arithmetic mismatch')
+          print(f'Authoritative quote verified: subtotal={subtotal:.2f}, discount={discount:.2f}, shipping={shipping:.2f}, total={total:.2f}')
           PY
               then
                 ok=1
@@ -138,10 +209,12 @@ jobs:
             echo "--- response headers ---"
             cat canonical-headers.txt 2>/dev/null || true
             echo "--- storefront markers ---"
-            grep -Eo 'storefront-v1[^" ]+' canonical-home.html 2>/dev/null | head -40 || true
+            grep -Eo 'storefront-v1[^" ]+' canonical-home.html 2>/dev/null | head -50 || true
+            echo "--- checkout quote ---"
+            cat checkout-quote.json 2>/dev/null || true
             exit 1
           fi
-          echo "PASS canonical production: clean sell-now, privacy-safe checkout recovery, post-purchase tracking, Checkout, COD and order-status privacy gate are live."
+          echo "PASS canonical production: authoritative server checkout quote, privacy-safe recovery, post-purchase tracking, Checkout, COD and order-status privacy gate are live."
 
       - name: Report production target
         shell: bash
@@ -150,4 +223,4 @@ jobs:
           echo "Production branch resolved from Cloudflare project configuration: \`${{ steps.pages.outputs.production_branch }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Source commit: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Canonical storefront verified after deployment: \`$CANONICAL_ORIGIN\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "Checkout recovery + Checkout + COD + order-status privacy gate verified from canonical runtime without creating a real order." >> "$GITHUB_STEP_SUMMARY"
+          echo "Server checkout quote + Checkout recovery + Checkout + COD + order-status privacy gate verified from canonical runtime without creating a real order." >> "$GITHUB_STEP_SUMMARY"
