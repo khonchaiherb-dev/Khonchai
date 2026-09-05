@@ -333,9 +333,9 @@
           </div>
           <div class="kch-field kch-field-full"><label for="customer-address">ที่อยู่</label><textarea id="customer-address" autocomplete="street-address" placeholder="บ้านเลขที่ หมู่ ถนน"></textarea></div>
           <div class="kch-form-grid" style="margin-top:12px">
-            <div class="kch-field"><label for="customer-subdistrict">ตำบล/แขวง</label><input id="customer-subdistrict" placeholder="ตำบล/แขวง"></div>
-            <div class="kch-field"><label for="customer-district">อำเภอ/เขต</label><input id="customer-district" placeholder="อำเภอ/เขต"></div>
-            <div class="kch-field"><label for="customer-province">จังหวัด</label><input id="customer-province" placeholder="จังหวัด"></div>
+            <div class="kch-field"><label for="customer-subdistrict">ตำบล/แขวง</label><input id="customer-subdistrict" autocomplete="address-level3" placeholder="ตำบล/แขวง"></div>
+            <div class="kch-field"><label for="customer-district">อำเภอ/เขต</label><input id="customer-district" autocomplete="address-level2" placeholder="อำเภอ/เขต"></div>
+            <div class="kch-field"><label for="customer-province">จังหวัด</label><input id="customer-province" autocomplete="address-level1" placeholder="จังหวัด"></div>
             <div class="kch-field"><label for="customer-postal">รหัสไปรษณีย์</label><input id="customer-postal" inputmode="numeric" autocomplete="postal-code" maxlength="5" placeholder="XXXXX"></div>
           </div>
           <label class="kch-consent"><input type="checkbox" id="marketing-consent"><span>ฉันต้องการรับข่าวสารและสิทธิพิเศษจาก KHONCHAIHERB (ไม่บังคับ)</span></label>
@@ -386,6 +386,7 @@
     if(values.name.length<2)invalid.push(fields.name);
     if(values.phone.length<9)invalid.push(fields.phone);
     if(values.address.length<5)invalid.push(fields.address);
+    if(values.subdistrict.length<2)invalid.push(fields.subdistrict);
     if(values.district.length<2)invalid.push(fields.district);
     if(values.province.length<2)invalid.push(fields.province);
     if(!/^\d{5}$/.test(values.postal))invalid.push(fields.postal);
@@ -407,7 +408,7 @@
   async function placeOrder(){
     if(state.placing)return;
     const result=validateCheckout(),err=$('[data-checkout-error]');
-    if(!result.ok){if(err)err.textContent='กรุณากรอกชื่อ โทรศัพท์ ที่อยู่ อำเภอ/เขต จังหวัด และรหัสไปรษณีย์ให้ครบถ้วน';return}
+    if(!result.ok){if(err)err.textContent='กรุณากรอกชื่อ โทรศัพท์ ที่อยู่ ตำบล/แขวง อำเภอ/เขต จังหวัด และรหัสไปรษณีย์ให้ครบถ้วน';return}
     if(!state.payment.checkoutEnabled||!state.payment.codEnabled){if(err)err.textContent='ระบบเก็บเงินปลายทางยังไม่พร้อมใช้งาน';return}
     if(err)err.textContent='';
     const btn=$('[data-place-order]');
