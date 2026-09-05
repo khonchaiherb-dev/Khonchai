@@ -1,0 +1,64 @@
+name: KHONCHAIHERB Checkout Error Recovery Production Smoke
+
+on:
+  push:
+    branches: [storefront-social-commerce]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: khonchaiherb-checkout-error-recovery-production-smoke
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify canonical actionable checkout recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SITE_ORIGIN: https://khonchaiherb-commerce.pages.dev
+      RECOVERY_JS: /storefront-v1-checkout-error-recovery.js?v=2026.09.05.1
+      RECOVERY_CSS: /storefront-v1-checkout-error-recovery.css?v=2026.09.05.1
+    steps:
+      - name: Verify recovery assets are live on canonical storefront
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for attempt in $(seq 1 45); do
+            if curl --fail --silent --show-error --location --max-time 20 \
+                -H 'Cache-Control: no-cache' \
+                "$SITE_ORIGIN/?checkout_error_recovery_verify=${GITHUB_SHA}-${GITHUB_RUN_ID}-${attempt}" > home.html \
+              && grep -Fq "$RECOVERY_JS" home.html \
+              && grep -Fq "$RECOVERY_CSS" home.html \
+              && curl --fail --silent --show-error --location --max-time 20 \
+                -H 'Cache-Control: no-cache' "$SITE_ORIGIN$RECOVERY_JS" > checkout-error-recovery.js \
+              && grep -Fq 'KHONCHAIHERB V1 — actionable checkout error recovery' checkout-error-recovery.js \
+              && grep -Fq "code==='invalid_phone'" checkout-error-recovery.js \
+              && grep -Fq "code==='insufficient_stock'" checkout-error-recovery.js \
+              && grep -Fq "code==='network_error'" checkout-error-recovery.js \
+              && grep -Fq 'ลดความเสี่ยงออเดอร์ซ้ำ' checkout-error-recovery.js \
+              && curl --fail --silent --show-error --location --max-time 20 \
+                -H 'Cache-Control: no-cache' "$SITE_ORIGIN$RECOVERY_CSS" > checkout-error-recovery.css \
+              && grep -Fq 'data-checkout-recovery-error' checkout-error-recovery.css; then
+              ok=1
+              break
+            fi
+            echo "Checkout error recovery assets not converged yet ($attempt/45)"
+            sleep 4
+          done
+          [ "$ok" = "1" ] || { echo 'Canonical checkout error recovery is not live.' >&2; exit 1; }
+          echo 'Canonical actionable checkout error recovery: OK'
+
+      - name: Report recovery readiness
+        shell: bash
+        run: |
+          {
+            echo '### KHONCHAIHERB Checkout Error Recovery'
+            echo '- Canonical recovery JavaScript injected: PASS'
+            echo '- Canonical recovery presentation injected: PASS'
+            echo '- Phone, stock and uncertain-network recovery guidance present: PASS'
+            echo '- This smoke test performs GET requests only and creates no production order.'
+          } >> "$GITHUB_STEP_SUMMARY"
