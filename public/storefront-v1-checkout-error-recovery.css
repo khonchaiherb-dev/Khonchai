@@ -1,0 +1,42 @@
+/* KHONCHAIHERB V1 — actionable checkout recovery presentation */
+.kch-checkout-error[data-checkout-recovery-error]{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  flex-wrap:wrap;
+  padding:12px 14px;
+  border:1px solid #e8c9c4;
+  border-radius:14px;
+  background:#fff7f5;
+  color:#7d3028;
+  font-size:12px;
+  font-weight:650;
+  line-height:1.65;
+}
+.kch-checkout-error[data-checkout-recovery-tone="retry"],
+.kch-checkout-error[data-checkout-recovery-tone="system"]{
+  border-color:#ead9ae;
+  background:#fffbef;
+  color:#6b5118;
+}
+.kch-checkout-error-message{flex:1 1 240px;min-width:0}
+.kch-checkout-error-action{
+  flex:0 0 auto;
+  min-height:38px;
+  padding:8px 12px;
+  border:1px solid currentColor;
+  border-radius:999px;
+  background:#fff;
+  color:inherit;
+  font:inherit;
+  font-weight:800;
+  cursor:pointer;
+}
+.kch-checkout-error-action:focus-visible{
+  outline:3px solid rgba(23,57,47,.18);
+  outline-offset:2px;
+}
+@media(max-width:560px){
+  .kch-checkout-error[data-checkout-recovery-error]{padding:11px 12px;font-size:11px}
+  .kch-checkout-error-action{width:100%}
+}
