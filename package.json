@@ -10,6 +10,7 @@
     "qa:order-preflight": "node tests/storefront-order-preflight-smoke.mjs",
     "qa:order-submit-safety": "node tests/storefront-order-submit-safety-smoke.mjs",
     "qa:phone-integrity": "node tests/storefront-phone-integrity-smoke.mjs",
+    "qa:address-integrity": "node tests/storefront-address-integrity-smoke.mjs",
     "qa:checkout-error-recovery": "node tests/storefront-checkout-error-recovery-smoke.mjs",
     "qa:cache-contract": "node tests/storefront-cache-contract-smoke.mjs",
     "qa:asset-freeze": "node tests/storefront-legacy-asset-freeze.mjs",
@@ -51,7 +52,7 @@
     "qa:support-ops": "node tests/support-operations-smoke.mjs",
     "qa:support-omni": "node tests/support-omnichannel-smoke.mjs",
     "qa:e2e": "playwright test",
-    "check": "node tests/syntax-check.mjs && node tests/storefront-v1-baseline-smoke.mjs && node tests/storefront-order-preflight-smoke.mjs && node tests/storefront-order-submit-safety-smoke.mjs && node tests/storefront-phone-integrity-smoke.mjs && node tests/storefront-checkout-error-recovery-smoke.mjs && node tests/storefront-cache-contract-smoke.mjs && node tests/revenue-payment-architecture-smoke.mjs && node tests/admin-portal-security-smoke.mjs && node tests/admin-operations-fefo-smoke.mjs && node tests/admin-alert-approval-smoke.mjs && node tests/support-platform-smoke.mjs && node tests/support-operations-smoke.mjs && node tests/support-omnichannel-smoke.mjs"
+    "check": "node tests/syntax-check.mjs && node tests/storefront-v1-baseline-smoke.mjs && node tests/storefront-order-preflight-smoke.mjs && node tests/storefront-order-submit-safety-smoke.mjs && node tests/storefront-phone-integrity-smoke.mjs && node tests/storefront-address-integrity-smoke.mjs && node tests/storefront-checkout-error-recovery-smoke.mjs && node tests/storefront-cache-contract-smoke.mjs && node tests/revenue-payment-architecture-smoke.mjs && node tests/admin-portal-security-smoke.mjs && node tests/admin-operations-fefo-smoke.mjs && node tests/admin-alert-approval-smoke.mjs && node tests/support-platform-smoke.mjs && node tests/support-operations-smoke.mjs && node tests/support-omnichannel-smoke.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0"
