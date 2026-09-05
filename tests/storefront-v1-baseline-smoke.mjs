@@ -47,14 +47,21 @@ assert.doesNotMatch(recoveryJs,/localStorage\.setItem|sessionStorage\.setItem/,'
 assert.doesNotMatch(recoveryJs,/FLASH DEAL|Verified Purchase|ขายแล้ว\s*\d|WELCOME50|HERB10/i,'checkout recovery must not introduce unverified commerce content');
 assert.match(recoveryCss,/\.kch-checkout-memory-note/,'checkout recovery must include visible privacy/recovery feedback');
 
-// Checkout quote must be authoritative, read-only and free of customer PII.
+// Checkout quote must be authoritative, read-only, single-flight and free of customer PII.
 assert.match(quoteJs,/\/api\/checkout-quote/,'checkout quote module must use the existing server quote API');
 assert.match(quoteJs,/quoteSource/,'checkout quote UI must require a server quote marker');
-assert.match(quoteJs,/data-quote-final-total/,'checkout quote UI must expose the final server total');
+assert.match(quoteJs,/data-quote-final-total/,'checkout quote UI must expose the final server total in checkout');
+assert.match(quoteJs,/data-cart-server-total/,'cart must expose the server-calculated total before checkout');
+assert.match(quoteJs,/data-cart-quote-breakdown/,'cart must show server subtotal/discount/shipping breakdown');
+assert.match(quoteJs,/requestSeq=\{cart:0,checkout:0\}/,'cart and checkout quotes must have independent single-flight sequencing');
+assert.match(quoteJs,/status==='loading'/,'quote observers must not duplicate in-flight requests');
+assert.match(quoteJs,/data-cart-quote-fallback/,'cart quote failures must fail open without a retry loop');
+assert.match(quoteJs,/data-checkout-quote-fallback/,'checkout quote failures must fail open without a retry loop');
 assert.match(quoteJs,/variantId/,'checkout quote must preserve variant identity');
 assert.doesNotMatch(quoteJs,/customerName|customer-phone|customer-address/,'checkout quote request must not read customer PII');
 assert.doesNotMatch(quoteJs,/localStorage\.setItem|sessionStorage\.setItem/,'checkout quote module must not persist data');
 assert.match(quoteCss,/\.kch-review-total/,'checkout quote must visually emphasize the final total');
+assert.match(quoteCss,/\.kch-cart-quote-breakdown/,'cart quote must have a visible server-price breakdown');
 assert.match(quoteApi,/sale_verified/,'server quote must require sale-verified products');
 assert.match(quoteApi,/reserved_stock/,'server quote must calculate against reserved stock');
 assert.match(quoteApi,/shipping_fee/,'server quote must use store shipping settings');
@@ -98,6 +105,7 @@ assert.match(middleware,/storefront-v1-checkout-recovery\.css/,'canonical home m
 assert.match(middleware,/storefront-v1-checkout-recovery\.js/,'canonical home must receive privacy-safe checkout recovery');
 assert.match(middleware,/storefront-v1-checkout-quote\.css/,'canonical home must receive checkout quote presentation');
 assert.match(middleware,/storefront-v1-checkout-quote\.js/,'canonical home must receive the authoritative checkout quote module');
+assert.match(middleware,/2026\.09\.05\.2/,'canonical middleware must cache-bust the cart-enabled quote assets');
 assert.match(middleware,/X-KCH-Storefront/,'middleware must mark clean storefront responses');
 assert.match(middleware,/KOONCHAISHOP_ADMIN_GUARD/,'seller readiness guard must remain intact');
 assert.match(middleware,/coupon_not_eligible/,'order coupon eligibility guard must remain intact');
@@ -109,4 +117,4 @@ assert.match(wrangler,/"ONLINE_PAYMENTS_ENABLED"\s*:\s*"false"/,'unverified onli
 assert.match(constitution,/Always start from the latest production branch HEAD/,'development constitution must lock latest-HEAD workflow');
 assert.match(constitution,/Regression is failure/,'development constitution must lock regression protection');
 
-console.log('PASS storefront V1 baseline: clean architecture, authoritative server checkout quote, privacy-safe recovery, COD, secure post-purchase tracking, responsive and middleware isolation contract');
+console.log('PASS storefront V1 baseline: clean architecture, server totals from cart through checkout, quote single-flight, privacy-safe recovery, COD, secure post-purchase tracking, responsive and middleware isolation contract');
