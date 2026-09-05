@@ -1,0 +1,64 @@
+name: KHONCHAIHERB Address Integrity Production Smoke
+
+on:
+  push:
+    branches: [storefront-social-commerce]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: khonchaiherb-address-integrity-production-smoke
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify canonical COD address guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SITE_ORIGIN: https://khonchaiherb-commerce.pages.dev
+      ADDRESS_JS: /storefront-v1-address-integrity.js?v=2026.09.05.1
+      RECOVERY_JS: /storefront-v1-checkout-error-recovery.js?v=2026.09.05.2
+    steps:
+      - name: Verify address integrity assets are live on canonical storefront
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for attempt in $(seq 1 45); do
+            if curl --fail --silent --show-error --location --max-time 20 \
+                -H 'Cache-Control: no-cache' \
+                "$SITE_ORIGIN/?address_integrity_verify=${GITHUB_SHA}-${GITHUB_RUN_ID}-${attempt}" > home.html \
+              && grep -Fq "$ADDRESS_JS" home.html \
+              && grep -Fq "$RECOVERY_JS" home.html \
+              && curl --fail --silent --show-error --location --max-time 20 \
+                -H 'Cache-Control: no-cache' "$SITE_ORIGIN$ADDRESS_JS" > address-integrity.js \
+              && grep -Fq 'KHONCHAIHERB V1 — COD delivery address integrity' address-integrity.js \
+              && grep -Fq "'๐':'0'" address-integrity.js \
+              && grep -Fq "selector:'#customer-postal'" address-integrity.js \
+              && grep -Fq 'event.stopImmediatePropagation()' address-integrity.js \
+              && curl --fail --silent --show-error --location --max-time 20 \
+                -H 'Cache-Control: no-cache' "$SITE_ORIGIN$RECOVERY_JS" > checkout-recovery.js \
+              && grep -Fq "code==='invalid_postal_code'" checkout-recovery.js \
+              && grep -Fq "code==='invalid_delivery_address'" checkout-recovery.js; then
+              ok=1
+              break
+            fi
+            echo "Address integrity assets not converged yet ($attempt/45)"
+            sleep 4
+          done
+          [ "$ok" = "1" ] || { echo 'Canonical COD address integrity is not live.' >&2; exit 1; }
+          echo 'Canonical COD address integrity: OK'
+
+      - name: Report address integrity readiness
+        shell: bash
+        run: |
+          {
+            echo '### KHONCHAIHERB COD Address Integrity'
+            echo '- Canonical address guard injected: PASS'
+            echo '- Thai postal-digit normalization present: PASS'
+            echo '- Field-specific address/postal recovery present: PASS'
+            echo '- This production smoke performs GET requests only and creates no order.'
+          } >> "$GITHUB_STEP_SUMMARY"
