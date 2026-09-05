@@ -26,6 +26,8 @@ jobs:
       CANONICAL_ORIGIN: https://khonchaiherb-commerce.pages.dev
       STOREFRONT_COMMERCE_ASSET: /storefront-v1-commerce.css?v=2026.09.05.7
       STOREFRONT_POSTPURCHASE_ASSET: /storefront-v1-postpurchase.js?v=2026.09.05.1
+      STOREFRONT_CHECKOUT_RECOVERY_CSS: /storefront-v1-checkout-recovery.css?v=2026.09.05.1
+      STOREFRONT_CHECKOUT_RECOVERY_ASSET: /storefront-v1-checkout-recovery.js?v=2026.09.05.1
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -76,7 +78,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -f canonical-home.html canonical-headers.txt payment-options.json commerce.css postpurchase.js order-status-invalid.json
+          rm -f canonical-home.html canonical-headers.txt payment-options.json commerce.css postpurchase.js checkout-recovery.css checkout-recovery.js order-status-invalid.json
           ok=0
           for attempt in $(seq 1 12); do
             echo "Canonical verification attempt $attempt/12"
@@ -86,6 +88,8 @@ jobs:
                 "$CANONICAL_ORIGIN/?deploy_verify=$GITHUB_SHA" \
               && grep -Fq "$STOREFRONT_COMMERCE_ASSET" canonical-home.html \
               && grep -Fq "$STOREFRONT_POSTPURCHASE_ASSET" canonical-home.html \
+              && grep -Fq "$STOREFRONT_CHECKOUT_RECOVERY_CSS" canonical-home.html \
+              && grep -Fq "$STOREFRONT_CHECKOUT_RECOVERY_ASSET" canonical-home.html \
               && grep -Eiq '^X-KCH-Storefront:[[:space:]]*v1-clean' canonical-headers.txt \
               && curl --fail --silent --show-error --max-time 20 \
                 -o commerce.css "$CANONICAL_ORIGIN$STOREFRONT_COMMERCE_ASSET" \
@@ -93,6 +97,13 @@ jobs:
               && curl --fail --silent --show-error --max-time 20 \
                 -o postpurchase.js "$CANONICAL_ORIGIN$STOREFRONT_POSTPURCHASE_ASSET" \
               && grep -Fq "ORDER_KEY='kch-last-order'" postpurchase.js \
+              && curl --fail --silent --show-error --max-time 20 \
+                -o checkout-recovery.css "$CANONICAL_ORIGIN$STOREFRONT_CHECKOUT_RECOVERY_CSS" \
+              && grep -Fq 'KHONCHAIHERB V1 — checkout recovery presentation' checkout-recovery.css \
+              && curl --fail --silent --show-error --max-time 20 \
+                -o checkout-recovery.js "$CANONICAL_ORIGIN$STOREFRONT_CHECKOUT_RECOVERY_ASSET" \
+              && grep -Fq 'KHONCHAIHERB V1 — checkout recovery' checkout-recovery.js \
+              && grep -Fq '#customer-subdistrict' checkout-recovery.js \
               && curl --fail --silent --show-error --max-time 20 \
                 -o payment-options.json "$CANONICAL_ORIGIN/api/payment-options"; then
               order_status_code=$(curl --silent --show-error --max-time 20 \
@@ -127,10 +138,10 @@ jobs:
             echo "--- response headers ---"
             cat canonical-headers.txt 2>/dev/null || true
             echo "--- storefront markers ---"
-            grep -Eo 'storefront-v1[^" ]+' canonical-home.html 2>/dev/null | head -30 || true
+            grep -Eo 'storefront-v1[^" ]+' canonical-home.html 2>/dev/null | head -40 || true
             exit 1
           fi
-          echo "PASS canonical production: clean sell-now + post-purchase assets, V1 marker, Checkout, COD and private order-status gate are live."
+          echo "PASS canonical production: clean sell-now, privacy-safe checkout recovery, post-purchase tracking, Checkout, COD and order-status privacy gate are live."
 
       - name: Report production target
         shell: bash
@@ -139,4 +150,4 @@ jobs:
           echo "Production branch resolved from Cloudflare project configuration: \`${{ steps.pages.outputs.production_branch }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Source commit: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Canonical storefront verified after deployment: \`$CANONICAL_ORIGIN\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "Checkout + COD + order-status privacy gate verified from canonical runtime without creating a real order." >> "$GITHUB_STEP_SUMMARY"
+          echo "Checkout recovery + Checkout + COD + order-status privacy gate verified from canonical runtime without creating a real order." >> "$GITHUB_STEP_SUMMARY"
