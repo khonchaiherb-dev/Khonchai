@@ -80,15 +80,19 @@ jobs:
           grep -Fq '/api/orders' storefront-v1.js
           grep -Fq 'idempotencyKey' storefront-v1.js
           grep -Fq "paymentMethod:'COD'" storefront-v1.js
-          grep -Fq 'khonchaiherb-storefront-v1-2026.09.05.5' service-worker.js
-          grep -Fq '/storefront-v1.css?v=2026.09.05.5' service-worker.js
-          grep -Fq '/storefront-v1.js?v=2026.09.05.5' service-worker.js
+          grep -Fq "/sw.js?v=${STOREFRONT_VERSION}" storefront-v1.js
+          grep -Fq "resilient cache lifecycle ${STOREFRONT_VERSION}" service-worker.js
+          grep -Fq "runtime-${STOREFRONT_VERSION}" service-worker.js
+          grep -Fq "/storefront-v1.css?v=${STOREFRONT_VERSION}" service-worker.js
+          grep -Fq "/storefront-v1.js?v=${STOREFRONT_VERSION}" service-worker.js
+          grep -Fq 'Promise.allSettled(CORE.map' service-worker.js
+          grep -Fq "new Request(url,{cache:'no-store'})" service-worker.js
 
           if grep -Eqi 'tshop-v[0-9]+|kch-rescue-live|kch-master-reference-2026' service-worker.js; then
             echo 'Service worker still references retired storefront generations.' >&2
             exit 1
           fi
-          echo 'Clean Storefront V1 assets and cache contract: OK'
+          echo 'Canonical Storefront V1 assets and resilient service-worker generation: OK'
 
       - name: Verify live catalog and product media without creating an order
         id: catalog
@@ -216,7 +220,7 @@ jobs:
             echo ''
             echo '- Canonical clean Storefront V1 fingerprint: PASS'
             echo '- Retired legacy storefront references in customer HTML: NONE'
-            echo '- Storefront CSS/JS/service-worker contract: PASS'
+            echo '- Storefront CSS/JS/service-worker generation contract: PASS'
             echo '- Live sale-ready catalog + product media: PASS'
             echo '- Checkout + COD readiness (no real order created): PASS'
             echo '- Seller Manager surface: PASS'
