@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
-const [html,css,js,sw,wrangler,constitution]=await Promise.all([
+const [html,css,js,sw,wrangler,constitution,middleware]=await Promise.all([
   readFile('public/index.html','utf8'),
   readFile('public/storefront-v1.css','utf8'),
   readFile('public/storefront-v1.js','utf8'),
   readFile('public/sw.js','utf8'),
   readFile('wrangler.jsonc','utf8'),
-  readFile('docs/KHONCHAIHERB-STOREFRONT-CONSTITUTION.md','utf8')
+  readFile('docs/KHONCHAIHERB-STOREFRONT-CONSTITUTION.md','utf8'),
+  readFile('functions/_middleware.js','utf8')
 ]);
 
 assert.match(html,/storefront-v1\.css\?v=/,'index must load the single clean storefront stylesheet');
@@ -37,6 +38,13 @@ assert.match(sw,/storefront-v1\.css/,'service worker must cache the clean storef
 assert.match(sw,/storefront-v1\.js/,'service worker must cache the clean storefront controller');
 assert.doesNotMatch(sw,/kch-rescue-live|kch-master-reference-2026/,'service worker must not pre-cache retired legacy storefront layers');
 
+// Cloudflare middleware must never put retired customer UI layers back into otherwise-clean HTML.
+assert.doesNotMatch(middleware,/head\.append\([^\n]*(?:tshop-v\d+|kch-rescue-live|kch-master-reference-2026|kch-canonical-commerce-ui)/i,'middleware must not inject retired storefront assets');
+assert.doesNotMatch(middleware,/body\.setAttribute\([^\n]*(?:kch-master-2026|kch-rescue-live)/i,'middleware must not add retired storefront body classes');
+assert.match(middleware,/X-KCH-Storefront','middleware must mark clean storefront responses');
+assert.match(middleware,/KOONCHAISHOP_ADMIN_GUARD/,'seller readiness guard must remain intact');
+assert.match(middleware,/coupon_not_eligible/,'order coupon eligibility guard must remain intact');
+
 assert.match(wrangler,/"CHECKOUT_ENABLED"\s*:\s*"true"/,'checkout must remain enabled in production source config');
 assert.match(wrangler,/"COD_ENABLED"\s*:\s*"true"/,'COD must remain enabled in production source config');
 assert.match(wrangler,/"ONLINE_PAYMENTS_ENABLED"\s*:\s*"false"/,'unverified online payments must remain disabled');
@@ -44,4 +52,4 @@ assert.match(wrangler,/"ONLINE_PAYMENTS_ENABLED"\s*:\s*"false"/,'unverified onli
 assert.match(constitution,/Always start from the latest production branch HEAD/,'development constitution must lock latest-HEAD workflow');
 assert.match(constitution,/Regression is failure/,'development constitution must lock regression protection');
 
-console.log('PASS storefront V1 baseline: clean architecture, truth-first commerce, COD, responsive contract');
+console.log('PASS storefront V1 baseline: clean architecture, truth-first commerce, COD, responsive and middleware isolation contract');
