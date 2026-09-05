@@ -6,11 +6,13 @@
 
   const ORDER_PATH='/api/orders';
   const nativeFetch=window.fetch.bind(window);
+  const THAI_DIGITS={'๐':'0','๑':'1','๒':'2','๓':'3','๔':'4','๕':'5','๖':'6','๗':'7','๘':'8','๙':'9'};
   let lastFailure=null;
   let renderTimer=0;
 
   const $=(sel,root=document)=>root.querySelector(sel);
   const digits=value=>String(value||'').replace(/\D/g,'');
+  const postal=value=>String(value||'').replace(/[๐-๙]/g,char=>THAI_DIGITS[char]||char).replace(/\s+/g,'').trim();
   const phone=value=>{
     let d=digits(value);
     if(d.startsWith('00660'))d=`0${d.slice(5)}`;
@@ -30,8 +32,15 @@
     {key:'subdistrict',selector:'#customer-subdistrict',label:'ตำบล/แขวง',valid:v=>String(v||'').trim().length>=2},
     {key:'district',selector:'#customer-district',label:'อำเภอ/เขต',valid:v=>String(v||'').trim().length>=2},
     {key:'province',selector:'#customer-province',label:'จังหวัด',valid:v=>String(v||'').trim().length>=2},
-    {key:'postal',selector:'#customer-postal',label:'รหัสไปรษณีย์',valid:v=>/^\d{5}$/.test(digits(v))}
+    {key:'postal',selector:'#customer-postal',label:'รหัสไปรษณีย์',valid:v=>/^\d{5}$/.test(postal(v))}
   ];
+  const addressRecovery={
+    address:{message:'ที่อยู่จัดส่งยังไม่ชัดเจน กรุณากรอกบ้านเลขที่ หมู่ ถนน หรือรายละเอียดที่ช่วยให้ขนส่งพบสถานที่',selector:'#customer-address'},
+    subdistrict:{message:'กรุณาตรวจสอบชื่อตำบลหรือแขวงสำหรับจัดส่ง',selector:'#customer-subdistrict'},
+    district:{message:'กรุณาตรวจสอบชื่ออำเภอหรือเขตสำหรับจัดส่ง',selector:'#customer-district'},
+    province:{message:'กรุณาตรวจสอบชื่อจังหวัดสำหรับจัดส่ง',selector:'#customer-province'},
+    postal:{message:'รหัสไปรษณีย์ไม่ถูกต้อง กรุณากรอกตัวเลข 5 หลัก เช่น 34000',selector:'#customer-postal'}
+  };
 
   function invalidLocalFields(){
     const root=checkoutRoot();
@@ -60,13 +69,21 @@
     if(code==='invalid_phone')return {
       tone:'field',message:'เบอร์โทรศัพท์ไม่ถูกต้อง กรุณากรอกเบอร์ไทยที่ติดต่อได้ เช่น 0812345678 หรือ +66 81 234 5678',focus:'#customer-phone'
     };
+    if(code==='invalid_postal_code')return {
+      tone:'field',message:addressRecovery.postal.message,focus:addressRecovery.postal.selector
+    };
+    if(code==='invalid_delivery_address'){
+      const target=addressRecovery[String(data.field||'')]||addressRecovery.address;
+      return {tone:'field',message:target.message,focus:target.selector};
+    }
     if(code==='customer_details_required'){
       const invalid=invalidLocalFields();
       const names=invalid.map(x=>x.rule.label);
+      const requested=fieldRules.find(rule=>rule.key===String(data.field||''));
       return {
         tone:'field',
         message:names.length?`กรุณาตรวจสอบ ${names.join(', ')} แล้วกดสั่งซื้ออีกครั้ง`:'ข้อมูลผู้รับหรือที่อยู่บางส่วนยังไม่ครบ กรุณาตรวจสอบข้อมูลจัดส่งแล้วลองอีกครั้ง',
-        focus:invalid[0]?.rule.selector||'#customer-name'
+        focus:requested?.selector||invalid[0]?.rule.selector||'#customer-name'
       };
     }
     if(code==='insufficient_stock'){
