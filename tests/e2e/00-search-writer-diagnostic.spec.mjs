@@ -60,8 +60,8 @@ test('focused search value survives stale storefront hydration',async({page})=>{
   await search.evaluate(el=>{el.dataset.kchE2eSearchNode='diagnostic'});
 
   await page.addScriptTag({path:'public/kch-search-authority.js'});
-  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.11');
-  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY_API__?.build)).toBe('1.0.11');
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY__)).toBe('1.0.12');
+  await expect.poll(()=>page.evaluate(()=>window.__KCH_SEARCH_AUTHORITY_API__?.build)).toBe('1.0.12');
 
   await search.fill('ชารางจืด');
   await page.waitForTimeout(1200);
