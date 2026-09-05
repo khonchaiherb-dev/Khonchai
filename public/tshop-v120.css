@@ -25,3 +25,23 @@
 }
 @media(max-width:379px){.pdp-bottom,.kch-pdp-20 .pdp-bottom{grid-template-columns:38px 38px minmax(92px,1fr) minmax(98px,1.05fr)!important}.pdp-bottom .pdp-add,.pdp-bottom .pdp-buy{font-size:9px!important}}
 @media(prefers-reduced-motion:reduce){.kch-master-product.v120-ready-card,.tshop-card.v120-ready-card{transition:none!important;transform:none!important}}
+
+/* Sale-path safety contract — loaded before the canonical master layer, so
+   these rules use a higher-specificity important floor to prevent later legacy
+   presentation rules from obscuring native state or blocking purchase CTAs. */
+html body.kch-master-2026 #app .kch-master-range[hidden],
+html body.kch-master-2026 #app .kch-master-range[aria-hidden="true"]{display:none!important}
+
+html body.kch-master-2026 #app :is(.kch-master-filter,.kch-master-finder button,.cats button){
+  min-height:44px!important;
+  font-size:14px!important;
+  line-height:1.3!important;
+}
+
+/* The assistant is useful while browsing, but it must never overlap the cart
+   or payment CTA. Hide the floating launcher only on purchase-critical pages. */
+html body.kch-master-2026:has(main.kch-master-cart-page) .kch-master-ai-pill,
+html body.kch-master-2026:has(main.kch-master-checkout-page) .kch-master-ai-pill{
+  display:none!important;
+  pointer-events:none!important;
+}
