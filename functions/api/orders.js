@@ -19,7 +19,7 @@ export async function onRequestPost({request,env}){
   }
 
   const customerName=clean(body.customerName),phone=digits(body.phone),address=body.address||{},addressLine=clean(address.addressLine),subdistrict=clean(address.subdistrict),district=clean(address.district),province=clean(address.province),postalCode=clean(address.postalCode);
-  if(customerName.length<2||phone.length<9||addressLine.length<5||district.length<2||province.length<2||!/^\d{5}$/.test(postalCode))return json({error:'customer_details_required'},400);
+  if(customerName.length<2||phone.length<9||addressLine.length<5||subdistrict.length<2||district.length<2||province.length<2||!/^\d{5}$/.test(postalCode))return json({error:'customer_details_required'},400);
   const paymentMethod=['COD'].includes(body.paymentMethod)?body.paymentMethod:'COD';
 
   const attr=body.attribution||{},allowedSources=new Set(['direct','shop','live','video','creator']);
