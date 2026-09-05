@@ -1,7 +1,15 @@
 import {getCustomer} from '../_lib/customer-auth.js';
 function json(data,status=200){return Response.json(data,{status,headers:{'Cache-Control':'no-store'}})}
-const clean=s=>String(s||'').trim();
+const clean=s=>String(s||'').replace(/[\u00a0\t\r\n]+/g,' ').replace(/\s{2,}/g,' ').trim();
 const digits=s=>String(s||'').replace(/\D/g,'');
+const THAI_DIGITS={'๐':'0','๑':'1','๒':'2','๓':'3','๔':'4','๕':'5','๖':'6','๗':'7','๘':'8','๙':'9'};
+const ADDRESS_PLACEHOLDERS=new Set(['-','--','.','..','...','n/a','na','none','ไม่มี','ไม่ทราบ']);
+const normalizePostalCode=s=>String(s||'').replace(/[๐-๙]/g,char=>THAI_DIGITS[char]||char).replace(/\s+/g,'').trim();
+const meaningfulAddress=(value,min,{requireLetter=false}={})=>{
+  const text=clean(value);
+  if(text.length<min||ADDRESS_PLACEHOLDERS.has(text.toLocaleLowerCase('en-US')))return false;
+  return requireLetter?/[A-Za-zก-๙]/.test(text):/[0-9A-Za-zก-๙]/.test(text);
+};
 const normalizeThaiPhone=s=>{
   let d=digits(s);
   if(d.startsWith('00660'))d=`0${d.slice(5)}`;
@@ -27,9 +35,14 @@ export async function onRequestPost({request,env}){
     if(old)return json({ok:true,reused:true,orderNo:old.order_no,subtotal:Number(old.subtotal),discount:Number(old.discount_total),shipping:Number(old.shipping_total),total:Number(old.total),status:old.status,paymentStatus:old.payment_status,fulfillmentStatus:old.fulfillment_status,promotionCode:old.promotion_code||null,attribution:{source:old.source_channel||'direct',creatorId:old.creator_id||null,contentId:old.content_id||null}});
   }
 
-  const customerName=clean(body.customerName),phone=normalizeThaiPhone(body.phone),address=body.address||{},addressLine=clean(address.addressLine),subdistrict=clean(address.subdistrict),district=clean(address.district),province=clean(address.province),postalCode=clean(address.postalCode);
+  const customerName=clean(body.customerName),phone=normalizeThaiPhone(body.phone),address=body.address||{},addressLine=clean(address.addressLine),subdistrict=clean(address.subdistrict),district=clean(address.district),province=clean(address.province),postalCode=normalizePostalCode(address.postalCode);
   if(!validThaiPhone(phone))return json({error:'invalid_phone'},400);
-  if(customerName.length<2||addressLine.length<5||subdistrict.length<2||district.length<2||province.length<2||!/^\d{5}$/.test(postalCode))return json({error:'customer_details_required'},400);
+  if(customerName.length<2)return json({error:'customer_details_required',field:'name'},400);
+  if(!meaningfulAddress(addressLine,5))return json({error:'invalid_delivery_address',field:'address'},400);
+  if(!meaningfulAddress(subdistrict,2,{requireLetter:true}))return json({error:'invalid_delivery_address',field:'subdistrict'},400);
+  if(!meaningfulAddress(district,2,{requireLetter:true}))return json({error:'invalid_delivery_address',field:'district'},400);
+  if(!meaningfulAddress(province,2,{requireLetter:true}))return json({error:'invalid_delivery_address',field:'province'},400);
+  if(!/^\d{5}$/.test(postalCode))return json({error:'invalid_postal_code',field:'postal'},400);
   const paymentMethod=['COD'].includes(body.paymentMethod)?body.paymentMethod:'COD';
 
   const attr=body.attribution||{},allowedSources=new Set(['direct','shop','live','video','creator']);
