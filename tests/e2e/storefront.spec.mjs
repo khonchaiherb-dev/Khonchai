@@ -14,9 +14,13 @@ async function mockCommerce(page,state){
     if(path==='/api/products')return fulfill({products,ready:true,count:products.length});
     if(path==='/api/payment-options')return fulfill({checkoutEnabled:true,capabilities:[{id:'COD',enabled:true}],methods:[{id:'COD',enabled:true}]});
     if(path==='/api/product-detail')return fulfill({product:{...products[0],available_stock:5,variants:[{id:9101,product_id:901,sku:'E2E-TEA-901-STD',option_name:'ขนาด',option_value:'มาตรฐาน',price:190,stock:5,reserved_stock:0,available_stock:5,active:1}],media:[{url:'/assets/products/rang-jued-tea-360.webp'}]}});
-    if(path==='/api/checkout-session'&&method==='POST')return fulfill({ok:true,sessionKey:'e2e-checkout-session-000000000001',status:'active',lastStep:'address',subtotal:190,itemCount:1});
+    if(path==='/api/checkout-session'&&method==='POST'){
+      state.checkoutSessions+=1;
+      return fulfill({ok:true,sessionKey:'e2e-checkout-session-000000000001',status:'active',lastStep:'address',subtotal:190,itemCount:1});
+    }
     if(path==='/api/orders'&&method==='POST'){
       state.orderPayload=JSON.parse(req.postData()||'{}');
+      state.orderPosts+=1;
       return fulfill({ok:true,orderNo:'KCH-E2E-0001',subtotal:190,discount:0,shipping:45,total:235,paymentStatus:'unpaid',fulfillmentStatus:'pending',status:'pending'});
     }
     if(path==='/api/order-status'&&method==='GET'){
@@ -36,15 +40,17 @@ async function mockCommerce(page,state){
 
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
 
-test('clean storefront browse → variant cart → checkout → COD → secure order tracking',async({page},testInfo)=>{
-  const state={orderPayload:null,lookup:null},errors=[];
+test('clean storefront browse → recovery-safe checkout → COD → secure order tracking',async({page},testInfo)=>{
+  const state={orderPayload:null,lookup:null,orderPosts:0,checkoutSessions:0},errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   await mockCommerce(page,state);
   await page.goto('/?e2e=clean-v1',{waitUntil:'domcontentloaded'});
   // Static E2E server does not execute Cloudflare middleware; load the exact production
   // clean V1 modules that middleware adds to the canonical home.
   await page.addStyleTag({path:'public/storefront-v1-commerce.css'});
+  await page.addStyleTag({path:'public/storefront-v1-checkout-recovery.css'});
   await page.addScriptTag({path:'public/storefront-v1-postpurchase.js'});
+  await page.addScriptTag({path:'public/storefront-v1-checkout-recovery.js'});
 
   await expect(page.locator('.kch-hero')).toBeVisible();
   await expect(page.getByRole('heading',{level:1})).toContainText('คัดสรรสมุนไพรไทย');
@@ -52,7 +58,7 @@ test('clean storefront browse → variant cart → checkout → COD → secure o
   await expect(page.getByText('FLASH DEAL')).toHaveCount(0);
   await expect(page.getByText(/ขายแล้ว/)).toHaveCount(0);
   await expect(page.getByText('Verified Purchase')).toHaveCount(0);
-  await expect(page.locator('[data-open-order-status]').first()).toBeVisible();
+  await expect(page.locator('[data-open-order-status]:visible').first()).toBeVisible();
 
   const metrics=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth}));
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth+1);
@@ -78,10 +84,20 @@ test('clean storefront browse → variant cart → checkout → COD → secure o
   await page.locator('[data-start-checkout]').click();
   await expect(page.locator('[data-layer="checkout"]')).toHaveClass(/is-open/);
   await expect(page.locator('#customer-name')).toBeVisible();
+  await expect(page.locator('[data-checkout-recovery-note]')).toBeVisible();
+
+  // Fill a partial checkout, return to the cart, then reopen checkout. PII must survive only
+  // within the active page so an accidental back-to-cart action does not force re-entry.
   await page.locator('#customer-name').fill('ผู้ทดสอบระบบ');
   await page.locator('#customer-phone').fill('0812345678');
   await page.locator('#customer-address').fill('99 หมู่ 1 ถนนทดสอบ');
-  await page.locator('#customer-subdistrict').fill('ในเมือง');
+  await page.locator('[data-back-cart]').click();
+  await expect(page.locator('[data-layer="cart"]')).toHaveClass(/is-open/);
+  await page.locator('[data-start-checkout]').click();
+  await expect(page.locator('#customer-name')).toHaveValue('ผู้ทดสอบระบบ');
+  await expect(page.locator('#customer-phone')).toHaveValue('0812345678');
+  await expect(page.locator('#customer-address')).toHaveValue('99 หมู่ 1 ถนนทดสอบ');
+
   await page.locator('#customer-district').fill('เมือง');
   await page.locator('#customer-province').fill('อุบลราชธานี');
   await page.locator('#customer-postal').fill('34000');
@@ -89,6 +105,17 @@ test('clean storefront browse → variant cart → checkout → COD → secure o
   await expect(page.locator('[data-place-order]')).toBeEnabled();
   const orderHeight=await page.locator('[data-place-order]').evaluate(el=>el.getBoundingClientRect().height);
   expect(orderHeight).toBeGreaterThanOrEqual(55);
+
+  // Subdistrict is required by the order payload/backend. The recovery guard must block
+  // submission before /api/orders when it is missing, then focus/highlight that field.
+  await page.locator('[data-place-order]').click();
+  await expect(page.locator('[data-checkout-error]')).toContainText('ตำบล/แขวง');
+  await expect(page.locator('#customer-subdistrict')).toHaveAttribute('aria-invalid','true');
+  expect(state.orderPosts).toBe(0);
+  expect(state.orderPayload).toBeNull();
+
+  await page.locator('#customer-subdistrict').fill('ในเมือง');
+  await expect(page.locator('#customer-subdistrict')).not.toHaveAttribute('aria-invalid','true');
   await page.locator('[data-place-order]').click();
 
   await expect(page.getByRole('heading',{name:'สั่งซื้อสำเร็จ'})).toBeVisible();
@@ -96,6 +123,8 @@ test('clean storefront browse → variant cart → checkout → COD → secure o
   await expect(page.getByText('฿235')).toBeVisible();
   await expect(page.locator('[data-success-track]')).toBeVisible();
 
+  expect(state.orderPosts).toBe(1);
+  expect(state.checkoutSessions).toBeGreaterThanOrEqual(2);
   expect(state.orderPayload).not.toBeNull();
   expect(state.orderPayload.paymentMethod).toBe('COD');
   expect(state.orderPayload.items?.[0]?.variantId).toBe(9101);
@@ -112,12 +141,19 @@ test('clean storefront browse → variant cart → checkout → COD → secure o
   await expect(page.getByText('E2E-TRACK-0001')).toBeVisible();
   await expect(page.locator('.kch-track-items')).toContainText('ชารางจืดสำหรับทดสอบระบบ');
   expect(state.lookup).toEqual({orderNo:'KCH-E2E-0001',phone:'0812345678'});
-  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('kch-last-order')||'{}'));
-  expect(saved.orderNo).toBe('KCH-E2E-0001');
-  expect(saved.phone).toBeUndefined();
+
+  const privacy=await page.evaluate(()=>({
+    order:JSON.parse(localStorage.getItem('kch-last-order')||'{}'),
+    localKeys:Object.keys(localStorage),
+    sessionKeys:Object.keys(sessionStorage)
+  }));
+  expect(privacy.order.orderNo).toBe('KCH-E2E-0001');
+  expect(privacy.order.phone).toBeUndefined();
+  expect(privacy.localKeys.some(k=>/checkout.*(?:name|phone|address)|customer.*(?:name|phone|address)/i.test(k))).toBe(false);
+  expect(privacy.sessionKeys.some(k=>/checkout.*(?:name|phone|address)|customer.*(?:name|phone|address)/i.test(k))).toBe(false);
   expect(errors).toEqual([]);
 
   const finalMetrics=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth}));
   expect(finalMetrics.scrollWidth).toBeLessThanOrEqual(finalMetrics.clientWidth+1);
-  console.log(`PASS ${testInfo.project.name}: clean V1 sell-now commerce + secure order tracking journey`);
+  console.log(`PASS ${testInfo.project.name}: clean V1 recovery-safe checkout + COD + secure order tracking journey`);
 });
