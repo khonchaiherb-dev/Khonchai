@@ -41,7 +41,7 @@ assert.doesNotMatch(sw,/kch-rescue-live|kch-master-reference-2026/,'service work
 // Cloudflare middleware must never put retired customer UI layers back into otherwise-clean HTML.
 assert.doesNotMatch(middleware,/head\.append\([^\n]*(?:tshop-v\d+|kch-rescue-live|kch-master-reference-2026|kch-canonical-commerce-ui)/i,'middleware must not inject retired storefront assets');
 assert.doesNotMatch(middleware,/body\.setAttribute\([^\n]*(?:kch-master-2026|kch-rescue-live)/i,'middleware must not add retired storefront body classes');
-assert.match(middleware,/X-KCH-Storefront','middleware must mark clean storefront responses');
+assert.match(middleware,/X-KCH-Storefront/,'middleware must mark clean storefront responses');
 assert.match(middleware,/KOONCHAISHOP_ADMIN_GUARD/,'seller readiness guard must remain intact');
 assert.match(middleware,/coupon_not_eligible/,'order coupon eligibility guard must remain intact');
 
