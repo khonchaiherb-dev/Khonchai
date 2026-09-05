@@ -19,20 +19,32 @@ async function mockCommerce(page,state){
       state.orderPayload=JSON.parse(req.postData()||'{}');
       return fulfill({ok:true,orderNo:'KCH-E2E-0001',subtotal:190,discount:0,shipping:45,total:235,paymentStatus:'unpaid',fulfillmentStatus:'pending',status:'pending'});
     }
+    if(path==='/api/order-status'&&method==='GET'){
+      state.lookup={orderNo:u.searchParams.get('orderNo'),phone:u.searchParams.get('phone')};
+      if(state.lookup.orderNo!=='KCH-E2E-0001'||state.lookup.phone!=='0812345678')return fulfill({error:'order_not_found'},404);
+      return fulfill({
+        orderNo:'KCH-E2E-0001',total:235,subtotal:190,discountTotal:0,shippingTotal:45,
+        paymentMethod:'COD',paymentStatus:'unpaid',fulfillmentStatus:'shipped',status:'processing',createdAt:'2026-09-05T07:00:00.000Z',
+        carrier:'E2E Carrier',trackingNo:'E2E-TRACK-0001',shipmentStatus:'in_transit',shippedAt:'2026-09-05T08:00:00.000Z',deliveredAt:null,
+        items:[{product_id:901,variant_id:9101,sku:'E2E-TEA-901-STD',product_name:'ชารางจืดสำหรับทดสอบระบบ',unit_price:190,qty:1,line_total:190,option_name:'ขนาด',option_value:'มาตรฐาน'}],
+        events:[],shipmentEvents:[]
+      });
+    }
     return fulfill({ok:true});
   });
 }
 
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
 
-test('clean storefront browse → variant cart → checkout → COD confirmation',async({page},testInfo)=>{
-  const state={orderPayload:null},errors=[];
+test('clean storefront browse → variant cart → checkout → COD → secure order tracking',async({page},testInfo)=>{
+  const state={orderPayload:null,lookup:null},errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   await mockCommerce(page,state);
   await page.goto('/?e2e=clean-v1',{waitUntil:'domcontentloaded'});
   // Static E2E server does not execute Cloudflare middleware; load the exact production
-  // sell-now stylesheet so PDP/cart/checkout visual contracts are tested too.
+  // clean V1 modules that middleware adds to the canonical home.
   await page.addStyleTag({path:'public/storefront-v1-commerce.css'});
+  await page.addScriptTag({path:'public/storefront-v1-postpurchase.js'});
 
   await expect(page.locator('.kch-hero')).toBeVisible();
   await expect(page.getByRole('heading',{level:1})).toContainText('คัดสรรสมุนไพรไทย');
@@ -40,6 +52,7 @@ test('clean storefront browse → variant cart → checkout → COD confirmation
   await expect(page.getByText('FLASH DEAL')).toHaveCount(0);
   await expect(page.getByText(/ขายแล้ว/)).toHaveCount(0);
   await expect(page.getByText('Verified Purchase')).toHaveCount(0);
+  await expect(page.locator('[data-open-order-status]').first()).toBeVisible();
 
   const metrics=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth}));
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth+1);
@@ -81,15 +94,30 @@ test('clean storefront browse → variant cart → checkout → COD confirmation
   await expect(page.getByRole('heading',{name:'สั่งซื้อสำเร็จ'})).toBeVisible();
   await expect(page.getByText('KCH-E2E-0001')).toBeVisible();
   await expect(page.getByText('฿235')).toBeVisible();
+  await expect(page.locator('[data-success-track]')).toBeVisible();
 
   expect(state.orderPayload).not.toBeNull();
   expect(state.orderPayload.paymentMethod).toBe('COD');
   expect(state.orderPayload.items?.[0]?.variantId).toBe(9101);
   expect(String(state.orderPayload.idempotencyKey||'').length).toBeGreaterThan(10);
   expect(state.orderPayload.address?.subdistrict).toBe('ในเมือง');
+
+  await page.locator('[data-success-track]').click();
+  await expect(page.locator('[data-layer="order-status"]')).toHaveClass(/is-open/);
+  await expect(page.locator('[data-order-no]')).toHaveValue('KCH-E2E-0001');
+  await expect(page.locator('[data-order-phone]')).toHaveValue('');
+  await page.locator('[data-order-phone]').fill('081-234-5678');
+  await page.locator('[data-order-lookup]').click();
+  await expect(page.getByText('อยู่ระหว่างจัดส่ง')).toBeVisible();
+  await expect(page.getByText('E2E-TRACK-0001')).toBeVisible();
+  await expect(page.locator('.kch-track-items')).toContainText('ชารางจืดสำหรับทดสอบระบบ');
+  expect(state.lookup).toEqual({orderNo:'KCH-E2E-0001',phone:'0812345678'});
+  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('kch-last-order')||'{}'));
+  expect(saved.orderNo).toBe('KCH-E2E-0001');
+  expect(saved.phone).toBeUndefined();
   expect(errors).toEqual([]);
 
   const finalMetrics=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth}));
   expect(finalMetrics.scrollWidth).toBeLessThanOrEqual(finalMetrics.clientWidth+1);
-  console.log(`PASS ${testInfo.project.name}: clean V1 sell-now commerce journey`);
+  console.log(`PASS ${testInfo.project.name}: clean V1 sell-now commerce + secure order tracking journey`);
 });
