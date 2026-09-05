@@ -38,6 +38,15 @@ html body.kch-master-2026 #app :is(.kch-master-filter,.kch-master-finder button,
   line-height:1.3!important;
 }
 
+html body.kch-master-2026 #app :is(.kch-master-hero-benefits,.trust) b{
+  font-size:15px!important;
+  line-height:1.4!important;
+}
+html body.kch-master-2026 #app :is(.kch-master-hero-benefits,.trust) small{
+  font-size:14px!important;
+  line-height:1.45!important;
+}
+
 /* The assistant is useful while browsing, but it must never overlap the cart
    or payment CTA. Hide the floating launcher only on purchase-critical pages. */
 html body.kch-master-2026:has(main.kch-master-cart-page) .kch-master-ai-pill,
