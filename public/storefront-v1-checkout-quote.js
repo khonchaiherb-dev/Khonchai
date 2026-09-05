@@ -67,7 +67,7 @@
     root.innerHTML=`
       <div class="kch-review-row"><span>จำนวนสินค้า</span><strong>${count} ชิ้น</strong></div>
       <div class="kch-review-row"><span>ยอดสินค้า</span><strong>ตรวจสอบอีกครั้งเมื่อยืนยัน</strong></div>
-      <div class="kch-quote-note is-warning">ขณะนี้ยังดึงยอดสรุปล่วงหน้าไม่ได้ ระบบจะตรวจสอบราคา สต๊อก ส่วนลด และค่าจัดส่งอีกครั้งก่อนสร้างคำสั่งซื้อ</div>`;
+      <div class="kch-quote-note is-warning" data-checkout-quote-fallback>ขณะนี้ยังดึงยอดสรุปล่วงหน้าไม่ได้ ระบบจะตรวจสอบราคา สต๊อก ส่วนลด และค่าจัดส่งอีกครั้งก่อนสร้างคำสั่งซื้อ</div>`;
   }
 
   function decoratePlaceOrder(total){
@@ -91,7 +91,7 @@
     decoratePlaceOrder(quote.total);
   }
 
-  async function enhanceCheckout(force=false){
+  async function enhanceCheckout(){
     const root=reviewRoot();if(!root)return;
     if(root.closest('[data-checkout-content]')?.querySelector('.kch-success'))return;
     const items=cartItems();if(!items.length)return;
@@ -100,7 +100,8 @@
       decoratePlaceOrder(Number(root.dataset.quoteTotal)||0);
       return;
     }
-    if(same&&!force&&(status==='loading'||status==='unavailable'))return;
+    if(same&&status==='loading')return;
+    if(same&&status==='unavailable'&&root.querySelector('[data-checkout-quote-fallback]'))return;
     root.dataset.quoteKey=key;
     root.dataset.quoteStatus='loading';
     setCheckoutLoading(root,itemCount(items));
@@ -125,7 +126,10 @@
   function setCartFallback(foot){
     foot.dataset.cartQuoteStatus='unavailable';
     const note=foot.querySelector('.kch-cart-note');
-    if(note)note.textContent='ไปขั้นตอนชำระเงินเพื่อดูค่าจัดส่งและยอดรวมล่าสุดจากระบบก่อนยืนยันคำสั่งซื้อ';
+    if(note){
+      note.dataset.cartQuoteFallback='';
+      note.textContent='ไปขั้นตอนชำระเงินเพื่อดูค่าจัดส่งและยอดรวมล่าสุดจากระบบก่อนยืนยันคำสั่งซื้อ';
+    }
   }
 
   function setCartQuote(foot,quote){
@@ -155,17 +159,22 @@
       const label=`ดำเนินการชำระเงิน • ${money(quote.total)}`;
       if(button.textContent!==label)button.textContent=label;
     }
-    if(note&&note.textContent!=='ยอดจากระบบล่าสุด และจะตรวจสอบอีกครั้งในขั้นตอนชำระเงินก่อนยืนยันคำสั่งซื้อ')note.textContent='ยอดจากระบบล่าสุด และจะตรวจสอบอีกครั้งในขั้นตอนชำระเงินก่อนยืนยันคำสั่งซื้อ';
+    if(note){
+      delete note.dataset.cartQuoteFallback;
+      const message='ยอดจากระบบล่าสุด และจะตรวจสอบอีกครั้งในขั้นตอนชำระเงินก่อนยืนยันคำสั่งซื้อ';
+      if(note.textContent!==message)note.textContent=message;
+    }
   }
 
-  async function enhanceCart(force=false){
+  async function enhanceCart(){
     const foot=cartFoot();if(!foot)return;
     const button=foot.querySelector('[data-start-checkout]');
     if(!button)return;
     const items=cartItems();if(!items.length)return;
     const key=quoteKey(items),same=foot.dataset.cartQuoteKey===key,status=foot.dataset.cartQuoteStatus||'';
     if(same&&status==='ready'&&foot.querySelector('[data-cart-server-total]'))return;
-    if(same&&!force&&(status==='loading'||status==='unavailable'))return;
+    if(same&&status==='loading')return;
+    if(same&&status==='unavailable'&&foot.querySelector('[data-cart-quote-fallback]'))return;
     setCartLoading(foot,key);
     try{
       const quote=await fetchQuote(items,'cart');
@@ -180,16 +189,11 @@
 
   const boot=()=>{
     const checkoutContent=document.querySelector('[data-checkout-content]');
-    if(checkoutContent)new MutationObserver(()=>enhanceCheckout(false)).observe(checkoutContent,{childList:true,subtree:true});
+    if(checkoutContent)new MutationObserver(enhanceCheckout).observe(checkoutContent,{childList:true,subtree:true});
     const foot=cartFoot();
-    if(foot)new MutationObserver(()=>enhanceCart(false)).observe(foot,{childList:true,subtree:true,characterData:true});
-    document.addEventListener('click',event=>{
-      const target=event.target.closest?.('button,a');if(!target)return;
-      if(target.matches('[data-open-cart],[data-add-product],[data-detail-add],[data-cart-qty],[data-remove-line]'))setTimeout(()=>enhanceCart(true),0);
-      if(target.matches('[data-start-checkout],[data-detail-buy],[data-buy-product]'))setTimeout(()=>enhanceCheckout(true),0);
-    });
-    enhanceCart(false);
-    enhanceCheckout(false);
+    if(foot)new MutationObserver(enhanceCart).observe(foot,{childList:true,subtree:true,characterData:true});
+    enhanceCart();
+    enhanceCheckout();
   };
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
