@@ -50,7 +50,7 @@ async function mockCommerce(page,state){
 
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
 
-test('clean storefront browse → server quote → recovery-safe checkout → COD → secure order tracking',async({page},testInfo)=>{
+test('clean storefront browse → cart server total → checkout server total → recovery-safe COD → secure tracking',async({page},testInfo)=>{
   const state={orderPayload:null,lookup:null,quotePayload:null,orderPosts:0,checkoutSessions:0,quoteRequests:0},errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   await mockCommerce(page,state);
@@ -89,7 +89,12 @@ test('clean storefront browse → server quote → recovery-safe checkout → CO
   await expect(page.locator('[data-layer="cart"]')).toHaveClass(/is-open/);
   await expect(page.locator('[data-cart-count]').first()).toHaveText('1');
   await expect(page.locator('[data-cart-body]')).toContainText('มาตรฐาน');
+  await expect(page.locator('[data-cart-foot]')).toHaveAttribute('data-cart-quote-status','ready');
+  await expect(page.locator('[data-cart-server-total]')).toContainText('฿235');
+  await expect(page.locator('[data-cart-quote-breakdown]')).toContainText('จัดส่ง ฿45');
+  await expect(page.locator('[data-start-checkout]')).toContainText('฿235');
   await expect(page.locator('[data-start-checkout]')).toBeEnabled();
+  expect(state.quoteRequests).toBe(1);
   const checkoutHeight=await page.locator('[data-start-checkout]').evaluate(el=>el.getBoundingClientRect().height);
   expect(checkoutHeight).toBeGreaterThanOrEqual(55);
 
@@ -100,7 +105,8 @@ test('clean storefront browse → server quote → recovery-safe checkout → CO
   await expect(page.locator('.kch-order-review')).toHaveAttribute('data-quote-status','ready');
   await expect(page.locator('[data-quote-final-total]')).toContainText('฿235');
   await expect(page.locator('.kch-order-review')).toContainText('ค่าจัดส่ง');
-  expect(state.quoteRequests).toBeGreaterThan(0);
+  await expect(page.locator('[data-place-order]')).toContainText('฿235');
+  expect(state.quoteRequests).toBe(2);
   expect(state.quotePayload?.items?.[0]).toEqual({id:901,variantId:9101,qty:1});
   expect(state.quotePayload?.customerName).toBeUndefined();
   expect(state.quotePayload?.phone).toBeUndefined();
@@ -112,12 +118,17 @@ test('clean storefront browse → server quote → recovery-safe checkout → CO
   await page.locator('#customer-address').fill('99 หมู่ 1 ถนนทดสอบ');
   await page.locator('[data-back-cart]').click();
   await expect(page.locator('[data-layer="cart"]')).toHaveClass(/is-open/);
+  await expect(page.locator('[data-cart-foot]')).toHaveAttribute('data-cart-quote-status','ready');
+  await expect(page.locator('[data-cart-server-total]')).toContainText('฿235');
+  expect(state.quoteRequests).toBe(3);
+
   await page.locator('[data-start-checkout]').click();
   await expect(page.locator('#customer-name')).toHaveValue('ผู้ทดสอบระบบ');
   await expect(page.locator('#customer-phone')).toHaveValue('0812345678');
   await expect(page.locator('#customer-address')).toHaveValue('99 หมู่ 1 ถนนทดสอบ');
   await expect(page.locator('[data-quote-final-total]')).toContainText('฿235');
-  expect(state.quoteRequests).toBeGreaterThanOrEqual(2);
+  await expect(page.locator('[data-place-order]')).toContainText('฿235');
+  expect(state.quoteRequests).toBe(4);
 
   await page.locator('#customer-district').fill('เมือง');
   await page.locator('#customer-province').fill('อุบลราชธานี');
@@ -176,5 +187,5 @@ test('clean storefront browse → server quote → recovery-safe checkout → CO
 
   const finalMetrics=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth}));
   expect(finalMetrics.scrollWidth).toBeLessThanOrEqual(finalMetrics.clientWidth+1);
-  console.log(`PASS ${testInfo.project.name}: clean V1 server quote + recovery-safe checkout + COD + secure order tracking journey`);
+  console.log(`PASS ${testInfo.project.name}: server totals in cart + checkout, recovery-safe COD + secure tracking journey`);
 });
