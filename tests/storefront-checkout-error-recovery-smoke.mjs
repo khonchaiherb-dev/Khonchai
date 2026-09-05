@@ -34,6 +34,6 @@ assert.ok(css.includes('.kch-checkout-error-action'),'missing recovery action pr
 
 assert.ok(middleware.includes('STOREFRONT_CHECKOUT_ERROR_RECOVERY_CSS'),'middleware must inject checkout error recovery CSS');
 assert.ok(middleware.includes('STOREFRONT_CHECKOUT_ERROR_RECOVERY'),'middleware must inject checkout error recovery JS');
-assert.ok(middleware.indexOf('STOREFRONT_ORDER_PREFLIGHT')<middleware.lastIndexOf('STOREFRONT_CHECKOUT_ERROR_RECOVERY}`')), 'error recovery must be registered after final-order preflight');
+assert.ok(middleware.lastIndexOf('STOREFRONT_ORDER_PREFLIGHT')<middleware.lastIndexOf('STOREFRONT_CHECKOUT_ERROR_RECOVERY'),'error recovery must be registered after final-order preflight');
 
 console.log('Checkout actionable error recovery contract: OK');
