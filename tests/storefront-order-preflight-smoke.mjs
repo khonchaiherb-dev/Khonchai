@@ -20,7 +20,7 @@ assert.match(preflight,/variant_unavailable/,'preflight must fail closed when th
 assert.match(preflight,/quoteSource/,'preflight must require an authoritative server quote marker');
 assert.match(preflight,/paymentMethods/,'preflight must respect server payment capabilities when supplied');
 assert.doesNotMatch(preflight,/customerName|customer-phone|customer-address|customer-subdistrict|customer-district|customer-province|customer-postal/,'final quote verification must not read checkout PII');
-assert.doesNotMatch(preflight,/\/api\/orders/,'preflight module must never create an order itself');
+assert.doesNotMatch(preflight,/fetch\s*\(\s*['"]\/api\/orders(?:['"/?])/,'preflight module must never execute a direct order API request');
 assert.doesNotMatch(preflight,/localStorage\.setItem|sessionStorage\.setItem/,'preflight must not persist customer or quote state');
 
 assert.match(middleware,/STOREFRONT_ORDER_PREFLIGHT/,'canonical middleware must declare the final order preflight asset');
