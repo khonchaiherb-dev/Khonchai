@@ -1,0 +1,40 @@
+/* KHONCHAIHERB V1 — server checkout quote presentation */
+.kch-order-review[data-quote-status="loading"]{opacity:.82}
+.kch-quote-loading strong{font-size:11px;color:var(--kch-muted);font-weight:750}
+.kch-review-discount strong{color:#23764b}
+.kch-review-total{
+  margin-top:5px;
+  padding-top:14px!important;
+  border-top:1px solid #dfe8e2!important;
+}
+.kch-review-total span{font-weight:850;color:var(--kch-ink)}
+.kch-review-total strong{
+  color:var(--kch-green);
+  font-size:24px;
+  letter-spacing:-.035em;
+}
+.kch-quote-note{
+  grid-column:1/-1;
+  margin-top:3px;
+  padding:10px 12px;
+  border-radius:12px;
+  background:#f4f9f6;
+  color:var(--kch-muted);
+  font-size:10px;
+  line-height:1.6;
+}
+.kch-quote-note.is-warning{
+  border:1px solid #eadfca;
+  background:#fffaf2;
+  color:#775d36;
+}
+.kch-quote-promo{
+  margin-top:2px;
+  color:#23764b;
+  font-size:10px;
+  font-weight:750;
+}
+@media(max-width:560px){
+  .kch-review-total strong{font-size:22px}
+  .kch-quote-note{padding:9px 10px;font-size:9.5px}
+}
