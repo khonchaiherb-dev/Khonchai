@@ -2,6 +2,7 @@ import {defineConfig,devices} from '@playwright/test';
 
 export default defineConfig({
   testDir:'./tests/e2e',
+  testMatch:['storefront.spec.mjs','preview.spec.mjs'],
   timeout:30_000,
   expect:{timeout:7_500},
   fullyParallel:false,
@@ -15,8 +16,8 @@ export default defineConfig({
   },
   projects:[
     {name:'mobile-390',use:{...devices['iPhone 13'],browserName:'chromium',viewport:{width:390,height:844},screen:{width:390,height:844}}},
-    {name:'tablet-820',use:{viewport:{width:820,height:1180},hasTouch:true}},
-    {name:'desktop-1440',use:{viewport:{width:1440,height:1000}}}
+    {name:'tablet-820',use:{viewport:{width:820,height:1180},hasTouch:true,browserName:'chromium'}},
+    {name:'desktop-1440',use:{viewport:{width:1440,height:1000},browserName:'chromium'}}
   ],
   webServer:{
     command:'python3 -m http.server 4173 -d public',
