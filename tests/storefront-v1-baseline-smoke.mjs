@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
-const [html,css,js,sw,wrangler,constitution,middleware]=await Promise.all([
+const [html,css,commerceCss,js,sw,wrangler,constitution,middleware]=await Promise.all([
   readFile('public/index.html','utf8'),
   readFile('public/storefront-v1.css','utf8'),
+  readFile('public/storefront-v1-commerce.css','utf8'),
   readFile('public/storefront-v1.js','utf8'),
   readFile('public/sw.js','utf8'),
   readFile('wrangler.jsonc','utf8'),
@@ -11,8 +12,8 @@ const [html,css,js,sw,wrangler,constitution,middleware]=await Promise.all([
   readFile('functions/_middleware.js','utf8')
 ]);
 
-assert.match(html,/storefront-v1\.css\?v=/,'index must load the single clean storefront stylesheet');
-assert.match(html,/storefront-v1\.js\?v=/,'index must load the single clean storefront controller');
+assert.match(html,/storefront-v1\.css\?v=/,'index must load the clean storefront stylesheet');
+assert.match(html,/storefront-v1\.js\?v=/,'index must load the clean storefront controller');
 assert.doesNotMatch(html,/tshop-v\d+/i,'legacy tshop generations must not load on the customer storefront');
 assert.doesNotMatch(html,/kch-(?:rescue|master-reference|canonical-commerce-ui|v13)/i,'legacy rescue/master layers must not load on the customer storefront');
 assert.doesNotMatch(html,/FLASH DEAL|Verified Purchase|ขายแล้ว\s*\d|WELCOME50|HERB10/i,'unverified commerce content must not appear in the clean storefront');
@@ -34,6 +35,13 @@ assert.match(css,/@media\(max-width:840px\)/,'tablet responsive rules required')
 assert.match(css,/--kch-container:1280px/,'desktop content must use a bounded professional container');
 assert.match(css,/min-height:44px/,'touch targets must keep a professional minimum height');
 
+assert.match(commerceCss,/:has\(> \.kch-product-card:only-child\)/,'sell-now layer must adapt safely to a one-product live catalog');
+assert.match(commerceCss,/:has\(> \.kch-product-card:nth-child\(2\):last-child\)/,'sell-now layer must adapt safely to a two-product live catalog');
+assert.match(commerceCss,/\[data-detail-buy\]/,'sell-now layer must strengthen the real PDP buy action');
+assert.match(commerceCss,/\[data-start-checkout\]/,'sell-now layer must strengthen the cart checkout action');
+assert.match(commerceCss,/\[data-place-order\]/,'sell-now layer must strengthen the final verified order action');
+assert.doesNotMatch(commerceCss,/FLASH DEAL|Verified Purchase|ขายแล้ว\s*\d|WELCOME50|HERB10/i,'sell-now layer must not introduce unverified commerce content');
+
 assert.match(sw,/storefront-v1\.css/,'service worker must cache the clean storefront stylesheet');
 assert.match(sw,/storefront-v1\.js/,'service worker must cache the clean storefront controller');
 assert.doesNotMatch(sw,/kch-rescue-live|kch-master-reference-2026/,'service worker must not pre-cache retired legacy storefront layers');
@@ -41,6 +49,7 @@ assert.doesNotMatch(sw,/kch-rescue-live|kch-master-reference-2026/,'service work
 // Cloudflare middleware must never put retired customer UI layers back into otherwise-clean HTML.
 assert.doesNotMatch(middleware,/head\.append\([^\n]*(?:tshop-v\d+|kch-rescue-live|kch-master-reference-2026|kch-canonical-commerce-ui)/i,'middleware must not inject retired storefront assets');
 assert.doesNotMatch(middleware,/body\.setAttribute\([^\n]*(?:kch-master-2026|kch-rescue-live)/i,'middleware must not add retired storefront body classes');
+assert.match(middleware,/storefront-v1-commerce\.css/,'canonical home must receive only the clean sell-now commerce polish layer');
 assert.match(middleware,/X-KCH-Storefront/,'middleware must mark clean storefront responses');
 assert.match(middleware,/KOONCHAISHOP_ADMIN_GUARD/,'seller readiness guard must remain intact');
 assert.match(middleware,/coupon_not_eligible/,'order coupon eligibility guard must remain intact');
@@ -52,4 +61,4 @@ assert.match(wrangler,/"ONLINE_PAYMENTS_ENABLED"\s*:\s*"false"/,'unverified onli
 assert.match(constitution,/Always start from the latest production branch HEAD/,'development constitution must lock latest-HEAD workflow');
 assert.match(constitution,/Regression is failure/,'development constitution must lock regression protection');
 
-console.log('PASS storefront V1 baseline: clean architecture, truth-first commerce, COD, responsive and middleware isolation contract');
+console.log('PASS storefront V1 baseline: clean architecture, sparse-catalog sell-now UX, truth-first commerce, COD, responsive and middleware isolation contract');
