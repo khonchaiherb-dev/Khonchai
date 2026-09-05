@@ -24,7 +24,7 @@ assert.doesNotMatch(sw,/caches\.match\(/,'runtime fallback must not search stale
 assert.match(sw,/currentMatch\(request\)/,'runtime fallback must read only the active storefront cache');
 assert.match(sw,/key\.startsWith\(CACHE_PREFIX\)\|\|key\.startsWith\(LEGACY_CACHE_PREFIX\)/,'activation may remove only KHONCHAIHERB-owned cache generations');
 assert.match(sw,/url\.pathname\.startsWith\('\/api\/'\)/,'service worker must never cache API responses');
-assert.match(sw,/\.(?:html\|js\|css\|webmanifest)/,'HTML, JS, CSS and manifest requests must remain in the fresh/network-first class');
+assert.ok(sw.includes("/\\.(?:html|js|css|webmanifest)$/.test(url.pathname)"),'HTML, JS, CSS and manifest requests must remain in the fresh/network-first class');
 assert.match(coreJs,/navigator\.serviceWorker\.register\('\/sw\.js\?v=[^']+'\)/,'core storefront must explicitly register a versioned service-worker URL');
 
 console.log(`PASS storefront cache contract: core generation ${jsMatch[2]} is exact in index/SW, resilient install, scoped cleanup and network-first code delivery`);
