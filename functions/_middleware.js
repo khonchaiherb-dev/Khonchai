@@ -18,8 +18,8 @@ const STOREFRONT_COMMERCE_POLISH='/storefront-v1-commerce.css?v=2026.09.05.7';
 const STOREFRONT_POSTPURCHASE='/storefront-v1-postpurchase.js?v=2026.09.05.1';
 const STOREFRONT_CHECKOUT_RECOVERY_CSS='/storefront-v1-checkout-recovery.css?v=2026.09.05.1';
 const STOREFRONT_CHECKOUT_RECOVERY='/storefront-v1-checkout-recovery.js?v=2026.09.05.1';
-const STOREFRONT_CHECKOUT_QUOTE_CSS='/storefront-v1-checkout-quote.css?v=2026.09.05.1';
-const STOREFRONT_CHECKOUT_QUOTE='/storefront-v1-checkout-quote.js?v=2026.09.05.1';
+const STOREFRONT_CHECKOUT_QUOTE_CSS='/storefront-v1-checkout-quote.css?v=2026.09.05.2';
+const STOREFRONT_CHECKOUT_QUOTE='/storefront-v1-checkout-quote.js?v=2026.09.05.2';
 const noIndexPath=pathname=>/\/(?:account|login|register|member|my-orders|seller(?:-[^/]+)?|seller-center(?:-v2)?)\.html$/i.test(String(pathname||''));
 
 const canonicalRedirect=(request,env,u)=>{
