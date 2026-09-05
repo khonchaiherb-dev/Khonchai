@@ -48,11 +48,14 @@ assert.doesNotMatch(recoveryJs,/localStorage\.setItem|sessionStorage\.setItem/,'
 assert.doesNotMatch(recoveryJs,/FLASH DEAL|Verified Purchase|ขายแล้ว\s*\d|WELCOME50|HERB10/i,'checkout recovery must not introduce unverified commerce content');
 assert.match(recoveryCss,/\.kch-checkout-memory-note/,'checkout recovery must include visible privacy/recovery feedback');
 
-// The order API must independently reject incomplete shipping addresses before any customer/order write.
+// The Order API must independently normalize and reject unusable shipping details before customer/order writes.
 assert.match(orderApi,/subdistrict=clean\(address\.subdistrict\)/,'order API must normalize subdistrict');
-assert.match(orderApi,/subdistrict\.length<2/,'order API must require a usable subdistrict before accepting an order');
-assert.match(orderApi,/customer_details_required/,'incomplete shipping details must return a client-safe validation error');
-assert.ok(orderApi.indexOf('subdistrict.length<2')<orderApi.indexOf('INSERT INTO customers'),'shipping address validation must happen before customer/order writes');
+assert.match(orderApi,/meaningfulAddress\(subdistrict,2,\{requireLetter:true\}\)/,'order API must require a usable named subdistrict before accepting an order');
+assert.match(orderApi,/invalid_delivery_address/,'unusable delivery fields must return a client-safe field-aware validation error');
+assert.match(orderApi,/invalid_postal_code/,'invalid postal codes must return a specific client-safe validation error');
+assert.match(orderApi,/customer_details_required/,'incomplete recipient details must return a client-safe validation error');
+const addressValidationAt=orderApi.indexOf('meaningfulAddress(subdistrict,2,{requireLetter:true})');
+assert.ok(addressValidationAt>=0&&addressValidationAt<orderApi.indexOf('INSERT INTO customers'),'shipping address validation must happen before customer/order writes');
 
 // Checkout quote must be authoritative, read-only, single-flight and free of customer PII.
 assert.match(quoteJs,/\/api\/checkout-quote/,'checkout quote module must use the existing server quote API');
@@ -112,7 +115,8 @@ assert.match(middleware,/storefront-v1-checkout-recovery\.css/,'canonical home m
 assert.match(middleware,/storefront-v1-checkout-recovery\.js/,'canonical home must receive privacy-safe checkout recovery');
 assert.match(middleware,/storefront-v1-checkout-quote\.css/,'canonical home must receive checkout quote presentation');
 assert.match(middleware,/storefront-v1-checkout-quote\.js/,'canonical home must receive the authoritative checkout quote module');
-assert.match(middleware,/2026\.09\.05\.2/,'canonical middleware must cache-bust the cart-enabled quote assets');
+assert.match(middleware,/storefront-v1-address-integrity\.js/,'canonical home must receive the COD delivery-address integrity guard');
+assert.match(middleware,/2026\.09\.05\.2/,'canonical middleware must cache-bust current quote/recovery assets');
 assert.match(middleware,/X-KCH-Storefront/,'middleware must mark clean storefront responses');
 assert.match(middleware,/KOONCHAISHOP_ADMIN_GUARD/,'seller readiness guard must remain intact');
 assert.match(middleware,/coupon_not_eligible/,'order coupon eligibility guard must remain intact');
@@ -124,4 +128,4 @@ assert.match(wrangler,/"ONLINE_PAYMENTS_ENABLED"\s*:\s*"false"/,'unverified onli
 assert.match(constitution,/Always start from the latest production branch HEAD/,'development constitution must lock latest-HEAD workflow');
 assert.match(constitution,/Regression is failure/,'development constitution must lock regression protection');
 
-console.log('PASS storefront V1 baseline: clean architecture, complete server-side shipping-address validation, server totals from cart through checkout, quote single-flight, privacy-safe recovery, COD, secure post-purchase tracking, responsive and middleware isolation contract');
+console.log('PASS storefront V1 baseline: clean architecture, normalized server-side shipping-address validation, server totals from cart through checkout, quote single-flight, privacy-safe recovery, COD, secure post-purchase tracking, responsive and middleware isolation contract');
