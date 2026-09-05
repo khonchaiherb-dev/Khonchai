@@ -2,6 +2,15 @@ import {getCustomer} from '../_lib/customer-auth.js';
 function json(data,status=200){return Response.json(data,{status,headers:{'Cache-Control':'no-store'}})}
 const clean=s=>String(s||'').trim();
 const digits=s=>String(s||'').replace(/\D/g,'');
+const normalizeThaiPhone=s=>{
+  let d=digits(s);
+  if(d.startsWith('00660'))d=`0${d.slice(5)}`;
+  else if(d.startsWith('0066'))d=`0${d.slice(4)}`;
+  else if(d.startsWith('660'))d=`0${d.slice(3)}`;
+  else if(d.startsWith('66'))d=`0${d.slice(2)}`;
+  return d;
+};
+const validThaiPhone=s=>/^(?:0[689]\d{8}|0[23457]\d{7})$/.test(String(s||''));
 const money=n=>Math.round((Number(n)||0)*100)/100;
 const posInt=v=>{const n=Number(v);return Number.isInteger(n)&&n>0?n:null};
 const calcDiscount=(row,subtotal)=>{if(!row)return 0;let d=row.type==='percent'?subtotal*(Number(row.value||0)/100):Number(row.value||0);if(row.max_discount!=null)d=Math.min(d,Number(row.max_discount));return money(Math.max(0,Math.min(d,subtotal)))};
@@ -18,8 +27,9 @@ export async function onRequestPost({request,env}){
     if(old)return json({ok:true,reused:true,orderNo:old.order_no,subtotal:Number(old.subtotal),discount:Number(old.discount_total),shipping:Number(old.shipping_total),total:Number(old.total),status:old.status,paymentStatus:old.payment_status,fulfillmentStatus:old.fulfillment_status,promotionCode:old.promotion_code||null,attribution:{source:old.source_channel||'direct',creatorId:old.creator_id||null,contentId:old.content_id||null}});
   }
 
-  const customerName=clean(body.customerName),phone=digits(body.phone),address=body.address||{},addressLine=clean(address.addressLine),subdistrict=clean(address.subdistrict),district=clean(address.district),province=clean(address.province),postalCode=clean(address.postalCode);
-  if(customerName.length<2||phone.length<9||addressLine.length<5||subdistrict.length<2||district.length<2||province.length<2||!/^\d{5}$/.test(postalCode))return json({error:'customer_details_required'},400);
+  const customerName=clean(body.customerName),phone=normalizeThaiPhone(body.phone),address=body.address||{},addressLine=clean(address.addressLine),subdistrict=clean(address.subdistrict),district=clean(address.district),province=clean(address.province),postalCode=clean(address.postalCode);
+  if(!validThaiPhone(phone))return json({error:'invalid_phone'},400);
+  if(customerName.length<2||addressLine.length<5||subdistrict.length<2||district.length<2||province.length<2||!/^\d{5}$/.test(postalCode))return json({error:'customer_details_required'},400);
   const paymentMethod=['COD'].includes(body.paymentMethod)?body.paymentMethod:'COD';
 
   const attr=body.attribution||{},allowedSources=new Set(['direct','shop','live','video','creator']);
