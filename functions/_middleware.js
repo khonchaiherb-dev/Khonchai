@@ -14,7 +14,8 @@ const canonicalHost=env=>new URL(canonicalOrigin(env)).host;
 const legacyHosts=new Set(['khonchai.com','www.khonchai.com']);
 const SELLER_KOONCHAISHOP='/seller-koonchaishop.html';
 const KOONCHAISHOP_ADMIN_GUARD='/kch-koonchaishop-admin-readiness.js?v=1.0.1';
-const STOREFRONT_COMMERCE_POLISH='/storefront-v1-commerce.css?v=2026.09.05.6';
+const STOREFRONT_COMMERCE_POLISH='/storefront-v1-commerce.css?v=2026.09.05.7';
+const STOREFRONT_POSTPURCHASE='/storefront-v1-postpurchase.js?v=2026.09.05.1';
 const noIndexPath=pathname=>/\/(?:account|login|register|member|my-orders|seller(?:-[^/]+)?|seller-center(?:-v2)?)\.html$/i.test(String(pathname||''));
 
 const canonicalRedirect=(request,env,u)=>{
@@ -39,13 +40,15 @@ const withCanonicalMetadata=(response,env,pathname='')=>{
   const pageUrl=new URL(canonicalPath,`${origin}/`).toString();
   const home=canonicalPath==='/';
 
-  // Customer UI remains the clean storefront-v1 generation. The only home-only
-  // addition is a small truth-first conversion stylesheet; retired tshop/rescue/master
-  // generations must never be injected here again.
+  // Customer UI remains the clean storefront-v1 generation. Home receives only clean,
+  // truth-first V1 modules; retired tshop/rescue/master generations are never injected.
   const rewriter=new HTMLRewriter().on('head',{element(head){
     head.append(`<link rel="canonical" href="${pageUrl}" />`,{html:true});
     head.append(`<meta property="og:url" content="${pageUrl}" />`,{html:true});
-    if(home)head.append(`<link rel="stylesheet" href="${STOREFRONT_COMMERCE_POLISH}" />`,{html:true});
+    if(home){
+      head.append(`<link rel="stylesheet" href="${STOREFRONT_COMMERCE_POLISH}" />`,{html:true});
+      head.append(`<script defer src="${STOREFRONT_POSTPURCHASE}"></script>`,{html:true});
+    }
     if(noIndexPath(pathname))head.append('<meta name="robots" content="noindex,nofollow,noarchive" />',{html:true});
     if(pathname===SELLER_KOONCHAISHOP)head.append(`<script defer src="${KOONCHAISHOP_ADMIN_GUARD}"></script>`,{html:true});
   }});
