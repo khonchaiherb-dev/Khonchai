@@ -94,6 +94,7 @@ test('clean storefront browse → cart server total → checkout server total �
   await expect(page.locator('[data-cart-quote-breakdown]')).toContainText('จัดส่ง ฿45');
   await expect(page.locator('[data-start-checkout]')).toContainText('฿235');
   await expect(page.locator('[data-start-checkout]')).toBeEnabled();
+  await page.waitForTimeout(75);
   expect(state.quoteRequests).toBe(1);
   const checkoutHeight=await page.locator('[data-start-checkout]').evaluate(el=>el.getBoundingClientRect().height);
   expect(checkoutHeight).toBeGreaterThanOrEqual(55);
@@ -106,6 +107,7 @@ test('clean storefront browse → cart server total → checkout server total �
   await expect(page.locator('[data-quote-final-total]')).toContainText('฿235');
   await expect(page.locator('.kch-order-review')).toContainText('ค่าจัดส่ง');
   await expect(page.locator('[data-place-order]')).toContainText('฿235');
+  await page.waitForTimeout(75);
   expect(state.quoteRequests).toBe(2);
   expect(state.quotePayload?.items?.[0]).toEqual({id:901,variantId:9101,qty:1});
   expect(state.quotePayload?.customerName).toBeUndefined();
@@ -120,14 +122,20 @@ test('clean storefront browse → cart server total → checkout server total �
   await expect(page.locator('[data-layer="cart"]')).toHaveClass(/is-open/);
   await expect(page.locator('[data-cart-foot]')).toHaveAttribute('data-cart-quote-status','ready');
   await expect(page.locator('[data-cart-server-total]')).toContainText('฿235');
+  await page.waitForTimeout(75);
   expect(state.quoteRequests).toBe(3);
 
+  // openCheckout awaits payment capabilities before replacing/reopening the checkout layer.
+  // Wait for that transition before inspecting the new quote so this test cannot pass on stale DOM.
   await page.locator('[data-start-checkout]').click();
+  await expect(page.locator('[data-layer="checkout"]')).toHaveClass(/is-open/);
   await expect(page.locator('#customer-name')).toHaveValue('ผู้ทดสอบระบบ');
   await expect(page.locator('#customer-phone')).toHaveValue('0812345678');
   await expect(page.locator('#customer-address')).toHaveValue('99 หมู่ 1 ถนนทดสอบ');
+  await expect(page.locator('.kch-order-review')).toHaveAttribute('data-quote-status','ready');
   await expect(page.locator('[data-quote-final-total]')).toContainText('฿235');
   await expect(page.locator('[data-place-order]')).toContainText('฿235');
+  await page.waitForTimeout(75);
   expect(state.quoteRequests).toBe(4);
 
   await page.locator('#customer-district').fill('เมือง');
@@ -150,9 +158,10 @@ test('clean storefront browse → cart server total → checkout server total �
   await expect(page.locator('#customer-subdistrict')).not.toHaveAttribute('aria-invalid','true');
   await page.locator('[data-place-order]').click();
 
-  await expect(page.getByRole('heading',{name:'สั่งซื้อสำเร็จ'})).toBeVisible();
-  await expect(page.getByText('KCH-E2E-0001')).toBeVisible();
-  await expect(page.getByText('฿235')).toBeVisible();
+  const success=page.locator('.kch-success');
+  await expect(success.getByRole('heading',{name:'สั่งซื้อสำเร็จ'})).toBeVisible();
+  await expect(success).toContainText('KCH-E2E-0001');
+  await expect(success.locator('.kch-success-order')).toContainText('฿235');
   await expect(page.locator('[data-success-track]')).toBeVisible();
 
   expect(state.orderPosts).toBe(1);
@@ -187,5 +196,5 @@ test('clean storefront browse → cart server total → checkout server total �
 
   const finalMetrics=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth}));
   expect(finalMetrics.scrollWidth).toBeLessThanOrEqual(finalMetrics.clientWidth+1);
-  console.log(`PASS ${testInfo.project.name}: server totals in cart + checkout, recovery-safe COD + secure tracking journey`);
+  console.log(`PASS ${testInfo.project.name}: server totals in cart + checkout, transition-aware single-flight quote checks, recovery-safe COD + secure tracking journey`);
 });
