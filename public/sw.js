@@ -1,7 +1,7 @@
-/* KHONCHAIHERB V1 service worker — resilient cache lifecycle 2026.09.05.1 */
+/* KHONCHAIHERB V1 service worker — resilient cache lifecycle 2026.09.05.5 */
 const CACHE_PREFIX='khonchaiherb-storefront-v1-';
 const LEGACY_CACHE_PREFIX='khonchaiherb-v';
-const CACHE=`${CACHE_PREFIX}runtime-2026.09.05.1`;
+const CACHE=`${CACHE_PREFIX}runtime-2026.09.05.5`;
 const CORE=[
   '/',
   '/index.html',
