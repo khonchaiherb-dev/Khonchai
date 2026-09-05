@@ -28,8 +28,8 @@ jobs:
       STOREFRONT_POSTPURCHASE_ASSET: /storefront-v1-postpurchase.js?v=2026.09.05.1
       STOREFRONT_CHECKOUT_RECOVERY_CSS: /storefront-v1-checkout-recovery.css?v=2026.09.05.1
       STOREFRONT_CHECKOUT_RECOVERY_ASSET: /storefront-v1-checkout-recovery.js?v=2026.09.05.1
-      STOREFRONT_CHECKOUT_QUOTE_CSS: /storefront-v1-checkout-quote.css?v=2026.09.05.1
-      STOREFRONT_CHECKOUT_QUOTE_ASSET: /storefront-v1-checkout-quote.js?v=2026.09.05.1
+      STOREFRONT_CHECKOUT_QUOTE_CSS: /storefront-v1-checkout-quote.css?v=2026.09.05.2
+      STOREFRONT_CHECKOUT_QUOTE_ASSET: /storefront-v1-checkout-quote.js?v=2026.09.05.2
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -108,9 +108,13 @@ jobs:
               && grep -Fq '#customer-subdistrict' checkout-recovery.js \
               && curl --fail --silent --show-error --max-time 20 -o checkout-quote.css "$CANONICAL_ORIGIN$STOREFRONT_CHECKOUT_QUOTE_CSS" \
               && grep -Fq 'KHONCHAIHERB V1 — server checkout quote presentation' checkout-quote.css \
+              && grep -Fq '.kch-cart-quote-breakdown' checkout-quote.css \
               && curl --fail --silent --show-error --max-time 20 -o checkout-quote.js "$CANONICAL_ORIGIN$STOREFRONT_CHECKOUT_QUOTE_ASSET" \
               && grep -Fq 'KHONCHAIHERB V1 — server checkout quote' checkout-quote.js \
               && grep -Fq '/api/checkout-quote' checkout-quote.js \
+              && grep -Fq 'data-cart-server-total' checkout-quote.js \
+              && grep -Fq 'data-cart-quote-breakdown' checkout-quote.js \
+              && grep -Fq 'requestSeq={cart:0,checkout:0}' checkout-quote.js \
               && curl --fail --silent --show-error --max-time 20 -o payment-options.json "$CANONICAL_ORIGIN/api/payment-options"; then
 
               order_status_code=$(curl --silent --show-error --max-time 20 \
@@ -214,7 +218,7 @@ jobs:
             cat checkout-quote.json 2>/dev/null || true
             exit 1
           fi
-          echo "PASS canonical production: authoritative server checkout quote, privacy-safe recovery, post-purchase tracking, Checkout, COD and order-status privacy gate are live."
+          echo "PASS canonical production: server totals from cart through checkout, privacy-safe recovery, post-purchase tracking, Checkout, COD and order-status privacy gate are live."
 
       - name: Report production target
         shell: bash
@@ -223,4 +227,4 @@ jobs:
           echo "Production branch resolved from Cloudflare project configuration: \`${{ steps.pages.outputs.production_branch }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Source commit: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Canonical storefront verified after deployment: \`$CANONICAL_ORIGIN\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "Server checkout quote + Checkout recovery + Checkout + COD + order-status privacy gate verified from canonical runtime without creating a real order." >> "$GITHUB_STEP_SUMMARY"
+          echo "Server totals from cart through checkout + Checkout recovery + Checkout + COD + order-status privacy gate verified from canonical runtime without creating a real order." >> "$GITHUB_STEP_SUMMARY"
