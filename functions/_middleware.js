@@ -16,6 +16,7 @@ const SELLER_KOONCHAISHOP='/seller-koonchaishop.html';
 const KOONCHAISHOP_ADMIN_GUARD='/kch-koonchaishop-admin-readiness.js?v=1.0.1';
 const STOREFRONT_COMMERCE_POLISH='/storefront-v1-commerce.css?v=2026.09.05.7';
 const STOREFRONT_POSTPURCHASE='/storefront-v1-postpurchase.js?v=2026.09.05.1';
+const STOREFRONT_CHECKOUT_RECOVERY='/storefront-v1-checkout-recovery.js?v=2026.09.05.1';
 const noIndexPath=pathname=>/\/(?:account|login|register|member|my-orders|seller(?:-[^/]+)?|seller-center(?:-v2)?)\.html$/i.test(String(pathname||''));
 
 const canonicalRedirect=(request,env,u)=>{
@@ -48,6 +49,7 @@ const withCanonicalMetadata=(response,env,pathname='')=>{
     if(home){
       head.append(`<link rel="stylesheet" href="${STOREFRONT_COMMERCE_POLISH}" />`,{html:true});
       head.append(`<script defer src="${STOREFRONT_POSTPURCHASE}"></script>`,{html:true});
+      head.append(`<script defer src="${STOREFRONT_CHECKOUT_RECOVERY}"></script>`,{html:true});
     }
     if(noIndexPath(pathname))head.append('<meta name="robots" content="noindex,nofollow,noarchive" />',{html:true});
     if(pathname===SELLER_KOONCHAISHOP)head.append(`<script defer src="${KOONCHAISHOP_ADMIN_GUARD}"></script>`,{html:true});
