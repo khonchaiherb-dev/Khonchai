@@ -30,6 +30,9 @@ test('clean storefront browse → variant cart → checkout → COD confirmation
   page.on('pageerror',e=>errors.push(e.message));
   await mockCommerce(page,state);
   await page.goto('/?e2e=clean-v1',{waitUntil:'domcontentloaded'});
+  // Static E2E server does not execute Cloudflare middleware; load the exact production
+  // sell-now stylesheet so PDP/cart/checkout visual contracts are tested too.
+  await page.addStyleTag({path:'public/storefront-v1-commerce.css'});
 
   await expect(page.locator('.kch-hero')).toBeVisible();
   await expect(page.getByRole('heading',{level:1})).toContainText('คัดสรรสมุนไพรไทย');
@@ -47,11 +50,17 @@ test('clean storefront browse → variant cart → checkout → COD confirmation
   await expect(page.locator('.kch-detail-copy h2')).toContainText('ชารางจืด');
   await expect(page.locator('[data-variant="9101"]')).toBeVisible();
   await expect(page.locator('[data-variant="9101"]')).toHaveClass(/is-active/);
+  await expect(page.locator('[data-detail-buy]')).toBeEnabled();
+  const buyHeight=await page.locator('[data-detail-buy]').evaluate(el=>el.getBoundingClientRect().height);
+  expect(buyHeight).toBeGreaterThanOrEqual(55);
 
   await page.locator('[data-detail-add]').click();
   await expect(page.locator('[data-layer="cart"]')).toHaveClass(/is-open/);
   await expect(page.locator('[data-cart-count]').first()).toHaveText('1');
   await expect(page.locator('[data-cart-body]')).toContainText('มาตรฐาน');
+  await expect(page.locator('[data-start-checkout]')).toBeEnabled();
+  const checkoutHeight=await page.locator('[data-start-checkout]').evaluate(el=>el.getBoundingClientRect().height);
+  expect(checkoutHeight).toBeGreaterThanOrEqual(55);
 
   await page.locator('[data-start-checkout]').click();
   await expect(page.locator('[data-layer="checkout"]')).toHaveClass(/is-open/);
@@ -65,6 +74,8 @@ test('clean storefront browse → variant cart → checkout → COD confirmation
   await page.locator('#customer-postal').fill('34000');
   await expect(page.getByText('เก็บเงินปลายทาง (COD)')).toBeVisible();
   await expect(page.locator('[data-place-order]')).toBeEnabled();
+  const orderHeight=await page.locator('[data-place-order]').evaluate(el=>el.getBoundingClientRect().height);
+  expect(orderHeight).toBeGreaterThanOrEqual(55);
   await page.locator('[data-place-order]').click();
 
   await expect(page.getByRole('heading',{name:'สั่งซื้อสำเร็จ'})).toBeVisible();
@@ -80,5 +91,5 @@ test('clean storefront browse → variant cart → checkout → COD confirmation
 
   const finalMetrics=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth}));
   expect(finalMetrics.scrollWidth).toBeLessThanOrEqual(finalMetrics.clientWidth+1);
-  console.log(`PASS ${testInfo.project.name}: clean V1 commerce journey`);
+  console.log(`PASS ${testInfo.project.name}: clean V1 sell-now commerce journey`);
 });
