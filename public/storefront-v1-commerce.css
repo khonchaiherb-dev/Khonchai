@@ -154,6 +154,82 @@
   box-shadow:0 12px 28px rgba(23,57,47,.18);
 }
 
+/* Post-purchase order tracking. Uses the existing secure order-status endpoint and never
+   exposes a customer order unless both order number and matching phone are supplied. */
+.kch-nav-order{
+  min-height:42px;
+  display:flex;
+  align-items:center;
+  padding:0 12px;
+  border:0;
+  border-radius:999px;
+  background:transparent;
+  color:var(--kch-ink-2);
+  font-size:13px;
+  font-weight:750;
+}
+.kch-nav-order:hover,.kch-nav-order:focus-visible{background:#f2f6f3;color:var(--kch-green)}
+.kch-footer-order{
+  border:0;
+  background:transparent;
+  padding:0;
+  text-align:left;
+  color:#b8c8c1;
+  font-size:12px;
+}
+.kch-footer-order:hover{color:#fff}
+.kch-mobile-nav.kch-mobile-nav-5{grid-template-columns:repeat(5,1fr)}
+.kch-order-status{width:min(760px,100%)}
+.kch-order-status-head{padding:28px 32px 18px;border-bottom:1px solid var(--kch-line)}
+.kch-order-status-head>span{font-size:10px;color:var(--kch-green);font-weight:900;letter-spacing:.08em}
+.kch-order-status-head h2{margin:4px 0 7px;font-size:30px;letter-spacing:-.035em}
+.kch-order-status-head p{margin:0;max-width:620px;color:var(--kch-muted);font-size:12px;line-height:1.75}
+.kch-order-status-body{padding:24px 32px 32px;background:#fbfcfb}
+.kch-order-lookup{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:end}
+.kch-order-lookup-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.kch-order-lookup .kch-field span{font-size:11px;font-weight:800;color:var(--kch-ink-2)}
+.kch-order-lookup .kch-field input{height:48px}
+.kch-order-lookup>.kch-btn{min-height:48px;white-space:nowrap}
+.kch-order-lookup-note{margin-top:9px;color:var(--kch-muted);font-size:10px;line-height:1.6}
+.kch-order-status-error{margin-top:12px;color:#99463f;font-size:11px;font-weight:750}
+.kch-order-status-error:not(:empty){padding:10px 12px;border:1px solid #efd3cf;border-radius:12px;background:#fff4f2}
+.kch-track-loading{margin-top:18px;padding:24px;border:1px dashed #ccd9d0;border-radius:16px;background:#fff;text-align:center;color:var(--kch-muted);font-size:12px}
+.kch-track-card{margin-top:20px;border:1px solid var(--kch-line);border-radius:20px;background:#fff;overflow:hidden;box-shadow:0 10px 30px rgba(23,57,47,.045)}
+.kch-track-summary{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:20px 22px;border-bottom:1px solid #edf1ee}
+.kch-track-summary>div:first-child{display:grid;gap:2px}
+.kch-track-summary span{font-size:10px;color:var(--kch-muted)}
+.kch-track-summary strong{font-size:17px;color:var(--kch-ink)}
+.kch-track-summary small{font-size:10px;color:var(--kch-muted)}
+.kch-track-status{flex:0 0 auto;min-height:32px;display:flex;align-items:center;padding:0 12px;border-radius:999px;font-size:10px;font-weight:900}
+.kch-track-status.is-active{background:#eef6f1;color:var(--kch-green)}
+.kch-track-status.is-success{background:#e9f6ed;color:#236843}
+.kch-track-status.is-danger{background:#fff1ef;color:#a34e46}
+.kch-track-progress{display:grid;grid-template-columns:repeat(3,1fr);padding:22px;border-bottom:1px solid #edf1ee}
+.kch-track-progress>div{position:relative;display:grid;justify-items:center;gap:7px;color:#9aa7a0;font-size:10px;font-weight:800;text-align:center}
+.kch-track-progress>div:not(:last-child):after{content:"";position:absolute;left:calc(50% + 20px);right:calc(-50% + 20px);top:16px;height:2px;background:#e2e9e4}
+.kch-track-progress b{position:relative;z-index:1;width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:#edf1ee;color:#85948c}
+.kch-track-progress b svg{width:17px;height:17px}
+.kch-track-progress .is-done{color:var(--kch-green)}
+.kch-track-progress .is-done b{background:var(--kch-green);color:#fff}
+.kch-track-progress .is-done:not(:last-child):after{background:#a9c9b4}
+.kch-track-financial{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:18px 22px}
+.kch-track-financial>div{display:grid;gap:2px;padding:13px 14px;border:1px solid #e9efeb;border-radius:13px;background:#fafcfb}
+.kch-track-financial span,.kch-track-info span{font-size:10px;color:var(--kch-muted)}
+.kch-track-financial strong{font-size:13px;color:var(--kch-ink)}
+.kch-track-info{margin:0 22px 18px;padding:14px 16px;border-radius:14px;background:#eef6f1;border:1px solid #dbe9df;display:grid;grid-template-columns:auto 1fr auto;gap:8px 12px;align-items:center}
+.kch-track-info strong{font-size:13px;color:var(--kch-green);word-break:break-all}
+.kch-track-info small{font-size:10px;color:var(--kch-muted)}
+.kch-track-items{padding:0 22px 18px}
+.kch-track-items h3{margin:0 0 9px;font-size:13px}
+.kch-track-item{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:11px 0;border-top:1px solid #edf1ee}
+.kch-track-item>div{display:grid;gap:2px;min-width:0}
+.kch-track-item strong{font-size:12px;line-height:1.45}
+.kch-track-item small{font-size:9px;color:var(--kch-muted)}
+.kch-track-item span{font-size:10px;color:var(--kch-muted)}
+.kch-track-item b{font-size:12px}
+.kch-track-time{margin:0 22px 18px;padding:9px 12px;border-radius:10px;background:#fafcfb;color:var(--kch-muted);font-size:10px}
+.kch-success-actions:has([data-success-track]){display:grid;grid-template-columns:1fr 1fr;max-width:440px;margin-left:auto;margin-right:auto}
+
 @media(max-width:840px){
   .kch-products:has(> .kch-product-card:only-child),
   .kch-products:has(> .kch-product-card:nth-child(2):last-child){
@@ -225,4 +301,21 @@
     margin:14px -16px calc(-24px - env(safe-area-inset-bottom));
     padding:14px 16px calc(18px + env(safe-area-inset-bottom));
   }
+  .kch-order-status-head{padding:22px 20px 14px}
+  .kch-order-status-head h2{font-size:26px}
+  .kch-order-status-body{padding:18px 16px calc(24px + env(safe-area-inset-bottom))}
+  .kch-order-lookup{grid-template-columns:1fr}
+  .kch-order-lookup-grid{grid-template-columns:1fr}
+  .kch-order-lookup>.kch-btn{min-height:52px}
+  .kch-track-summary{align-items:flex-start;padding:17px 16px}
+  .kch-track-summary strong{font-size:14px}
+  .kch-track-progress{padding:18px 12px}
+  .kch-track-progress>div{font-size:8.5px}
+  .kch-track-financial{grid-template-columns:1fr;padding:14px 16px}
+  .kch-track-info{margin:0 16px 14px;grid-template-columns:1fr}
+  .kch-track-items{padding:0 16px 14px}
+  .kch-track-item{grid-template-columns:minmax(0,1fr) auto}
+  .kch-track-item b{grid-column:2;grid-row:2}
+  .kch-track-time{margin:0 16px 14px}
+  .kch-success-actions:has([data-success-track]){grid-template-columns:1fr}
 }
