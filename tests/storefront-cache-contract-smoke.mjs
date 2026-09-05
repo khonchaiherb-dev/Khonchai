@@ -12,10 +12,16 @@ const jsMatch=html.match(/src="(\/storefront-v1\.js\?v=([^"]+))"/);
 assert.ok(cssMatch,'index must load a versioned storefront-v1.css asset');
 assert.ok(jsMatch,'index must load a versioned storefront-v1.js asset');
 assert.equal(cssMatch[2],jsMatch[2],'core CSS and JS must share one storefront asset generation');
+const generation=jsMatch[2];
 assert.ok(sw.includes(`'${cssMatch[1]}'`),'service-worker warm cache must use the exact CSS URL loaded by index');
 assert.ok(sw.includes(`'${jsMatch[1]}'`),'service-worker warm cache must use the exact JS URL loaded by index');
 
-assert.match(sw,/KHONCHAIHERB V1 service worker — resilient cache lifecycle/,'service worker must expose the resilient-cache generation marker');
+const swRegistration=coreJs.match(/navigator\.serviceWorker\.register\('\/sw\.js\?v=([^']+)'\)/);
+assert.ok(swRegistration,'core storefront must explicitly register a versioned service-worker URL');
+assert.equal(swRegistration[1],generation,'service-worker registration must use the same generation as core CSS/JS');
+assert.ok(sw.includes(`resilient cache lifecycle ${generation}`),'service-worker lifecycle marker must match the storefront generation');
+assert.ok(sw.includes(`runtime-${generation}`),'active service-worker cache must match the storefront generation');
+
 assert.match(sw,/Promise\.allSettled\(CORE\.map/,'one optional core fetch failure must not abort the entire service-worker installation');
 assert.doesNotMatch(sw,/cache\.addAll\(CORE\)/,'service worker must not use all-or-nothing cache.addAll for the storefront core');
 assert.match(sw,/new Request\(url,\{cache:'no-store'\}\)/,'core warmup must bypass stale HTTP cache entries');
@@ -25,6 +31,5 @@ assert.match(sw,/currentMatch\(request\)/,'runtime fallback must read only the a
 assert.match(sw,/key\.startsWith\(CACHE_PREFIX\)\|\|key\.startsWith\(LEGACY_CACHE_PREFIX\)/,'activation may remove only KHONCHAIHERB-owned cache generations');
 assert.match(sw,/url\.pathname\.startsWith\('\/api\/'\)/,'service worker must never cache API responses');
 assert.ok(sw.includes("/\\.(?:html|js|css|webmanifest)$/.test(url.pathname)"),'HTML, JS, CSS and manifest requests must remain in the fresh/network-first class');
-assert.match(coreJs,/navigator\.serviceWorker\.register\('\/sw\.js\?v=[^']+'\)/,'core storefront must explicitly register a versioned service-worker URL');
 
-console.log(`PASS storefront cache contract: core generation ${jsMatch[2]} is exact in index/SW, resilient install, scoped cleanup and network-first code delivery`);
+console.log(`PASS storefront cache contract: generation ${generation} is exact across index, core JS registration and active SW cache; resilient install, scoped cleanup and network-first code delivery verified`);
