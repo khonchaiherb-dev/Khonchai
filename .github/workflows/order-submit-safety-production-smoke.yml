@@ -1,0 +1,79 @@
+name: KHONCHAIHERB Order Submit Safety Production Smoke
+
+on:
+  push:
+    branches: [storefront-social-commerce]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: khonchaiherb-order-submit-safety-production-smoke
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify canonical duplicate-order safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SITE_ORIGIN: https://khonchaiherb-commerce.pages.dev
+      SAFETY_ASSET: /storefront-v1-order-submit-safety.js?v=2026.09.05.1
+    steps:
+      - name: Verify duplicate-order safety asset on canonical storefront
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for attempt in $(seq 1 45); do
+            if curl --fail --silent --show-error --location --max-time 20 \
+                -H 'Cache-Control: no-cache' \
+                "$SITE_ORIGIN/?order_submit_safety_verify=${GITHUB_SHA}-${GITHUB_RUN_ID}-${attempt}" > home.html \
+              && grep -Fq "$SAFETY_ASSET" home.html \
+              && curl --fail --silent --show-error --location --max-time 20 \
+                -H 'Cache-Control: no-cache' \
+                "$SITE_ORIGIN$SAFETY_ASSET" > order-submit-safety.js \
+              && grep -Fq 'KHONCHAIHERB V1 — duplicate-order submission safety' order-submit-safety.js \
+              && grep -Fq "crypto.subtle.digest('SHA-256'" order-submit-safety.js \
+              && grep -Fq 'const inflight=new Map()' order-submit-safety.js \
+              && grep -Fq 'kch-order-submit-attempts-v1' order-submit-safety.js; then
+              ok=1
+              break
+            fi
+            echo "Order submit safety asset not converged yet ($attempt/45)"
+            sleep 4
+          done
+          [ "$ok" = "1" ] || { echo 'Canonical duplicate-order safety asset is not live.' >&2; exit 1; }
+          echo 'Canonical duplicate-order safety asset: OK'
+
+      - name: Verify production Order API requires idempotency without creating an order
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl --silent --show-error --location --max-time 20 \
+            -o missing-key-response.json -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/json' \
+            --data-binary '{"items":[]}' \
+            "$SITE_ORIGIN/api/orders" || true)
+          python3 - "$code" <<'PY'
+          import json,sys
+          from pathlib import Path
+          code=sys.argv[1]
+          data=json.loads(Path('missing-key-response.json').read_text())
+          if code!='428' or data.get('error')!='idempotency_key_required':
+              raise SystemExit(f"expected 428 idempotency_key_required, got HTTP {code}: {data}")
+          print('Production idempotency enforcement: OK')
+          PY
+
+      - name: Report duplicate-order safety readiness
+        shell: bash
+        run: |
+          {
+            echo '### KHONCHAIHERB Duplicate Order Safety'
+            echo '- Canonical submit-safety module: PASS'
+            echo '- Hashed session retry fingerprint: PASS'
+            echo '- In-flight request coalescing: PASS'
+            echo '- Production Order API idempotency requirement: PASS'
+            echo '- Smoke used an empty order without an idempotency key; no production order was created.'
+          } >> "$GITHUB_STEP_SUMMARY"
