@@ -30,6 +30,7 @@ jobs:
       STOREFRONT_CHECKOUT_RECOVERY_ASSET: /storefront-v1-checkout-recovery.js?v=2026.09.05.1
       STOREFRONT_CHECKOUT_QUOTE_CSS: /storefront-v1-checkout-quote.css?v=2026.09.05.2
       STOREFRONT_CHECKOUT_QUOTE_ASSET: /storefront-v1-checkout-quote.js?v=2026.09.05.2
+      STOREFRONT_ORDER_PREFLIGHT_ASSET: /storefront-v1-order-preflight.js?v=2026.09.05.1
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -81,7 +82,7 @@ jobs:
         run: |
           set -euo pipefail
           rm -f canonical-home.html canonical-headers.txt payment-options.json commerce.css postpurchase.js \
-            checkout-recovery.css checkout-recovery.js checkout-quote.css checkout-quote.js \
+            checkout-recovery.css checkout-recovery.js checkout-quote.css checkout-quote.js order-preflight.js \
             order-status-invalid.json products.json product-detail.json quote-request.json checkout-quote.json selected-slug.txt
           ok=0
           for attempt in $(seq 1 12); do
@@ -96,6 +97,7 @@ jobs:
               && grep -Fq "$STOREFRONT_CHECKOUT_RECOVERY_ASSET" canonical-home.html \
               && grep -Fq "$STOREFRONT_CHECKOUT_QUOTE_CSS" canonical-home.html \
               && grep -Fq "$STOREFRONT_CHECKOUT_QUOTE_ASSET" canonical-home.html \
+              && grep -Fq "$STOREFRONT_ORDER_PREFLIGHT_ASSET" canonical-home.html \
               && grep -Eiq '^X-KCH-Storefront:[[:space:]]*v1-clean' canonical-headers.txt \
               && curl --fail --silent --show-error --max-time 20 -o commerce.css "$CANONICAL_ORIGIN$STOREFRONT_COMMERCE_ASSET" \
               && grep -Fq 'KHONCHAIHERB V1 — sell-now commerce polish' commerce.css \
@@ -115,6 +117,11 @@ jobs:
               && grep -Fq 'data-cart-server-total' checkout-quote.js \
               && grep -Fq 'data-cart-quote-breakdown' checkout-quote.js \
               && grep -Fq 'requestSeq={cart:0,checkout:0}' checkout-quote.js \
+              && curl --fail --silent --show-error --max-time 20 -o order-preflight.js "$CANONICAL_ORIGIN$STOREFRONT_ORDER_PREFLIGHT_ASSET" \
+              && grep -Fq 'KHONCHAIHERB V1 — final order preflight' order-preflight.js \
+              && grep -Fq '/api/checkout-quote' order-preflight.js \
+              && grep -Fq 'kchPreflightBypass' order-preflight.js \
+              && grep -Fq 'กรุณาตรวจสอบยอดใหม่แล้วกดสั่งซื้ออีกครั้ง' order-preflight.js \
               && curl --fail --silent --show-error --max-time 20 -o payment-options.json "$CANONICAL_ORIGIN/api/payment-options"; then
 
               order_status_code=$(curl --silent --show-error --max-time 20 \
@@ -214,11 +221,13 @@ jobs:
             cat canonical-headers.txt 2>/dev/null || true
             echo "--- storefront markers ---"
             grep -Eo 'storefront-v1[^" ]+' canonical-home.html 2>/dev/null | head -50 || true
+            echo "--- final order preflight ---"
+            head -80 order-preflight.js 2>/dev/null || true
             echo "--- checkout quote ---"
             cat checkout-quote.json 2>/dev/null || true
             exit 1
           fi
-          echo "PASS canonical production: server totals from cart through checkout, privacy-safe recovery, post-purchase tracking, Checkout, COD and order-status privacy gate are live."
+          echo "PASS canonical production: final-order preflight, server totals from cart through checkout, privacy-safe recovery, post-purchase tracking, Checkout, COD and order-status privacy gate are live."
 
       - name: Report production target
         shell: bash
@@ -227,4 +236,4 @@ jobs:
           echo "Production branch resolved from Cloudflare project configuration: \`${{ steps.pages.outputs.production_branch }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Source commit: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Canonical storefront verified after deployment: \`$CANONICAL_ORIGIN\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "Server totals from cart through checkout + Checkout recovery + Checkout + COD + order-status privacy gate verified from canonical runtime without creating a real order." >> "$GITHUB_STEP_SUMMARY"
+          echo "Final-order preflight + server totals from cart through checkout + Checkout recovery + Checkout + COD + order-status privacy gate verified from canonical runtime without creating a real order." >> "$GITHUB_STEP_SUMMARY"
