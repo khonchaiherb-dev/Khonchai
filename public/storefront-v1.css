@@ -43,6 +43,16 @@ img{max-width:100%;display:block}
 svg{display:block}
 [hidden]{display:none!important}
 
+.kch-product-media,.kch-product-title button{
+  appearance:none;
+  -webkit-appearance:none;
+  border:0;
+  color:inherit;
+  font:inherit;
+}
+.kch-product-media{width:100%;text-align:inherit}
+.kch-product-title button{display:block;width:100%;padding:0;background:transparent;text-align:left;line-height:inherit;font-weight:inherit}
+
 .kch-skip{
   position:fixed;left:16px;top:12px;z-index:200;
   transform:translateY(-150%);
