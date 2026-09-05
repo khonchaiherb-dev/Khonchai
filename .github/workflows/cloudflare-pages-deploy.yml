@@ -24,7 +24,8 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       PAGES_PROJECT: khonchaiherb-commerce
       CANONICAL_ORIGIN: https://khonchaiherb-commerce.pages.dev
-      STOREFRONT_COMMERCE_ASSET: /storefront-v1-commerce.css?v=2026.09.05.6
+      STOREFRONT_COMMERCE_ASSET: /storefront-v1-commerce.css?v=2026.09.05.7
+      STOREFRONT_POSTPURCHASE_ASSET: /storefront-v1-postpurchase.js?v=2026.09.05.1
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -75,7 +76,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -f canonical-home.html canonical-headers.txt payment-options.json commerce.css
+          rm -f canonical-home.html canonical-headers.txt payment-options.json commerce.css postpurchase.js order-status-invalid.json
           ok=0
           for attempt in $(seq 1 12); do
             echo "Canonical verification attempt $attempt/12"
@@ -84,14 +85,21 @@ jobs:
                 -o canonical-home.html \
                 "$CANONICAL_ORIGIN/?deploy_verify=$GITHUB_SHA" \
               && grep -Fq "$STOREFRONT_COMMERCE_ASSET" canonical-home.html \
+              && grep -Fq "$STOREFRONT_POSTPURCHASE_ASSET" canonical-home.html \
               && grep -Eiq '^X-KCH-Storefront:[[:space:]]*v1-clean' canonical-headers.txt \
               && curl --fail --silent --show-error --max-time 20 \
                 -o commerce.css "$CANONICAL_ORIGIN$STOREFRONT_COMMERCE_ASSET" \
               && grep -Fq 'KHONCHAIHERB V1 — sell-now commerce polish' commerce.css \
               && curl --fail --silent --show-error --max-time 20 \
+                -o postpurchase.js "$CANONICAL_ORIGIN$STOREFRONT_POSTPURCHASE_ASSET" \
+              && grep -Fq "ORDER_KEY='kch-last-order'" postpurchase.js \
+              && curl --fail --silent --show-error --max-time 20 \
                 -o payment-options.json "$CANONICAL_ORIGIN/api/payment-options"; then
-              if python3 - <<'PY'
-          import json
+              order_status_code=$(curl --silent --show-error --max-time 20 \
+                -o order-status-invalid.json -w '%{http_code}' \
+                "$CANONICAL_ORIGIN/api/order-status?orderNo=INVALID&phone=0" || true)
+              if python3 - "$order_status_code" <<'PY'
+          import json,sys
           from pathlib import Path
           d=json.loads(Path('payment-options.json').read_text())
           if d.get('checkoutEnabled') is not True:
@@ -102,6 +110,10 @@ jobs:
           cod=any(str(x.get('id','')).upper()=='COD' and x.get('enabled') is True for x in rows if isinstance(x,dict))
           if not cod:
               raise SystemExit('COD is not enabled in payment options')
+          status_code=sys.argv[1]
+          lookup=json.loads(Path('order-status-invalid.json').read_text())
+          if status_code!='400' or lookup.get('error')!='invalid_lookup':
+              raise SystemExit('order-status privacy lookup gate is not live')
           PY
               then
                 ok=1
@@ -115,10 +127,10 @@ jobs:
             echo "--- response headers ---"
             cat canonical-headers.txt 2>/dev/null || true
             echo "--- storefront markers ---"
-            grep -Eo 'storefront-v1[^" ]+' canonical-home.html 2>/dev/null | head -20 || true
+            grep -Eo 'storefront-v1[^" ]+' canonical-home.html 2>/dev/null | head -30 || true
             exit 1
           fi
-          echo "PASS canonical production: clean sell-now stylesheet, V1 response marker, Checkout and COD are live."
+          echo "PASS canonical production: clean sell-now + post-purchase assets, V1 marker, Checkout, COD and private order-status gate are live."
 
       - name: Report production target
         shell: bash
@@ -127,4 +139,4 @@ jobs:
           echo "Production branch resolved from Cloudflare project configuration: \`${{ steps.pages.outputs.production_branch }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Source commit: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Canonical storefront verified after deployment: \`$CANONICAL_ORIGIN\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "Checkout + COD verified from canonical runtime without creating a real order." >> "$GITHUB_STEP_SUMMARY"
+          echo "Checkout + COD + order-status privacy gate verified from canonical runtime without creating a real order." >> "$GITHUB_STEP_SUMMARY"
