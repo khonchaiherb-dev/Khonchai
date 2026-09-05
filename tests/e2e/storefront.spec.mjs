@@ -18,6 +18,16 @@ async function mockCommerce(page,state){
       state.checkoutSessions+=1;
       return fulfill({ok:true,sessionKey:'e2e-checkout-session-000000000001',status:'active',lastStep:'address',subtotal:190,itemCount:1});
     }
+    if(path==='/api/checkout-quote'&&method==='POST'){
+      state.quotePayload=JSON.parse(req.postData()||'{}');
+      state.quoteRequests+=1;
+      return fulfill({
+        ok:true,
+        lines:[{productId:901,variantId:9101,name:'ชารางจืดสำหรับทดสอบระบบ (ขนาด: มาตรฐาน)',unitPrice:190,qty:1,lineTotal:190,available:5}],
+        subtotal:190,discount:0,promotionDiscount:0,promotionCode:null,promotionName:null,
+        shipping:45,total:235,paymentMethods:['COD'],quoteSource:'server'
+      });
+    }
     if(path==='/api/orders'&&method==='POST'){
       state.orderPayload=JSON.parse(req.postData()||'{}');
       state.orderPosts+=1;
@@ -40,8 +50,8 @@ async function mockCommerce(page,state){
 
 test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.clear())});
 
-test('clean storefront browse → recovery-safe checkout → COD → secure order tracking',async({page},testInfo)=>{
-  const state={orderPayload:null,lookup:null,orderPosts:0,checkoutSessions:0},errors=[];
+test('clean storefront browse → server quote → recovery-safe checkout → COD → secure order tracking',async({page},testInfo)=>{
+  const state={orderPayload:null,lookup:null,quotePayload:null,orderPosts:0,checkoutSessions:0,quoteRequests:0},errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   await mockCommerce(page,state);
   await page.goto('/?e2e=clean-v1',{waitUntil:'domcontentloaded'});
@@ -49,8 +59,10 @@ test('clean storefront browse → recovery-safe checkout → COD → secure orde
   // clean V1 modules that middleware adds to the canonical home.
   await page.addStyleTag({path:'public/storefront-v1-commerce.css'});
   await page.addStyleTag({path:'public/storefront-v1-checkout-recovery.css'});
+  await page.addStyleTag({path:'public/storefront-v1-checkout-quote.css'});
   await page.addScriptTag({path:'public/storefront-v1-postpurchase.js'});
   await page.addScriptTag({path:'public/storefront-v1-checkout-recovery.js'});
+  await page.addScriptTag({path:'public/storefront-v1-checkout-quote.js'});
 
   await expect(page.locator('.kch-hero')).toBeVisible();
   await expect(page.getByRole('heading',{level:1})).toContainText('คัดสรรสมุนไพรไทย');
@@ -85,6 +97,13 @@ test('clean storefront browse → recovery-safe checkout → COD → secure orde
   await expect(page.locator('[data-layer="checkout"]')).toHaveClass(/is-open/);
   await expect(page.locator('#customer-name')).toBeVisible();
   await expect(page.locator('[data-checkout-recovery-note]')).toBeVisible();
+  await expect(page.locator('.kch-order-review')).toHaveAttribute('data-quote-status','ready');
+  await expect(page.locator('[data-quote-final-total]')).toContainText('฿235');
+  await expect(page.locator('.kch-order-review')).toContainText('ค่าจัดส่ง');
+  expect(state.quoteRequests).toBeGreaterThan(0);
+  expect(state.quotePayload?.items?.[0]).toEqual({id:901,variantId:9101,qty:1});
+  expect(state.quotePayload?.customerName).toBeUndefined();
+  expect(state.quotePayload?.phone).toBeUndefined();
 
   // Fill a partial checkout, return to the cart, then reopen checkout. PII must survive only
   // within the active page so an accidental back-to-cart action does not force re-entry.
@@ -97,6 +116,8 @@ test('clean storefront browse → recovery-safe checkout → COD → secure orde
   await expect(page.locator('#customer-name')).toHaveValue('ผู้ทดสอบระบบ');
   await expect(page.locator('#customer-phone')).toHaveValue('0812345678');
   await expect(page.locator('#customer-address')).toHaveValue('99 หมู่ 1 ถนนทดสอบ');
+  await expect(page.locator('[data-quote-final-total]')).toContainText('฿235');
+  expect(state.quoteRequests).toBeGreaterThanOrEqual(2);
 
   await page.locator('#customer-district').fill('เมือง');
   await page.locator('#customer-province').fill('อุบลราชธานี');
@@ -155,5 +176,5 @@ test('clean storefront browse → recovery-safe checkout → COD → secure orde
 
   const finalMetrics=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth}));
   expect(finalMetrics.scrollWidth).toBeLessThanOrEqual(finalMetrics.clientWidth+1);
-  console.log(`PASS ${testInfo.project.name}: clean V1 recovery-safe checkout + COD + secure order tracking journey`);
+  console.log(`PASS ${testInfo.project.name}: clean V1 server quote + recovery-safe checkout + COD + secure order tracking journey`);
 });
