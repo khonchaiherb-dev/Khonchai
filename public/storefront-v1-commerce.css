@@ -1,0 +1,228 @@
+/* KHONCHAIHERB V1 — sell-now commerce polish
+   Truth-first: this layer adapts to however many sale-ready products the API actually returns.
+   It never creates catalogue items, reviews, stock counts, promotions or medical claims. */
+
+/* Sparse real catalog: give one or two verified products enough visual weight instead of
+   leaving a four-column shell full of empty space. */
+.kch-products:has(> .kch-product-card:only-child){
+  grid-template-columns:minmax(0,1fr);
+  max-width:980px;
+}
+.kch-products:has(> .kch-product-card:nth-child(2):last-child){
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  max-width:940px;
+}
+.kch-products > .kch-product-card:only-child{
+  display:grid;
+  grid-template-columns:minmax(320px,.92fr) minmax(0,1.08fr);
+  min-height:390px;
+}
+.kch-products > .kch-product-card:only-child .kch-product-media{
+  aspect-ratio:auto;
+  min-height:390px;
+  padding:36px;
+}
+.kch-products > .kch-product-card:only-child .kch-product-media img{
+  max-height:320px;
+}
+.kch-products > .kch-product-card:only-child .kch-product-body{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:42px;
+}
+.kch-products > .kch-product-card:only-child .kch-product-title{
+  min-height:0;
+  font-size:clamp(24px,2.5vw,34px);
+  line-height:1.35;
+}
+.kch-products > .kch-product-card:only-child .kch-product-price{
+  margin-top:18px;
+}
+.kch-products > .kch-product-card:only-child .kch-product-price strong{
+  font-size:32px;
+}
+.kch-products > .kch-product-card:only-child .kch-product-actions{
+  max-width:430px;
+  margin-top:24px;
+}
+.kch-products > .kch-product-card:only-child .kch-product-actions button{
+  min-height:50px;
+  font-size:13px;
+}
+
+/* Product detail: make price, availability and the purchase path the visual hierarchy. */
+.kch-detail-copy{
+  background:linear-gradient(180deg,#fff 0%,#fff 68%,#fbfdfb 100%);
+}
+.kch-detail-price{
+  display:inline-flex;
+  align-items:center;
+  width:max-content;
+  min-height:48px;
+  color:#12372c;
+  letter-spacing:-.035em;
+}
+.kch-detail-stock{
+  width:max-content;
+  min-height:30px;
+  padding:0 11px;
+  border:1px solid #d9e8dd;
+  border-radius:999px;
+  background:#eff7f2;
+}
+.kch-detail-assurance{
+  margin-top:22px;
+}
+.kch-detail-actions{
+  grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr);
+  gap:12px;
+}
+.kch-detail-actions .kch-btn{
+  min-height:56px;
+  border-radius:15px;
+  font-size:14px;
+}
+.kch-detail-actions [data-detail-buy]{
+  box-shadow:0 14px 30px rgba(23,57,47,.19);
+}
+
+/* Cart: keep the verified amount and checkout action visible as the decision point. */
+.kch-drawer-foot{
+  background:linear-gradient(180deg,#fff 0%,#f8fbf9 100%);
+  box-shadow:0 -12px 34px rgba(23,57,47,.055);
+}
+.kch-cart-summary{
+  min-height:58px;
+  align-items:center;
+  padding:0 2px;
+}
+.kch-cart-summary span{
+  font-size:13px;
+  font-weight:750;
+  color:var(--kch-ink-2);
+}
+.kch-cart-summary strong{
+  font-size:28px;
+  letter-spacing:-.035em;
+}
+.kch-drawer-foot [data-start-checkout]{
+  min-height:56px;
+  font-size:14px;
+  box-shadow:0 12px 28px rgba(23,57,47,.18);
+}
+.kch-cart-note{
+  max-width:360px;
+  margin:10px auto 0;
+  line-height:1.55;
+}
+
+/* Checkout: clear sections, a calmer summary and a persistent final action while scrolling. */
+.kch-checkout-body{
+  background:#fbfcfb;
+}
+.kch-form-section{
+  box-shadow:0 7px 22px rgba(23,57,47,.035);
+}
+.kch-payment-option{
+  min-height:68px;
+}
+.kch-order-review{
+  gap:11px;
+}
+.kch-review-row{
+  min-height:28px;
+  align-items:center;
+}
+.kch-review-row:last-child{
+  padding-top:10px;
+  border-top:1px solid #edf1ee;
+}
+.kch-checkout-actions{
+  position:sticky;
+  bottom:-32px;
+  z-index:3;
+  margin:18px -32px -32px;
+  padding:16px 32px 22px;
+  border-top:1px solid var(--kch-line);
+  background:rgba(255,255,255,.96);
+  backdrop-filter:blur(14px);
+  box-shadow:0 -12px 32px rgba(23,57,47,.06);
+}
+.kch-checkout-actions [data-place-order]{
+  min-height:56px;
+  box-shadow:0 12px 28px rgba(23,57,47,.18);
+}
+
+@media(max-width:840px){
+  .kch-products:has(> .kch-product-card:only-child),
+  .kch-products:has(> .kch-product-card:nth-child(2):last-child){
+    max-width:none;
+  }
+  .kch-products > .kch-product-card:only-child{
+    display:block;
+    min-height:0;
+  }
+  .kch-products > .kch-product-card:only-child .kch-product-media{
+    min-height:330px;
+    aspect-ratio:1/.86;
+    padding:28px;
+  }
+  .kch-products > .kch-product-card:only-child .kch-product-media img{
+    max-height:285px;
+  }
+  .kch-products > .kch-product-card:only-child .kch-product-body{
+    display:block;
+    padding:26px;
+  }
+  .kch-products > .kch-product-card:only-child .kch-product-title{
+    font-size:24px;
+  }
+  .kch-detail-actions{
+    grid-template-columns:1fr 1.2fr;
+  }
+}
+
+@media(max-width:560px){
+  .kch-products:has(> .kch-product-card:only-child){
+    grid-template-columns:1fr;
+  }
+  .kch-products:has(> .kch-product-card:nth-child(2):last-child){
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .kch-products > .kch-product-card:only-child .kch-product-media{
+    min-height:270px;
+    aspect-ratio:1/.82;
+    padding:20px;
+  }
+  .kch-products > .kch-product-card:only-child .kch-product-media img{
+    max-height:235px;
+  }
+  .kch-products > .kch-product-card:only-child .kch-product-body{
+    padding:20px;
+  }
+  .kch-products > .kch-product-card:only-child .kch-product-title{
+    font-size:21px;
+  }
+  .kch-products > .kch-product-card:only-child .kch-product-price strong{
+    font-size:27px;
+  }
+  .kch-products > .kch-product-card:only-child .kch-product-actions{
+    grid-template-columns:1fr;
+  }
+  .kch-products > .kch-product-card:only-child .kch-buy{
+    min-height:50px;
+  }
+  .kch-detail-actions{
+    grid-template-columns:1fr;
+  }
+  .kch-detail-actions [data-detail-buy]{
+    order:-1;
+    min-height:56px;
+  }
+  .kch-checkout-actions{
+    bottom:calc(-24px - env(safe-area-inset-bottom));
+    margin:14px -16px calc(-24px - env(safe-area-inset-bottom));
+    padding:14px 16px calc(18px + env(safe-area-inset-bottom));
+  }
+}
