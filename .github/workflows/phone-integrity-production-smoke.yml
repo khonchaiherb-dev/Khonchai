@@ -1,9 +1,8 @@
 name: KHONCHAIHERB Phone Integrity Production Smoke
 
 on:
-  workflow_run:
-    workflows: ["Deploy KHONCHAIHERB to Cloudflare Pages"]
-    types: [completed]
+  push:
+    branches: [storefront-social-commerce]
   workflow_dispatch:
 
 permissions:
@@ -16,7 +15,6 @@ concurrency:
 jobs:
   verify:
     name: Verify canonical delivery phone guard
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
@@ -28,10 +26,10 @@ jobs:
         run: |
           set -euo pipefail
           ok=0
-          for attempt in $(seq 1 30); do
+          for attempt in $(seq 1 45); do
             if curl --fail --silent --show-error --location --max-time 20 \
                 -H 'Cache-Control: no-cache' \
-                "$SITE_ORIGIN/?phone_integrity_verify=${GITHUB_RUN_ID}-${attempt}" > home.html \
+                "$SITE_ORIGIN/?phone_integrity_verify=${GITHUB_SHA}-${GITHUB_RUN_ID}-${attempt}" > home.html \
               && grep -Fq "$PHONE_ASSET" home.html \
               && curl --fail --silent --show-error --location --max-time 20 \
                 -H 'Cache-Control: no-cache' \
@@ -43,7 +41,7 @@ jobs:
               ok=1
               break
             fi
-            echo "Phone integrity asset not converged yet ($attempt/30)"
+            echo "Phone integrity asset not converged yet ($attempt/45)"
             sleep 4
           done
           [ "$ok" = "1" ] || { echo 'Canonical phone integrity guard is not live.' >&2; exit 1; }
