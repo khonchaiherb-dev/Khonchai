@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
-const [html,css,commerceCss,js,sw,wrangler,constitution,middleware]=await Promise.all([
+const [html,css,commerceCss,js,postPurchase,orderStatusApi,sw,wrangler,constitution,middleware]=await Promise.all([
   readFile('public/index.html','utf8'),
   readFile('public/storefront-v1.css','utf8'),
   readFile('public/storefront-v1-commerce.css','utf8'),
   readFile('public/storefront-v1.js','utf8'),
+  readFile('public/storefront-v1-postpurchase.js','utf8'),
+  readFile('functions/api/order-status.js','utf8'),
   readFile('public/sw.js','utf8'),
   readFile('wrangler.jsonc','utf8'),
   readFile('docs/KHONCHAIHERB-STOREFRONT-CONSTITUTION.md','utf8'),
@@ -30,6 +32,15 @@ assert.ok(js.includes('variantId'),'cart/order flow must preserve product varian
 assert.ok(js.includes("paymentMethod:'COD'"),'V1 checkout must explicitly use verified COD');
 assert.doesNotMatch(js,/FLASH DEAL|Verified Purchase|WELCOME50|HERB10/i,'controller must not reintroduce fake storefront content');
 
+assert.match(postPurchase,/\/api\/order-status\?orderNo=/,'post-purchase module must use the existing private order-status API');
+assert.match(postPurchase,/phone=/,'order tracking must require the matching phone lookup factor');
+assert.match(postPurchase,/data-open-order-status/,'order tracking must expose a customer entry point');
+assert.match(postPurchase,/data-success-track/,'successful checkout must expose order tracking immediately');
+assert.doesNotMatch(postPurchase,/localStorage\.setItem\([^\n]*phone/i,'post-purchase module must not persist the customer phone in localStorage');
+assert.doesNotMatch(postPurchase,/FLASH DEAL|Verified Purchase|ขายแล้ว\s*\d|WELCOME50|HERB10/i,'post-purchase module must not introduce unverified commerce content');
+assert.match(orderStatusApi,/WHERE order_no=\? AND phone IN \(\?,\?\)/,'order-status API must bind lookup to both order number and phone');
+assert.doesNotMatch(orderStatusApi,/address_line|addressLine|shipping_address/i,'public order-status response must not expose delivery address fields');
+
 assert.match(css,/@media\(max-width:560px\)/,'mobile 390-class responsive rules required');
 assert.match(css,/@media\(max-width:840px\)/,'tablet responsive rules required');
 assert.match(css,/--kch-container:1280px/,'desktop content must use a bounded professional container');
@@ -40,6 +51,7 @@ assert.match(commerceCss,/:has\(> \.kch-product-card:nth-child\(2\):last-child\)
 assert.match(commerceCss,/\[data-detail-buy\]/,'sell-now layer must strengthen the real PDP buy action');
 assert.match(commerceCss,/\[data-start-checkout\]/,'sell-now layer must strengthen the cart checkout action');
 assert.match(commerceCss,/\[data-place-order\]/,'sell-now layer must strengthen the final verified order action');
+assert.match(commerceCss,/\.kch-order-status/,'sell-now layer must include responsive order tracking presentation');
 assert.doesNotMatch(commerceCss,/FLASH DEAL|Verified Purchase|ขายแล้ว\s*\d|WELCOME50|HERB10/i,'sell-now layer must not introduce unverified commerce content');
 
 assert.match(sw,/storefront-v1\.css/,'service worker must cache the clean storefront stylesheet');
@@ -49,7 +61,8 @@ assert.doesNotMatch(sw,/kch-rescue-live|kch-master-reference-2026/,'service work
 // Cloudflare middleware must never put retired customer UI layers back into otherwise-clean HTML.
 assert.doesNotMatch(middleware,/head\.append\([^\n]*(?:tshop-v\d+|kch-rescue-live|kch-master-reference-2026|kch-canonical-commerce-ui)/i,'middleware must not inject retired storefront assets');
 assert.doesNotMatch(middleware,/body\.setAttribute\([^\n]*(?:kch-master-2026|kch-rescue-live)/i,'middleware must not add retired storefront body classes');
-assert.match(middleware,/storefront-v1-commerce\.css/,'canonical home must receive only the clean sell-now commerce polish layer');
+assert.match(middleware,/storefront-v1-commerce\.css/,'canonical home must receive the clean sell-now commerce polish layer');
+assert.match(middleware,/storefront-v1-postpurchase\.js/,'canonical home must receive the clean post-purchase tracking module');
 assert.match(middleware,/X-KCH-Storefront/,'middleware must mark clean storefront responses');
 assert.match(middleware,/KOONCHAISHOP_ADMIN_GUARD/,'seller readiness guard must remain intact');
 assert.match(middleware,/coupon_not_eligible/,'order coupon eligibility guard must remain intact');
@@ -61,4 +74,4 @@ assert.match(wrangler,/"ONLINE_PAYMENTS_ENABLED"\s*:\s*"false"/,'unverified onli
 assert.match(constitution,/Always start from the latest production branch HEAD/,'development constitution must lock latest-HEAD workflow');
 assert.match(constitution,/Regression is failure/,'development constitution must lock regression protection');
 
-console.log('PASS storefront V1 baseline: clean architecture, sparse-catalog sell-now UX, truth-first commerce, COD, responsive and middleware isolation contract');
+console.log('PASS storefront V1 baseline: clean architecture, sparse-catalog sell-now UX, COD, secure post-purchase tracking, responsive and middleware isolation contract');
