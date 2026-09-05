@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
-const [html,css,commerceCss,recoveryCss,quoteCss,js,recoveryJs,quoteJs,postPurchase,quoteApi,orderStatusApi,sw,wrangler,constitution,middleware]=await Promise.all([
+const [html,css,commerceCss,recoveryCss,quoteCss,js,recoveryJs,quoteJs,postPurchase,quoteApi,orderApi,orderStatusApi,sw,wrangler,constitution,middleware]=await Promise.all([
   readFile('public/index.html','utf8'),
   readFile('public/storefront-v1.css','utf8'),
   readFile('public/storefront-v1-commerce.css','utf8'),
@@ -12,6 +12,7 @@ const [html,css,commerceCss,recoveryCss,quoteCss,js,recoveryJs,quoteJs,postPurch
   readFile('public/storefront-v1-checkout-quote.js','utf8'),
   readFile('public/storefront-v1-postpurchase.js','utf8'),
   readFile('functions/api/checkout-quote.js','utf8'),
+  readFile('functions/api/orders.js','utf8'),
   readFile('functions/api/order-status.js','utf8'),
   readFile('public/sw.js','utf8'),
   readFile('wrangler.jsonc','utf8'),
@@ -46,6 +47,12 @@ assert.match(recoveryJs,/stopImmediatePropagation/,'invalid checkout must be sto
 assert.doesNotMatch(recoveryJs,/localStorage\.setItem|sessionStorage\.setItem/,'checkout recovery must not persist customer checkout PII');
 assert.doesNotMatch(recoveryJs,/FLASH DEAL|Verified Purchase|ขายแล้ว\s*\d|WELCOME50|HERB10/i,'checkout recovery must not introduce unverified commerce content');
 assert.match(recoveryCss,/\.kch-checkout-memory-note/,'checkout recovery must include visible privacy/recovery feedback');
+
+// The order API must independently reject incomplete shipping addresses before any customer/order write.
+assert.match(orderApi,/subdistrict=clean\(address\.subdistrict\)/,'order API must normalize subdistrict');
+assert.match(orderApi,/subdistrict\.length<2/,'order API must require a usable subdistrict before accepting an order');
+assert.match(orderApi,/customer_details_required/,'incomplete shipping details must return a client-safe validation error');
+assert.ok(orderApi.indexOf('subdistrict.length<2')<orderApi.indexOf('INSERT INTO customers'),'shipping address validation must happen before customer/order writes');
 
 // Checkout quote must be authoritative, read-only, single-flight and free of customer PII.
 assert.match(quoteJs,/\/api\/checkout-quote/,'checkout quote module must use the existing server quote API');
@@ -117,4 +124,4 @@ assert.match(wrangler,/"ONLINE_PAYMENTS_ENABLED"\s*:\s*"false"/,'unverified onli
 assert.match(constitution,/Always start from the latest production branch HEAD/,'development constitution must lock latest-HEAD workflow');
 assert.match(constitution,/Regression is failure/,'development constitution must lock regression protection');
 
-console.log('PASS storefront V1 baseline: clean architecture, server totals from cart through checkout, quote single-flight, privacy-safe recovery, COD, secure post-purchase tracking, responsive and middleware isolation contract');
+console.log('PASS storefront V1 baseline: clean architecture, complete server-side shipping-address validation, server totals from cart through checkout, quote single-flight, privacy-safe recovery, COD, secure post-purchase tracking, responsive and middleware isolation contract');
