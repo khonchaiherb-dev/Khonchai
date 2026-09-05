@@ -14,6 +14,7 @@ const canonicalHost=env=>new URL(canonicalOrigin(env)).host;
 const legacyHosts=new Set(['khonchai.com','www.khonchai.com']);
 const SELLER_KOONCHAISHOP='/seller-koonchaishop.html';
 const KOONCHAISHOP_ADMIN_GUARD='/kch-koonchaishop-admin-readiness.js?v=1.0.1';
+const STOREFRONT_COMMERCE_POLISH='/storefront-v1-commerce.css?v=2026.09.05.6';
 const noIndexPath=pathname=>/\/(?:account|login|register|member|my-orders|seller(?:-[^/]+)?|seller-center(?:-v2)?)\.html$/i.test(String(pathname||''));
 
 const canonicalRedirect=(request,env,u)=>{
@@ -38,11 +39,13 @@ const withCanonicalMetadata=(response,env,pathname='')=>{
   const pageUrl=new URL(canonicalPath,`${origin}/`).toString();
   const home=canonicalPath==='/';
 
-  // IMPORTANT: The customer storefront is controlled only by public/index.html,
-  // storefront-v1.css and storefront-v1.js. Do not inject legacy storefront CSS/JS here.
+  // Customer UI remains the clean storefront-v1 generation. The only home-only
+  // addition is a small truth-first conversion stylesheet; retired tshop/rescue/master
+  // generations must never be injected here again.
   const rewriter=new HTMLRewriter().on('head',{element(head){
     head.append(`<link rel="canonical" href="${pageUrl}" />`,{html:true});
     head.append(`<meta property="og:url" content="${pageUrl}" />`,{html:true});
+    if(home)head.append(`<link rel="stylesheet" href="${STOREFRONT_COMMERCE_POLISH}" />`,{html:true});
     if(noIndexPath(pathname))head.append('<meta name="robots" content="noindex,nofollow,noarchive" />',{html:true});
     if(pathname===SELLER_KOONCHAISHOP)head.append(`<script defer src="${KOONCHAISHOP_ADMIN_GUARD}"></script>`,{html:true});
   }});
@@ -51,8 +54,8 @@ const withCanonicalMetadata=(response,env,pathname='')=>{
   if(!home)return transformed;
 
   // Home HTML is network-fresh during storefront stabilization so an old shell cannot
-  // survive a deployment through browser/CDN caching. Static hashed/versioned assets
-  // remain cacheable according to _headers/service-worker rules.
+  // survive a deployment through browser/CDN caching. Static versioned assets remain
+  // cacheable according to _headers/service-worker rules.
   const headers=new Headers(transformed.headers);
   headers.set('Cache-Control','no-store, no-cache, must-revalidate, max-age=0');
   headers.set('Pragma','no-cache');
