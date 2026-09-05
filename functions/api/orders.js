@@ -5,6 +5,10 @@ const digits=s=>String(s||'').replace(/\D/g,'');
 const THAI_DIGITS={'๐':'0','๑':'1','๒':'2','๓':'3','๔':'4','๕':'5','๖':'6','๗':'7','๘':'8','๙':'9'};
 const ADDRESS_PLACEHOLDERS=new Set(['-','--','.','..','...','n/a','na','none','ไม่มี','ไม่ทราบ']);
 const normalizePostalCode=s=>String(s||'').replace(/[๐-๙]/g,char=>THAI_DIGITS[char]||char).replace(/\s+/g,'').trim();
+const meaningfulRecipient=value=>{
+  const text=clean(value);
+  return text.length>=2&&text.length<=120&&!ADDRESS_PLACEHOLDERS.has(text.toLocaleLowerCase('en-US'))&&/[A-Za-zก-ฮ]/.test(text);
+};
 const meaningfulAddress=(value,min,{requireLetter=false}={})=>{
   const text=clean(value);
   if(text.length<min||ADDRESS_PLACEHOLDERS.has(text.toLocaleLowerCase('en-US')))return false;
@@ -37,7 +41,7 @@ export async function onRequestPost({request,env}){
 
   const customerName=clean(body.customerName),phone=normalizeThaiPhone(body.phone),address=body.address||{},addressLine=clean(address.addressLine),subdistrict=clean(address.subdistrict),district=clean(address.district),province=clean(address.province),postalCode=normalizePostalCode(address.postalCode);
   if(!validThaiPhone(phone))return json({error:'invalid_phone'},400);
-  if(customerName.length<2)return json({error:'customer_details_required',field:'name'},400);
+  if(!meaningfulRecipient(customerName))return json({error:'customer_details_required',field:'name'},400);
   if(!meaningfulAddress(addressLine,5))return json({error:'invalid_delivery_address',field:'address'},400);
   if(!meaningfulAddress(subdistrict,2,{requireLetter:true}))return json({error:'invalid_delivery_address',field:'subdistrict'},400);
   if(!meaningfulAddress(district,2,{requireLetter:true}))return json({error:'invalid_delivery_address',field:'district'},400);
