@@ -2,7 +2,7 @@
 (()=>{
   'use strict';
   if(typeof document==='undefined')return;
-  const BUILD='1.0.11';
+  const BUILD='1.0.12';
   if(window.__KCH_SEARCH_AUTHORITY__===BUILD)return;
   window.__KCH_SEARCH_AUTHORITY__=BUILD;
 
@@ -79,12 +79,36 @@
     card.setAttribute('aria-hidden',match?'false':'true');
   }
 
-  /* Keep the browser's native input.value property intact. Overriding the
-     property itself makes real typing/fill race with hydration in Chromium.
-     Authority is enforced through capture events + the focused heartbeat. */
+  /* Hydration-era storefront layers may write input.value before their older
+     event listeners run. Guard the individual search node so a focused,
+     non-empty customer value becomes authoritative immediately, before a
+     stale programmatic clear can erase it. Native user deletion still bypasses
+     this JS setter and is handled by the trusted input event below. */
   function guardInput(input){
-    if(!input)return input;
+    if(!input||guardedInputs.has(input))return input;
     guardedInputs.add(input);
+    if(!INPUT_VALUE?.get||!INPUT_VALUE?.set)return input;
+    try{
+      Object.defineProperty(input,'value',{
+        configurable:true,
+        enumerable:INPUT_VALUE.enumerable,
+        get(){return INPUT_VALUE.get.call(input)},
+        set(next){
+          const value=String(next??'');
+          const current=String(INPUT_VALUE.get.call(input)??'');
+          const owned=ownsInput(input);
+          if(value&&owned){
+            activeDisplayQuery=value;
+            activeQuery=normalize(value);
+            authorityReady=true;
+            activeInput=input;
+            if(document.activeElement===input)editingInput=input;
+          }
+          if(!value&&current&&owned&&activeQuery)return;
+          INPUT_VALUE.set.call(input,value);
+        }
+      });
+    }catch{}
     return input;
   }
 
@@ -303,15 +327,11 @@
     const focused=document.activeElement===target;
     const owned=target===editingInput||target===activeInput||focused;
 
-    // Preserve the original safety contract for synthetic clears coming from
-    // a replacement/non-owned search node.
     if(masterActive()&&!q&&event.isTrusted===false&&activeQuery&&!owned){
       event.stopImmediatePropagation();target.value=activeDisplayQuery;schedule(activeDisplayQuery,editingInput?.isConnected?editingInput:null);return;
     }
     if(!q&&activeQuery&&!owned){target.value=activeDisplayQuery;schedule(activeDisplayQuery,editingInput?.isConnected?editingInput:null);return}
 
-    // Reject synthetic clears of the currently-owned node; a trusted customer
-    // clear remains authoritative and is allowed through below.
     if(!q&&activeQuery&&event.isTrusted===false){
       event.stopImmediatePropagation();
       writeNative(target,activeDisplayQuery);
