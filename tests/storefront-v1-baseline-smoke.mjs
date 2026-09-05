@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
-const [html,css,commerceCss,js,postPurchase,orderStatusApi,sw,wrangler,constitution,middleware]=await Promise.all([
+const [html,css,commerceCss,recoveryCss,js,recoveryJs,postPurchase,orderStatusApi,sw,wrangler,constitution,middleware]=await Promise.all([
   readFile('public/index.html','utf8'),
   readFile('public/storefront-v1.css','utf8'),
   readFile('public/storefront-v1-commerce.css','utf8'),
+  readFile('public/storefront-v1-checkout-recovery.css','utf8'),
   readFile('public/storefront-v1.js','utf8'),
+  readFile('public/storefront-v1-checkout-recovery.js','utf8'),
   readFile('public/storefront-v1-postpurchase.js','utf8'),
   readFile('functions/api/order-status.js','utf8'),
   readFile('public/sw.js','utf8'),
@@ -31,6 +33,16 @@ assert.ok(js.includes('idempotencyKey'),'order creation must send an idempotency
 assert.ok(js.includes('variantId'),'cart/order flow must preserve product variant identity');
 assert.ok(js.includes("paymentMethod:'COD'"),'V1 checkout must explicitly use verified COD');
 assert.doesNotMatch(js,/FLASH DEAL|Verified Purchase|WELCOME50|HERB10/i,'controller must not reintroduce fake storefront content');
+
+// Checkout recovery must reduce accidental form loss without persisting customer PII.
+assert.match(recoveryJs,/FIELD_MAP/,'checkout recovery must explicitly map the checkout fields');
+assert.match(recoveryJs,/#customer-subdistrict/,'checkout recovery must validate the subdistrict required by the order payload');
+assert.match(recoveryJs,/\[data-place-order\]/,'checkout recovery must guard the final order action before submission');
+assert.match(recoveryJs,/data-checkout-recovery-note/,'checkout recovery must explain its temporary in-page behavior');
+assert.match(recoveryJs,/stopImmediatePropagation/,'invalid checkout must be stopped before the core order handler can call the order API');
+assert.doesNotMatch(recoveryJs,/localStorage\.setItem|sessionStorage\.setItem/,'checkout recovery must not persist customer checkout PII');
+assert.doesNotMatch(recoveryJs,/FLASH DEAL|Verified Purchase|ขายแล้ว\s*\d|WELCOME50|HERB10/i,'checkout recovery must not introduce unverified commerce content');
+assert.match(recoveryCss,/\.kch-checkout-memory-note/,'checkout recovery must include visible privacy/recovery feedback');
 
 assert.match(postPurchase,/\/api\/order-status\?orderNo=/,'post-purchase module must use the existing private order-status API');
 assert.match(postPurchase,/phone=/,'order tracking must require the matching phone lookup factor');
@@ -63,6 +75,8 @@ assert.doesNotMatch(middleware,/head\.append\([^\n]*(?:tshop-v\d+|kch-rescue-liv
 assert.doesNotMatch(middleware,/body\.setAttribute\([^\n]*(?:kch-master-2026|kch-rescue-live)/i,'middleware must not add retired storefront body classes');
 assert.match(middleware,/storefront-v1-commerce\.css/,'canonical home must receive the clean sell-now commerce polish layer');
 assert.match(middleware,/storefront-v1-postpurchase\.js/,'canonical home must receive the clean post-purchase tracking module');
+assert.match(middleware,/storefront-v1-checkout-recovery\.css/,'canonical home must receive checkout recovery presentation');
+assert.match(middleware,/storefront-v1-checkout-recovery\.js/,'canonical home must receive privacy-safe checkout recovery');
 assert.match(middleware,/X-KCH-Storefront/,'middleware must mark clean storefront responses');
 assert.match(middleware,/KOONCHAISHOP_ADMIN_GUARD/,'seller readiness guard must remain intact');
 assert.match(middleware,/coupon_not_eligible/,'order coupon eligibility guard must remain intact');
@@ -74,4 +88,4 @@ assert.match(wrangler,/"ONLINE_PAYMENTS_ENABLED"\s*:\s*"false"/,'unverified onli
 assert.match(constitution,/Always start from the latest production branch HEAD/,'development constitution must lock latest-HEAD workflow');
 assert.match(constitution,/Regression is failure/,'development constitution must lock regression protection');
 
-console.log('PASS storefront V1 baseline: clean architecture, sparse-catalog sell-now UX, COD, secure post-purchase tracking, responsive and middleware isolation contract');
+console.log('PASS storefront V1 baseline: clean architecture, sparse-catalog UX, privacy-safe checkout recovery, COD, secure post-purchase tracking, responsive and middleware isolation contract');
