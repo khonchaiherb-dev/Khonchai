@@ -1,0 +1,97 @@
+name: KHONCHAIHERB Phone Integrity Production Smoke
+
+on:
+  workflow_run:
+    workflows: ["Deploy KHONCHAIHERB to Cloudflare Pages"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: khonchaiherb-phone-integrity-production-smoke
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify canonical delivery phone guard
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SITE_ORIGIN: https://khonchaiherb-commerce.pages.dev
+      PHONE_ASSET: /storefront-v1-phone-integrity.js?v=2026.09.05.1
+    steps:
+      - name: Verify phone guard is live on canonical storefront
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error --location --max-time 20 \
+                -H 'Cache-Control: no-cache' \
+                "$SITE_ORIGIN/?phone_integrity_verify=${GITHUB_RUN_ID}-${attempt}" > home.html \
+              && grep -Fq "$PHONE_ASSET" home.html \
+              && curl --fail --silent --show-error --location --max-time 20 \
+                -H 'Cache-Control: no-cache' \
+                "$SITE_ORIGIN$PHONE_ASSET" > phone-integrity.js \
+              && grep -Fq 'KHONCHAIHERB V1 — delivery phone integrity' phone-integrity.js \
+              && grep -Fq 'normalizeThaiPhone' phone-integrity.js \
+              && grep -Fq 'validThaiPhone' phone-integrity.js \
+              && grep -Fq 'stopImmediatePropagation' phone-integrity.js; then
+              ok=1
+              break
+            fi
+            echo "Phone integrity asset not converged yet ($attempt/30)"
+            sleep 4
+          done
+          [ "$ok" = "1" ] || { echo 'Canonical phone integrity guard is not live.' >&2; exit 1; }
+          echo 'Canonical delivery phone guard: OK'
+
+      - name: Verify Order API rejects malformed phone without creating an order
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > invalid-phone.json <<JSON
+          {
+            "idempotencyKey":"phone-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}",
+            "customerName":"QA Phone Test",
+            "phone":"123456789",
+            "address":{
+              "addressLine":"99 QA Test Road",
+              "subdistrict":"Test Subdistrict",
+              "district":"Test District",
+              "province":"Test Province",
+              "postalCode":"34000"
+            },
+            "paymentMethod":"COD",
+            "items":[{"id":999999999,"qty":1}]
+          }
+          JSON
+
+          code=$(curl --silent --show-error --location --max-time 20 \
+            -o invalid-phone-response.json -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/json' \
+            --data-binary @invalid-phone.json \
+            "$SITE_ORIGIN/api/orders" || true)
+          python3 - "$code" <<'PY'
+          import json,sys
+          from pathlib import Path
+          code=sys.argv[1]
+          data=json.loads(Path('invalid-phone-response.json').read_text())
+          if code!='400' or data.get('error')!='invalid_phone':
+              raise SystemExit(f"expected 400 invalid_phone, got HTTP {code}: {data}")
+          print('Malformed phone rejected before product/order creation: OK')
+          PY
+
+      - name: Report phone integrity readiness
+        shell: bash
+        run: |
+          {
+            echo '### KHONCHAIHERB Delivery Phone Integrity'
+            echo '- Canonical checkout guard injected: PASS'
+            echo '- +66/national normalization logic present: PASS'
+            echo '- Malformed phone rejected by production Order API: PASS'
+            echo '- Verification used a nonexistent product id; no production order was created.'
+          } >> "$GITHUB_STEP_SUMMARY"
