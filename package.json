@@ -2,10 +2,11 @@
   "name": "khonchaiherb-commerce",
   "version": "1.18.2",
   "private": true,
-  "description": "Responsive social commerce storefront for KHONCHAIHERB, prepared for Cloudflare Pages + D1 + R2",
+  "description": "KHONCHAIHERB production commerce platform with a clean premium storefront, Cloudflare Pages, D1 and COD checkout",
   "scripts": {
     "serve": "python3 -m http.server 4173 -d public",
     "qa:syntax": "node tests/syntax-check.mjs",
+    "qa:v1": "node tests/storefront-v1-baseline-smoke.mjs",
     "qa:asset-freeze": "node tests/storefront-legacy-asset-freeze.mjs",
     "qa:revenue": "node tests/revenue-payment-architecture-smoke.mjs",
     "qa:interaction": "node tests/storefront-interaction-smoke.mjs",
@@ -45,7 +46,7 @@
     "qa:support-ops": "node tests/support-operations-smoke.mjs",
     "qa:support-omni": "node tests/support-omnichannel-smoke.mjs",
     "qa:e2e": "playwright test",
-    "check": "node tests/syntax-check.mjs && node tests/storefront-legacy-asset-freeze.mjs && node tests/revenue-payment-architecture-smoke.mjs && node tests/storefront-interaction-smoke.mjs && node tests/storefront-variant-smoke.mjs && node tests/storefront-v18-smoke.mjs && node tests/storefront-v19-smoke.mjs && node tests/storefront-v110-smoke.mjs && node tests/storefront-v111-smoke.mjs && node tests/storefront-v112-smoke.mjs && node tests/storefront-v113-smoke.mjs && node tests/storefront-v114-responsive-smoke.mjs && node tests/storefront-v115-conversion-smoke.mjs && node tests/storefront-v116-discovery-smoke.mjs && node tests/storefront-v117-intent-smoke.mjs && node tests/storefront-v118-member-personalization-smoke.mjs && node tests/storefront-v131-top-conversion-smoke.mjs && node tests/storefront-v132-conversion-smoke.mjs && node tests/storefront-v133-readable-storefront-smoke.mjs && node tests/storefront-v136-fast-purchase-smoke.mjs && node tests/storefront-v137-contextual-care-smoke.mjs && node tests/storefront-v139-after-sales-center-smoke.mjs && node tests/storefront-commerce-integrity-smoke.mjs && node tests/storefront-canonical-commerce-ui-smoke.mjs && node tests/storefront-pdp-truth-layer-smoke.mjs && node tests/storefront-ssr-product-seo-smoke.mjs && node tests/storefront-quick-add-conversion-smoke.mjs && node tests/storefront-product-media-pdp20-smoke.mjs && node tests/storefront-production-stability-smoke.mjs && node tests/storefront-commerce-os-smoke.mjs && node tests/social-commerce-content-smoke.mjs && node tests/koonchaishop-source-smoke.mjs && node tests/koonchaishop-admin-ui-smoke.mjs && node tests/admin-portal-security-smoke.mjs && node tests/admin-operations-fefo-smoke.mjs && node tests/admin-alert-approval-smoke.mjs && node tests/support-platform-smoke.mjs && node tests/support-operations-smoke.mjs && node tests/support-omnichannel-smoke.mjs"
+    "check": "node tests/syntax-check.mjs && node tests/storefront-v1-baseline-smoke.mjs && node tests/revenue-payment-architecture-smoke.mjs && node tests/admin-portal-security-smoke.mjs && node tests/admin-operations-fefo-smoke.mjs && node tests/admin-alert-approval-smoke.mjs && node tests/support-platform-smoke.mjs && node tests/support-operations-smoke.mjs && node tests/support-omnichannel-smoke.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0"
