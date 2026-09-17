@@ -12,18 +12,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Verify K-EXAM v10 source and banks
+      - name: Verify K-EXAM NOVA v12 source and banks
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin gh-pages --depth=1
-          git show origin/gh-pages:tax-exam/index.html | grep -q 'app-v3.js?v=10'
-          git show origin/gh-pages:tax-exam/index.html | grep -q 'positions-v10.css?v=10'
+          git show origin/gh-pages:tax-exam/index.html | grep -q 'app-v3.js?v=12'
+          git show origin/gh-pages:tax-exam/index.html | grep -q 'cosmic-v12.css?v=12'
           git show origin/gh-pages:tax-exam/index.html | grep -q '2,000'
           git show origin/gh-pages:tax-exam/manifest.webmanifest | grep -q '2,000'
-          for f in app-v3.js app-v3-part1.txt app-v3-part2.txt app-v3-part3.txt app-v3-part4.txt positions-v10.css sw-v2.js manifest.webmanifest; do
+          git show origin/gh-pages:tax-exam/sw-v2.js | grep -q "kexam-tax-v12"
+          for f in app-v3.js app-v3-part1.txt app-v3-part2.txt app-v3-part3.txt app-v3-part4.txt positions-v10.css cosmic-v12.css sw-v2.js manifest.webmanifest; do
             git cat-file -e "origin/gh-pages:tax-exam/$f"
           done
+          git show origin/gh-pages:tax-exam/app-v3.js > /tmp/loader.js
+          node --check /tmp/loader.js
+          grep -q "code +=.*init" /tmp/loader.js
           git show origin/gh-pages:tax-exam/app-v3-part1.txt > /tmp/p1
           git show origin/gh-pages:tax-exam/app-v3-part2.txt > /tmp/p2
           git show origin/gh-pages:tax-exam/app-v3-part3.txt > /tmp/p3
@@ -59,17 +63,18 @@ jobs:
           decode(tax,'tax-auditor');
           decode(academic,'academic');
           NODE
-      - name: Verify public GitHub Pages v10
+      - name: Verify public GitHub Pages v12
         shell: bash
         run: |
           set -euo pipefail
           BASE='https://khonchaiherb-dev.github.io/Khonchai/tax-exam'
           mkdir -p /tmp/live
-          curl -fsSL --retry 15 --retry-all-errors --retry-delay 4 -H 'Cache-Control: no-cache' "$BASE/index.html?v=10-$GITHUB_SHA" -o /tmp/live/index.html
-          grep -q 'app-v3.js?v=10' /tmp/live/index.html
-          grep -q 'positions-v10.css?v=10' /tmp/live/index.html
-          files=(app-v3.js app-v3-part1.txt app-v3-part2.txt app-v3-part3.txt app-v3-part4.txt positions-v10.css ra-bank-01.txt ra-bank-02a.txt ra-bank-02b.txt ra-bank-03a.txt ra-bank-03b.txt ra-bank-04.txt ra-bank-05.txt ra-bank-06.txt ra-bank-07.txt ra-bank-08.txt ra-bank-09.txt ra-bank-10.txt)
-          for f in "${files[@]}"; do curl -fsSL --retry 15 --retry-all-errors --retry-delay 4 -H 'Cache-Control: no-cache' "$BASE/$f?v=10-$GITHUB_SHA" -o "/tmp/live/$f"; done
+          curl -fsSL --retry 20 --retry-all-errors --retry-delay 4 -H 'Cache-Control: no-cache' "$BASE/index.html?v=12-$GITHUB_SHA" -o /tmp/live/index.html
+          grep -q 'app-v3.js?v=12' /tmp/live/index.html
+          grep -q 'cosmic-v12.css?v=12' /tmp/live/index.html
+          files=(app-v3.js app-v3-part1.txt app-v3-part2.txt app-v3-part3.txt app-v3-part4.txt cosmic-v12.css ra-bank-01.txt ra-bank-02a.txt ra-bank-02b.txt ra-bank-03a.txt ra-bank-03b.txt ra-bank-04.txt ra-bank-05.txt ra-bank-06.txt ra-bank-07.txt ra-bank-08.txt ra-bank-09.txt ra-bank-10.txt)
+          for f in "${files[@]}"; do curl -fsSL --retry 20 --retry-all-errors --retry-delay 4 -H 'Cache-Control: no-cache' "$BASE/$f?v=12-$GITHUB_SHA" -o "/tmp/live/$f"; done
+          node --check /tmp/live/app-v3.js
           cat /tmp/live/app-v3-part1.txt /tmp/live/app-v3-part2.txt /tmp/live/app-v3-part3.txt /tmp/live/app-v3-part4.txt > /tmp/live/combined.js
           node --check /tmp/live/combined.js
           node <<'NODE'
@@ -80,5 +85,5 @@ jobs:
           if(data.q.length!==10||data.q.some(s=>s.length!==100))throw new Error('LIVE academic bank invalid');
           const prompts=data.q.flat().map(r=>data.s[r[1]]);
           if(new Set(prompts).size!==1000)throw new Error('LIVE academic prompts duplicate');
-          console.log('PASS LIVE K-EXAM v10 academic bank: 1,000 questions');
+          console.log('PASS LIVE K-EXAM NOVA v12 academic bank: 1,000 questions');
           NODE
