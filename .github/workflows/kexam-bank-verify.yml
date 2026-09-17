@@ -8,7 +8,10 @@ on:
       - 'tax-exam/index.html'
       - 'tax-exam/styles.css'
       - 'tax-exam/enhancements-v8.css'
+      - 'tax-exam/polish-v9.css'
+      - 'tax-exam/ux-v9.js'
       - 'tax-exam/sw-v2.js'
+      - 'tax-exam/manifest.webmanifest'
   workflow_dispatch:
 
 jobs:
@@ -23,16 +26,21 @@ jobs:
         run: |
           set -euo pipefail
           node --check tax-exam/app-v2.js
+          node --check tax-exam/ux-v9.js
           grep -q 'ส่งคำตอบและประมวลผลคะแนน' tax-exam/app-v2.js
           grep -q 'ดูเฉลยทั้ง 100 ข้อ' tax-exam/app-v2.js
           grep -q 'ประวัติการทำข้อสอบ' tax-exam/app-v2.js
-          grep -q 'v=8' tax-exam/index.html
-          grep -q 'enhancements-v8.css' tax-exam/index.html
+          grep -q 'v=9' tax-exam/index.html
+          grep -q 'polish-v9.css' tax-exam/index.html
+          grep -q 'ux-v9.js' tax-exam/index.html
           git fetch origin gh-pages --depth=1
           git show origin/gh-pages:tax-exam/app-v2.js > /tmp/gh-app-v2.js
+          git show origin/gh-pages:tax-exam/ux-v9.js > /tmp/gh-ux-v9.js
           node --check /tmp/gh-app-v2.js
-          git show origin/gh-pages:tax-exam/index.html | grep -q 'v=8'
-          git show origin/gh-pages:tax-exam/index.html | grep -q 'enhancements-v8.css'
+          node --check /tmp/gh-ux-v9.js
+          git show origin/gh-pages:tax-exam/index.html | grep -q 'v=9'
+          git show origin/gh-pages:tax-exam/index.html | grep -q 'polish-v9.css'
+          git show origin/gh-pages:tax-exam/index.html | grep -q 'ux-v9.js'
           node <<'NODE'
           const fs=require('fs');
           const cp=require('child_process');
@@ -77,10 +85,13 @@ jobs:
           mkdir -p /tmp/kexam-live
           curl -fsSL --retry 12 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' "$BASE/index.html?verify=$GITHUB_SHA" -o /tmp/kexam-live/index.html
           curl -fsSL --retry 12 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' "$BASE/app-v2.js?verify=$GITHUB_SHA" -o /tmp/kexam-live/app-v2.js
-          curl -fsSL --retry 12 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' "$BASE/enhancements-v8.css?verify=$GITHUB_SHA" -o /tmp/kexam-live/enhancements-v8.css
-          grep -q 'v=8' /tmp/kexam-live/index.html
-          grep -q 'enhancements-v8.css' /tmp/kexam-live/index.html
+          curl -fsSL --retry 12 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' "$BASE/ux-v9.js?verify=$GITHUB_SHA" -o /tmp/kexam-live/ux-v9.js
+          curl -fsSL --retry 12 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' "$BASE/polish-v9.css?verify=$GITHUB_SHA" -o /tmp/kexam-live/polish-v9.css
+          grep -q 'v=9' /tmp/kexam-live/index.html
+          grep -q 'polish-v9.css' /tmp/kexam-live/index.html
+          grep -q 'ux-v9.js' /tmp/kexam-live/index.html
           node --check /tmp/kexam-live/app-v2.js
+          node --check /tmp/kexam-live/ux-v9.js
           grep -q 'ส่งคำตอบและประมวลผลคะแนน' /tmp/kexam-live/app-v2.js
           grep -q 'ดูเฉลยทั้ง 100 ข้อ' /tmp/kexam-live/app-v2.js
           grep -q 'ประวัติการทำข้อสอบ' /tmp/kexam-live/app-v2.js
@@ -90,18 +101,7 @@ jobs:
           done
           node <<'NODE'
           const fs=require('fs'),crypto=require('crypto'),zlib=require('zlib');
-          const expected={
-            'bank-01.txt':'4a88b2136927e20adaa5d39e366b60e5ec34ecbe7b67d651fa87126f383245a8','bank-02-03.txt':'76b1da85f929c50e5b6dd2be92bb19d2727aa57cb58fe17df1bcf2e2f1d467f2','bank-04-05.txt':'5a8a7d76f35c15da53d4114efd0baef9c8670a58f08027f196b654eae915f584','bank-06-07.txt':'ebce58a1eefae119800a135576ea58e73c0d0949cced3558d04c1b8f41459a6e','bank-08-09.txt':'a63cf69ace989d2bea07778064426e8247ff9995d6db5d3eb82685794d7e55a8','bank-10-11.txt':'6962c6e436414b927128e25208f4e40e50a970f4e72af80d3e672079e59b1d84','bank-12-13.txt':'e5ac75a54b73ccd20a247d5b7e57bf5f756e2cf4f03aba17c21007eee36e07e5','bank-14-15.txt':'ea796111174f00947120eca793107aa4e797b6e84a9d5bcaca0a38f8c3bd6f1a','bank-16-17.txt':'858daa1b66fc1ba67697eef08c58c23bc0eb7e60b97ec8f490d6accbf7b220e6','bank-18.txt':'9f43fb2811e125621487e0088b743591cffbfdb4456441d3fb4073dda76590fe'};
-          let joined='';
-          for(const [f,want] of Object.entries(expected)){
-            const s=fs.readFileSync('/tmp/kexam-live/'+f,'utf8');
-            const got=crypto.createHash('sha256').update(s).digest('hex');
-            if(got!==want) throw new Error(`LIVE ${f} mismatch ${got}`);
-            joined+=s.trim();
-          }
-          const binary=atob(joined);
-          const data=JSON.parse(zlib.gunzipSync(Buffer.from(binary,'latin1')).toString('utf8'));
-          const counts=data.q.map(x=>x.length);
-          if(data.q.length!==10||counts.some(n=>n!==100)) throw new Error('LIVE set counts invalid: '+counts.join(','));
-          console.log('PASS LIVE Pages: v8 app and all 1,000 questions verified');
+          const expected={'bank-01.txt':'4a88b2136927e20adaa5d39e366b60e5ec34ecbe7b67d651fa87126f383245a8','bank-02-03.txt':'76b1da85f929c50e5b6dd2be92bb19d2727aa57cb58fe17df1bcf2e2f1d467f2','bank-04-05.txt':'5a8a7d76f35c15da53d4114efd0baef9c8670a58f08027f196b654eae915f584','bank-06-07.txt':'ebce58a1eefae119800a135576ea58e73c0d0949cced3558d04c1b8f41459a6e','bank-08-09.txt':'a63cf69ace989d2bea07778064426e8247ff9995d6db5d3eb82685794d7e55a8','bank-10-11.txt':'6962c6e436414b927128e25208f4e40e50a970f4e72af80d3e672079e59b1d84','bank-12-13.txt':'e5ac75a54b73ccd20a247d5b7e57bf5f756e2cf4f03aba17c21007eee36e07e5','bank-14-15.txt':'ea796111174f00947120eca793107aa4e797b6e84a9d5bcaca0a38f8c3bd6f1a','bank-16-17.txt':'858daa1b66fc1ba67697eef08c58c23bc0eb7e60b97ec8f490d6accbf7b220e6','bank-18.txt':'9f43fb2811e125621487e0088b743591cffbfdb4456441d3fb4073dda76590fe'};
+          let joined='';for(const [f,want] of Object.entries(expected)){const s=fs.readFileSync('/tmp/kexam-live/'+f,'utf8');const got=crypto.createHash('sha256').update(s).digest('hex');if(got!==want)throw new Error(`LIVE ${f} mismatch ${got}`);joined+=s.trim()}
+          const binary=atob(joined);const data=JSON.parse(zlib.gunzipSync(Buffer.from(binary,'latin1')).toString('utf8'));const counts=data.q.map(x=>x.length);if(data.q.length!==10||counts.some(n=>n!==100))throw new Error('LIVE set counts invalid: '+counts.join(','));console.log('PASS LIVE Pages: v9 app and all 1,000 questions verified');
           NODE
