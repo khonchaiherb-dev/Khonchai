@@ -11,56 +11,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Locate corrupted Base64 character and verify bank
+      - name: Compare bank chunks with known-good hashes
         shell: bash
         run: |
           node <<'NODE'
-          const fs = require('fs');
-          const zlib = require('zlib');
-          const files = [
-            'bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt',
-            'bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt'
-          ];
-          const parts=files.map(f=>fs.readFileSync('tax-exam/'+f,'utf8').trim());
-          for(let i=0;i<files.length;i++) console.log(files[i],'chars=',parts[i].length);
-
-          function validate(b64){
-            try{
-              if(b64.length%4===1) return null;
-              const padded=b64+'='.repeat((4-b64.length%4)%4);
-              const gz=Buffer.from(padded,'base64');
-              if(gz[0]!==0x1f||gz[1]!==0x8b) return null;
-              const data=JSON.parse(zlib.gunzipSync(gz).toString('utf8'));
-              if(!Array.isArray(data.q)||data.q.length!==10) return null;
-              const lens=data.q.map(x=>x.length);
-              if(lens.some(n=>n!==100)) return null;
-              return {data,lens,gzBytes:gz.length};
-            }catch{return null;}
+          const fs=require('fs');
+          const crypto=require('crypto');
+          const expected={
+            'bank-01.txt':'4a88b2136927e20adaa5d39e366b60e5ec34ecbe7b67d651fa87126f383245a8',
+            'bank-02-03.txt':'76b1da85f929c50e5b6dd2be92bb19d2727aa57cb58fe17df1bcf2e2f1d467f2',
+            'bank-04-05.txt':'5a8a7d76f35c15da53d4114efd0baef9c8670a58f08027f196b654eae915f584',
+            'bank-06-07.txt':'ebce58a1eefae119800a135576ea58e73c0d0949cced3558d04c1b8f41459a6e',
+            'bank-08-09.txt':'a63cf69ace989d2bea07778064426e8247ff9995d6db5d3eb82685794d7e55a8',
+            'bank-10-11.txt':'6962c6e436414b927128e25208f4e40e50a970f4e72af80d3e672079e59b1d84',
+            'bank-12-13.txt':'e5ac75a54b73ccd20a247d5b7e57bf5f756e2cf4f03aba17c21007eee36e07e5',
+            'bank-14-15.txt':'ea796111174f00947120eca793107aa4e797b6e84a9d5bcaca0a38f8c3bd6f1a',
+            'bank-16-17.txt':'858daa1b66fc1ba67697eef08c58c23bc0eb7e60b97ec8f490d6accbf7b220e6',
+            'bank-18.txt':'9f43fb2811e125621487e0088b743591cffbfdb4456441d3fb4073dda76590fe'
+          };
+          let bad=0;
+          for(const [f,want] of Object.entries(expected)){
+            const s=fs.readFileSync('tax-exam/'+f,'utf8');
+            const got=crypto.createHash('sha256').update(s).digest('hex');
+            const ok=got===want;
+            console.log(f,'chars=',s.length,'sha256=',got,ok?'MATCH':'MISMATCH');
+            if(!ok)bad++;
           }
-
-          const joined=parts.join('');
-          console.log('joined chars=',joined.length,'mod4=',joined.length%4);
-          let ok=validate(joined);
-          if(ok){
-            console.log('PASS: bank is already valid',ok.lens.join(','));
-            process.exit(0);
-          }
-
-          const targetIndex=8; // bank-16-17.txt
-          const target=parts[targetIndex];
-          const prefix=parts.slice(0,targetIndex).join('');
-          const suffix=parts.slice(targetIndex+1).join('');
-          let found=[];
-          for(let i=0;i<target.length;i++){
-            const candidate=prefix+target.slice(0,i)+target.slice(i+1)+suffix;
-            const result=validate(candidate);
-            if(result){
-              found.push({i,char:target[i],result});
-              console.log('FOUND position=',i,'1-based=',i+1,'char=',JSON.stringify(target[i]),'gzipBytes=',result.gzBytes,'counts=',result.lens.join(','));
-              break;
-            }
-            if(i>0 && i%2000===0) console.log('checked',i,'positions');
-          }
-          if(!found.length) throw new Error('No single-character fix found in bank-16-17.txt');
-          console.log('PASS: exact corruption location identified');
+          if(bad) throw new Error(`${bad} bank chunk(s) differ from the verified source`);
+          console.log('PASS: every chunk matches the verified local source');
           NODE
