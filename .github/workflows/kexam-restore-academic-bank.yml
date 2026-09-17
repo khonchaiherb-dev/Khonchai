@@ -1,0 +1,35 @@
+name: K-EXAM Restore Academic Bank
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-restore-academic-bank.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 0
+      - name: Restore last verified academic bank fragments
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout 97a92c81728e0c195b968ce1f1f7a593568876f6 -- \
+            tax-exam/ra-bank-01.txt \
+            tax-exam/ra-bank-02a.txt \
+            tax-exam/ra-bank-02b.txt \
+            tax-exam/ra-bank-03b.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if git diff --cached --quiet; then
+            echo 'No recovery changes needed'
+            exit 0
+          fi
+          git commit -m 'Restore verified revenue academic bank after partial v14 update'
+          git push origin HEAD:gh-pages
