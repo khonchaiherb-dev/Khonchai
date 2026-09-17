@@ -20,7 +20,7 @@ jobs:
           node <<'NODE'
           const cp=require('child_process'),zlib=require('zlib');
           const show=f=>cp.execFileSync('git',['show',`origin/gh-pages:tax-exam/${f}`],{encoding:'utf8',maxBuffer:8*1024*1024}).trim();
-          const files=['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03b.txt'];
+          const files=['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'];
           const raw=Buffer.from(files.map(show).join('').replace(/\s+/g,''),'base64');
           const d=JSON.parse(zlib.gunzipSync(raw).toString('utf8'));
           const get=(r,i)=>String(d.s[r[i]]??'').trim();
