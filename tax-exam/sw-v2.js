@@ -1,5 +1,5 @@
-const CACHE='kexam-tax-v12';
-const CORE=['./','index.html','styles.css?v=12','enhancements-v8.css?v=12','polish-v9.css?v=12','positions-v10.css?v=12','cosmic-v12.css?v=12','base64-fix.js?v=12','app-v3.js?v=12','app-v3-part1.txt','app-v3-part2.txt','app-v3-part3.txt','app-v3-part4.txt','manifest.webmanifest?v=12'];
+const CACHE='kexam-tax-v13';
+const CORE=['./','index.html','styles.css?v=13','enhancements-v8.css?v=13','polish-v9.css?v=13','positions-v10.css?v=13','cosmic-v12.css?v=13','analytics-config.js?v=13','analytics-v13.js?v=13','base64-fix.js?v=13','app-v3.js?v=13','app-v3-part1.txt','app-v3-part2.txt','app-v3-part3.txt','app-v3-part4.txt','manifest.webmanifest?v=13'];
 const BANK=[
   'bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt',
   'ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'
@@ -12,7 +12,8 @@ self.addEventListener('fetch',e=>{
   const url=new URL(e.request.url);
   const isBank=BANK.some(name=>url.pathname.endsWith('/'+name));
   const isPart=/\/app-v3-part[1-4]\.txt$/.test(url.pathname);
-  const fresh=e.request.mode==='navigate'||isBank||isPart||url.pathname.endsWith('/index.html')||url.pathname.endsWith('/app-v3.js')||url.pathname.endsWith('/base64-fix.js')||url.pathname.endsWith('/styles.css')||url.pathname.endsWith('/enhancements-v8.css')||url.pathname.endsWith('/polish-v9.css')||url.pathname.endsWith('/positions-v10.css')||url.pathname.endsWith('/cosmic-v12.css')||url.pathname.endsWith('/manifest.webmanifest');
+  const isAdmin=url.pathname.includes('/tax-exam/admin/');
+  const fresh=e.request.mode==='navigate'||isBank||isPart||isAdmin||url.pathname.endsWith('/index.html')||url.pathname.endsWith('/app-v3.js')||url.pathname.endsWith('/analytics-config.js')||url.pathname.endsWith('/analytics-v13.js')||url.pathname.endsWith('/base64-fix.js')||url.pathname.endsWith('/styles.css')||url.pathname.endsWith('/enhancements-v8.css')||url.pathname.endsWith('/polish-v9.css')||url.pathname.endsWith('/positions-v10.css')||url.pathname.endsWith('/cosmic-v12.css')||url.pathname.endsWith('/manifest.webmanifest');
   if(fresh){e.respondWith(fetch(e.request,{cache:'no-store'}).then(res=>{if(res.ok){const copy=res.clone();caches.open(CACHE).then(c=>c.put(e.request,copy))}return res}).catch(()=>caches.match(e.request).then(r=>r||caches.match('./'))));return}
   e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request,{cache:'no-store'}).then(res=>{if(res.ok){const copy=res.clone();caches.open(CACHE).then(c=>c.put(e.request,copy))}return res}).catch(()=>caches.match('./'))));
 });
