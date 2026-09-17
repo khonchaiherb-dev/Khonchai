@@ -1,0 +1,48 @@
+name: K-EXAM v10 Predeploy Verify
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-v10-predeploy.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Verify gh-pages v10 assets and both question banks
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages --depth=1
+          mkdir -p /tmp/kexam
+          for p in 1 2 3 4; do git show origin/gh-pages:tax-exam/app-v3-part${p}.txt >> /tmp/kexam/app-v3-combined.js; done
+          node --check /tmp/kexam/app-v3-combined.js
+          git show origin/gh-pages:tax-exam/app-v3.js > /tmp/kexam/app-v3.js
+          node --check /tmp/kexam/app-v3.js
+          grep -q "storageKey:'kexam_tax_v2'" /tmp/kexam/app-v3-combined.js
+          grep -q "storageKey:'kexam_revenue_academic_v1'" /tmp/kexam/app-v3-combined.js
+          grep -q "นักตรวจสอบภาษีปฏิบัติการ" /tmp/kexam/app-v3-combined.js
+          grep -q "นักวิชาการสรรพากรปฏิบัติการ" /tmp/kexam/app-v3-combined.js
+          git show origin/gh-pages:tax-exam/positions-v10.css > /tmp/kexam/positions-v10.css
+          test -s /tmp/kexam/positions-v10.css
+          node <<'NODE'
+          const cp=require('child_process'),zlib=require('zlib');
+          function read(path){return cp.execFileSync('git',['show','origin/gh-pages:tax-exam/'+path],{encoding:'utf8',maxBuffer:4*1024*1024}).trim()}
+          function verify(label,files,expectedCategories){
+            const b64=files.map(read).join('').replace(/\s+/g,'');
+            if(b64.length%4!==0) throw new Error(label+' base64 length invalid '+b64.length);
+            const data=JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8'));
+            if(!Array.isArray(data.q)||data.q.length!==10||data.q.some(s=>!Array.isArray(s)||s.length!==100)) throw new Error(label+' set counts invalid');
+            const total=data.q.reduce((n,s)=>n+s.length,0);if(total!==1000)throw new Error(label+' total '+total);
+            const answers=[0,0,0,0],cats={};
+            data.q.flat().forEach(r=>{answers[r[3]]++;const c=data.s[r[0]];cats[c]=(cats[c]||0)+1});
+            if(answers.some(n=>n!==250))throw new Error(label+' answer balance '+answers.join(','));
+            if(expectedCategories){for(const [k,v] of Object.entries(expectedCategories))if(cats[k]!==v)throw new Error(label+' category '+k+' '+cats[k]+' != '+v)}
+            console.log('PASS',label,'10x100 answers',answers.join(','),cats);
+          }
+          verify('tax-auditor',['bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt']);
+          verify('revenue-academic',['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'],{'หลักภาษีอากรและประมวลรัษฎากร':600,'กรมสรรพากร':150,'เศรษฐกิจ-สังคม-เทคโนโลยี':150,'ข้อมูลข่าวสาร/PDPA':100});
+          NODE
