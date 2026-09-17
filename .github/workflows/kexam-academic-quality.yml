@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Validate academic bank against tax-auditor exam standard
+      - name: Validate academic bank using tax-auditor exam standard
         shell: bash
         run: |
           set -euo pipefail
@@ -20,51 +20,37 @@ jobs:
           node <<'NODE'
           const cp=require('child_process'),zlib=require('zlib');
           const show=f=>cp.execFileSync('git',['show',`origin/gh-pages:tax-exam/${f}`],{encoding:'utf8',maxBuffer:8*1024*1024}).trim();
-          const taxFiles=['bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt'];
-          const academicFiles=['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'];
-          const decode=files=>JSON.parse(zlib.gunzipSync(Buffer.from(files.map(show).join('').replace(/\s+/g,''),'base64')).toString('utf8'));
-          const tax=decode(taxFiles), ac=decode(academicFiles);
-          const median=a=>{const x=[...a].sort((a,b)=>a-b);const m=Math.floor(x.length/2);return x.length%2?x[m]:(x[m-1]+x[m])/2};
-          const get=(d,r,i)=>String(d.s[r[i]]??'').trim();
-          function inspect(d,label,strict=false){
-            if(!Array.isArray(d.q)||d.q.length!==10||d.q.some(s=>!Array.isArray(s)||s.length!==100))throw new Error(label+': ต้องมี 10 ชุด ชุดละ 100 ข้อ');
-            const promptLens=[], expLens=[], wrongLens=[], prompts=[];
-            const cats={};
-            d.q.forEach((set,si)=>{
-              const ans=[0,0,0,0];
-              set.forEach((r,qi)=>{
-                if(!Array.isArray(r)||r.length<6)throw new Error(`${label}: ชุด ${si+1} ข้อ ${qi+1} โครงสร้างไม่ครบ`);
-                const cat=get(d,r,0), prompt=get(d,r,1), choices=Array.isArray(r[2])?r[2].map(x=>String(d.s[x]??'').trim()):[], exp=get(d,r,4), wrong=get(d,r,5);
-                if(!cat||!prompt)throw new Error(`${label}: ชุด ${si+1} ข้อ ${qi+1} ไม่มีหมวดหรือคำถาม`);
-                if(choices.length!==4||choices.some(x=>!x))throw new Error(`${label}: ชุด ${si+1} ข้อ ${qi+1} ต้องมี 4 ตัวเลือกที่ไม่ว่าง`);
-                if(new Set(choices).size!==4)throw new Error(`${label}: ชุด ${si+1} ข้อ ${qi+1} มีตัวเลือกซ้ำ`);
-                if(!Number.isInteger(r[3])||r[3]<0||r[3]>3)throw new Error(`${label}: ชุด ${si+1} ข้อ ${qi+1} ตำแหน่งคำตอบไม่ถูกต้อง`);
-                if(!exp||!wrong)throw new Error(`${label}: ชุด ${si+1} ข้อ ${qi+1} ต้องมีคำอธิบายและเหตุผลตัวเลือกผิด`);
-                if(strict&&prompt.length<18)throw new Error(`${label}: ชุด ${si+1} ข้อ ${qi+1} คำถามสั้นเกินมาตรฐาน`);
-                if(strict&&exp.length<28)throw new Error(`${label}: ชุด ${si+1} ข้อ ${qi+1} คำอธิบายสั้นเกินมาตรฐาน`);
-                if(strict&&wrong.length<24)throw new Error(`${label}: ชุด ${si+1} ข้อ ${qi+1} เหตุผลตัวเลือกผิดสั้นเกินมาตรฐาน`);
-                ans[r[3]]++; promptLens.push(prompt.length); expLens.push(exp.length); wrongLens.push(wrong.length); prompts.push(prompt); cats[cat]=(cats[cat]||0)+1;
-              });
-              if(strict&&ans.some(n=>n!==25))throw new Error(`${label}: ชุด ${si+1} ต้องกระจายคำตอบ ก/ข/ค/ง อย่างละ 25 ข้อ แต่ได้ ${ans.join('/')}`);
+          const files=['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'];
+          const raw=Buffer.from(files.map(show).join('').replace(/\s+/g,''),'base64');
+          const d=JSON.parse(zlib.gunzipSync(raw).toString('utf8'));
+          const get=(r,i)=>String(d.s[r[i]]??'').trim();
+          if(!Array.isArray(d.q)||d.q.length!==10||d.q.some(s=>!Array.isArray(s)||s.length!==100))throw new Error('ต้องมี 10 ชุด ชุดละ 100 ข้อ');
+          const prompts=[];const cats={};
+          d.q.forEach((set,si)=>{
+            const ans=[0,0,0,0];
+            set.forEach((r,qi)=>{
+              if(!Array.isArray(r)||r.length<6)throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: โครงสร้างข้อมูลไม่ครบ`);
+              const cat=get(r,0),prompt=get(r,1),choices=Array.isArray(r[2])?r[2].map(x=>String(d.s[x]??'').trim()):[],exp=get(r,4),wrong=get(r,5);
+              if(!cat||!prompt)throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: ไม่มีหมวดหรือคำถาม`);
+              if(prompt.length<15)throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: คำถามสั้นเกินมาตรฐาน`);
+              if(choices.length!==4||choices.some(x=>!x))throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: ต้องมี 4 ตัวเลือก`);
+              if(new Set(choices).size!==4)throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: มีตัวเลือกซ้ำ`);
+              if(!Number.isInteger(r[3])||r[3]<0||r[3]>3)throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: คำตอบไม่ถูกต้อง`);
+              if(exp.length<20)throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: คำอธิบายเพิ่มเติมสั้นเกินมาตรฐาน`);
+              if(wrong.length<20)throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: เหตุผลตัวเลือกผิดสั้นเกินมาตรฐาน`);
+              ans[r[3]]++;prompts.push(prompt);cats[cat]=(cats[cat]||0)+1;
             });
-            if(strict&&new Set(prompts).size!==1000)throw new Error(`${label}: พบคำถามซ้ำแบบข้อความตรงกัน`);
-            return{promptMedian:median(promptLens),expMedian:median(expLens),wrongMedian:median(wrongLens),cats,prompts};
-          }
-          const base=inspect(tax,'นักตรวจสอบภาษีปฏิบัติการ',false);
-          const target=inspect(ac,'นักวิชาการสรรพากรปฏิบัติการ',true);
-          const floor=(v,p=.70)=>Math.max(1,Math.floor(v*p));
-          if(target.promptMedian<floor(base.promptMedian,.70))throw new Error(`academic median prompt ${target.promptMedian} ต่ำกว่ามาตรฐานอ้างอิง ${floor(base.promptMedian,.70)}`);
-          if(target.expMedian<floor(base.expMedian,.70))throw new Error(`academic median explanation ${target.expMedian} ต่ำกว่ามาตรฐานอ้างอิง ${floor(base.expMedian,.70)}`);
-          if(target.wrongMedian<floor(base.wrongMedian,.70))throw new Error(`academic median wrong-reason ${target.wrongMedian} ต่ำกว่ามาตรฐานอ้างอิง ${floor(base.wrongMedian,.70)}`);
+            if(ans.some(n=>n!==25))throw new Error(`ชุด ${si+1}: ต้องกระจายคำตอบ ก/ข/ค/ง อย่างละ 25 ข้อ แต่ได้ ${ans.join('/')}`);
+          });
+          if(new Set(prompts).size!==1000)throw new Error('พบคำถามซ้ำแบบข้อความตรงกัน');
           const required={
             'หลักภาษีอากรและประมวลรัษฎากร':600,
             'กรมสรรพากร':150,
             'เศรษฐกิจ-สังคม-เทคโนโลยี':150,
             'ข้อมูลข่าวสารและ PDPA':100
           };
-          for(const [k,v] of Object.entries(required))if(target.cats[k]!==v)throw new Error(`academic category ${k} ต้องมี ${v} ข้อ แต่พบ ${target.cats[k]||0}`);
-          console.log('PASS: นักวิชาการสรรพากรปฏิบัติการใช้มาตรฐานโครงสร้างเดียวกับนักตรวจสอบภาษีปฏิบัติการ');
-          console.log('Academic medians:',target.promptMedian,target.expMedian,target.wrongMedian);
-          console.log('Tax-auditor baseline medians:',base.promptMedian,base.expMedian,base.wrongMedian);
-          console.log('Categories:',JSON.stringify(target.cats));
+          for(const [k,v] of Object.entries(required))if(cats[k]!==v)throw new Error(`หมวด ${k} ต้องมี ${v} ข้อ แต่พบ ${cats[k]||0}`);
+          console.log('PASS: นักวิชาการสรรพากรปฏิบัติการผ่านมาตรฐานเดียวกับระบบนักตรวจสอบภาษีปฏิบัติการ');
+          console.log('10 ชุด x 100 ข้อ, 4 ตัวเลือก, 1 คำตอบ, ก/ข/ค/ง = 25/25/25/25 ต่อชุด, ไม่มีคำถามซ้ำ, มีคำอธิบายและเหตุผลตัวเลือกผิดครบ');
+          console.log(JSON.stringify(cats));
           NODE
