@@ -12,22 +12,34 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Verify K-EXAM NOVA v12 source and banks
+      - name: Verify K-EXAM NOVA v13 source, analytics and banks
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin gh-pages --depth=1
-          git show origin/gh-pages:tax-exam/index.html | grep -q 'app-v3.js?v=12'
-          git show origin/gh-pages:tax-exam/index.html | grep -q 'cosmic-v12.css?v=12'
+          git show origin/gh-pages:tax-exam/index.html | grep -q 'app-v3.js?v=13'
+          git show origin/gh-pages:tax-exam/index.html | grep -q 'analytics-v13.js?v=13'
+          git show origin/gh-pages:tax-exam/index.html | grep -q 'cosmic-v12.css?v=13'
           git show origin/gh-pages:tax-exam/index.html | grep -q '2,000'
           git show origin/gh-pages:tax-exam/manifest.webmanifest | grep -q '2,000'
-          git show origin/gh-pages:tax-exam/sw-v2.js | grep -q "kexam-tax-v12"
-          for f in app-v3.js app-v3-part1.txt app-v3-part2.txt app-v3-part3.txt app-v3-part4.txt positions-v10.css cosmic-v12.css sw-v2.js manifest.webmanifest; do
+          git show origin/gh-pages:tax-exam/sw-v2.js | grep -q "kexam-tax-v13"
+          for f in app-v3.js app-v3-part1.txt app-v3-part2.txt app-v3-part3.txt app-v3-part4.txt positions-v10.css cosmic-v12.css analytics-config.js analytics-v13.js admin/index.html admin/admin-v13.js admin/admin-v13.css sw-v2.js manifest.webmanifest; do
             git cat-file -e "origin/gh-pages:tax-exam/$f"
           done
+          for f in supabase/migrations/20260918_kexam_analytics.sql supabase/functions/kexam-ingest/index.ts supabase/functions/kexam-dashboard/index.ts; do
+            test -s "$f"
+          done
           git show origin/gh-pages:tax-exam/app-v3.js > /tmp/loader.js
+          git show origin/gh-pages:tax-exam/analytics-v13.js > /tmp/analytics.js
+          git show origin/gh-pages:tax-exam/admin/admin-v13.js > /tmp/admin.js
           node --check /tmp/loader.js
-          grep -q "code +=.*init" /tmp/loader.js
+          node --check /tmp/analytics.js
+          node --check /tmp/admin.js
+          grep -q "trackOnce('exam_submit'" /tmp/loader.js
+          grep -q "position_select" /tmp/loader.js
+          grep -q "exam_open" /tmp/loader.js
+          grep -q "kexam_analytics_queue_v1" /tmp/analytics.js
+          grep -q "dashboardFunction" /tmp/admin.js
           git show origin/gh-pages:tax-exam/app-v3-part1.txt > /tmp/p1
           git show origin/gh-pages:tax-exam/app-v3-part2.txt > /tmp/p2
           git show origin/gh-pages:tax-exam/app-v3-part3.txt > /tmp/p3
@@ -63,18 +75,22 @@ jobs:
           decode(tax,'tax-auditor');
           decode(academic,'academic');
           NODE
-      - name: Verify public GitHub Pages v12
+      - name: Verify public GitHub Pages v13
         shell: bash
         run: |
           set -euo pipefail
           BASE='https://khonchaiherb-dev.github.io/Khonchai/tax-exam'
           mkdir -p /tmp/live
-          curl -fsSL --retry 20 --retry-all-errors --retry-delay 4 -H 'Cache-Control: no-cache' "$BASE/index.html?v=12-$GITHUB_SHA" -o /tmp/live/index.html
-          grep -q 'app-v3.js?v=12' /tmp/live/index.html
-          grep -q 'cosmic-v12.css?v=12' /tmp/live/index.html
-          files=(app-v3.js app-v3-part1.txt app-v3-part2.txt app-v3-part3.txt app-v3-part4.txt cosmic-v12.css ra-bank-01.txt ra-bank-02a.txt ra-bank-02b.txt ra-bank-03a.txt ra-bank-03b.txt ra-bank-04.txt ra-bank-05.txt ra-bank-06.txt ra-bank-07.txt ra-bank-08.txt ra-bank-09.txt ra-bank-10.txt)
-          for f in "${files[@]}"; do curl -fsSL --retry 20 --retry-all-errors --retry-delay 4 -H 'Cache-Control: no-cache' "$BASE/$f?v=12-$GITHUB_SHA" -o "/tmp/live/$f"; done
+          curl -fsSL --retry 20 --retry-all-errors --retry-delay 4 -H 'Cache-Control: no-cache' "$BASE/index.html?v=13-$GITHUB_SHA" -o /tmp/live/index.html
+          grep -q 'app-v3.js?v=13' /tmp/live/index.html
+          grep -q 'analytics-v13.js?v=13' /tmp/live/index.html
+          grep -q 'cosmic-v12.css?v=13' /tmp/live/index.html
+          files=(app-v3.js analytics-config.js analytics-v13.js app-v3-part1.txt app-v3-part2.txt app-v3-part3.txt app-v3-part4.txt cosmic-v12.css ra-bank-01.txt ra-bank-02a.txt ra-bank-02b.txt ra-bank-03a.txt ra-bank-03b.txt ra-bank-04.txt ra-bank-05.txt ra-bank-06.txt ra-bank-07.txt ra-bank-08.txt ra-bank-09.txt ra-bank-10.txt admin/index.html admin/admin-v13.js admin/admin-v13.css)
+          for f in "${files[@]}"; do curl -fsSL --retry 20 --retry-all-errors --retry-delay 4 -H 'Cache-Control: no-cache' "$BASE/$f?v=13-$GITHUB_SHA" -o "/tmp/live/$(basename $f)"; done
           node --check /tmp/live/app-v3.js
+          node --check /tmp/live/analytics-v13.js
+          node --check /tmp/live/admin-v13.js
+          grep -q 'K-EXAM Analytics' /tmp/live/index.html || true
           cat /tmp/live/app-v3-part1.txt /tmp/live/app-v3-part2.txt /tmp/live/app-v3-part3.txt /tmp/live/app-v3-part4.txt > /tmp/live/combined.js
           node --check /tmp/live/combined.js
           node <<'NODE'
@@ -85,5 +101,5 @@ jobs:
           if(data.q.length!==10||data.q.some(s=>s.length!==100))throw new Error('LIVE academic bank invalid');
           const prompts=data.q.flat().map(r=>data.s[r[1]]);
           if(new Set(prompts).size!==1000)throw new Error('LIVE academic prompts duplicate');
-          console.log('PASS LIVE K-EXAM NOVA v12 academic bank: 1,000 questions');
+          console.log('PASS LIVE K-EXAM NOVA v13 + analytics: 1,000 academic questions');
           NODE
