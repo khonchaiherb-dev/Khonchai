@@ -7,12 +7,11 @@
   <meta name="description" content="ระบบทำข้อสอบนักตรวจสอบภาษีปฏิบัติการ K-EXAM โดยอาจารย์คิม จำนวน 1,000 ข้อ" />
   <title>K-EXAM | ระบบทำข้อสอบนักตรวจสอบภาษีปฏิบัติการ</title>
   <base href="/Khonchai/tax-exam/" />
-  <link rel="stylesheet" href="styles.css?v=6-live" />
+  <link rel="stylesheet" href="styles.css?v=7-live" />
 </head>
 <body>
   <div id="app"></div>
   <script>
-    // หน้านี้อยู่นอก scope ของ service worker เดิม เพื่อหลีกเลี่ยงไฟล์แคชรุ่นเก่า
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(list => {
         for (const reg of list) {
@@ -24,7 +23,7 @@
       caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('kexam-tax-')).map(k => caches.delete(k)))).catch(()=>{});
     }
   </script>
-  <script src="base64-fix.js?v=6-live"></script>
-  <script src="app-v2.js?v=6-live" defer></script>
+  <script src="base64-fix.js?v=7-live"></script>
+  <script src="app-v2.js?v=7-live" defer></script>
 </body>
 </html>
