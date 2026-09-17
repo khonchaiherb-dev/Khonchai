@@ -9,7 +9,7 @@
         if('caches' in window){for(const k of await caches.keys())if(k.startsWith('kexam-tax-'))await caches.delete(k)}
         if('serviceWorker' in navigator){for(const r of await navigator.serviceWorker.getRegistrations())await r.unregister()}
       }catch(_){}
-      const u=new URL(location.href);u.searchParams.set('v','12');u.searchParams.set('reset','1');location.replace(u.toString());
+      const u=new URL(location.href);u.searchParams.set('v','13');u.searchParams.set('reset','1');location.replace(u.toString());
     });
     console.error('[K-EXAM BOOT]',err);
   };
@@ -18,7 +18,7 @@
     const files=['app-v3-part1.txt','app-v3-part2.txt','app-v3-part3.txt','app-v3-part4.txt'];
     const parts=[];
     for(const f of files){
-      const r=await fetch(`${f}?v=12`,{cache:'no-store'});
+      const r=await fetch(`${f}?v=13`,{cache:'no-store'});
       if(!r.ok)throw new Error('โหลดส่วนประกอบระบบไม่สำเร็จ: '+f);
       const text=await r.text();
       if(!text.trim())throw new Error('ส่วนประกอบระบบว่างเปล่า: '+f);
@@ -28,8 +28,28 @@
     let code=parts.join('\n');
     code=code.replace("'ra-bank-02.txt','ra-bank-03.txt'","'ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt'");
     code=code.replace("document.addEventListener('DOMContentLoaded',init);",'');
+
+    const inject=(from,to)=>{if(code.includes(from))code=code.replace(from,to);else console.warn('[K-EXAM] analytics injection target not found')};
+    inject(
+      "function selectPosition(key){if(!POSITIONS[key])return;currentPosition=key;setUrlPosition(key);renderSetHome()}",
+      "function selectPosition(key){if(!POSITIONS[key])return;window.KEXAM_ANALYTICS?.track('position_select',{position:key});currentPosition=key;setUrlPosition(key);renderSetHome()}"
+    );
+    inject(
+      "async function beginExam(n,reset=false,showResult=false){",
+      "async function beginExam(n,reset=false,showResult=false){\n  window.KEXAM_ANALYTICS?.track('exam_open',{position:currentPosition,set_no:n,reset:!!reset,show_result:!!showResult});"
+    );
+    inject(
+      "function renderResult(){\n  stopTimer();",
+      "function renderResult(){\n  try{if(state?.submitted&&state?.submittedAt){const wrongQuestions=bank?.questions?.map((q,i)=>state.answers?.[i]===q.answer?null:q.number).filter(Boolean)||[];window.KEXAM_ANALYTICS?.trackOnce('exam_submit',`${currentPosition}:${currentSet}:${state.submittedAt}`,{position:currentPosition,set_no:currentSet,score:Number(state.score)||0,elapsed_seconds:Math.round(state.elapsed||0),wrong_questions:wrongQuestions,category_result:resultStats()})}}catch(_){}\n  stopTimer();"
+    );
+    inject(
+      "function openReview(wrongOnly=false,target=null){reviewWrongOnly=wrongOnly;",
+      "function openReview(wrongOnly=false,target=null){window.KEXAM_ANALYTICS?.track('review_open',{position:currentPosition,set_no:currentSet,wrong_only:!!wrongOnly});reviewWrongOnly=wrongOnly;"
+    );
+
     code += "\n;init();";
     (0,eval)(code);
+    setTimeout(()=>window.KEXAM_ANALYTICS?.flush?.(),1200);
   }catch(e){
     showBootError(e);
   }
