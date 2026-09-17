@@ -1,1 +1,1 @@
-{"name":"K-EXAM ระบบทำข้อสอบนักตรวจสอบภาษี","short_name":"K-EXAM","start_url":"./","display":"standalone","background_color":"#f6f8fb","theme_color":"#0b5ed7","lang":"th"}
+{"id":"./","name":"K-EXAM ระบบทำข้อสอบนักตรวจสอบภาษีปฏิบัติการ","short_name":"K-EXAM","description":"ข้อสอบออนไลน์นักตรวจสอบภาษีปฏิบัติการ 1,000 ข้อ โดยอาจารย์คิม","start_url":"./","scope":"./","display":"standalone","background_color":"#f3f6fa","theme_color":"#102a4c","lang":"th","categories":["education"]}
