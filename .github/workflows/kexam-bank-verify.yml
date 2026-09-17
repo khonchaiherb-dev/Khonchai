@@ -1,9 +1,14 @@
-name: K-EXAM Bank Verify
+name: K-EXAM Verify
 on:
   push:
     paths:
       - '.github/workflows/kexam-bank-verify.yml'
       - 'tax-exam/bank-*.txt'
+      - 'tax-exam/app-v2.js'
+      - 'tax-exam/index.html'
+      - 'tax-exam/styles.css'
+      - 'tax-exam/enhancements-v8.css'
+      - 'tax-exam/sw-v2.js'
   workflow_dispatch:
 
 jobs:
@@ -13,10 +18,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Verify source bank and gh-pages branch
+      - name: Verify source app and question bank
         shell: bash
         run: |
+          set -euo pipefail
+          node --check tax-exam/app-v2.js
+          grep -q 'ส่งคำตอบและประมวลผลคะแนน' tax-exam/app-v2.js
+          grep -q 'ดูเฉลยทั้ง 100 ข้อ' tax-exam/app-v2.js
+          grep -q 'ประวัติการทำข้อสอบ' tax-exam/app-v2.js
+          grep -q 'v=8' tax-exam/index.html
+          grep -q 'enhancements-v8.css' tax-exam/index.html
           git fetch origin gh-pages --depth=1
+          git show origin/gh-pages:tax-exam/app-v2.js > /tmp/gh-app-v2.js
+          node --check /tmp/gh-app-v2.js
+          git show origin/gh-pages:tax-exam/index.html | grep -q 'v=8'
+          git show origin/gh-pages:tax-exam/index.html | grep -q 'enhancements-v8.css'
           node <<'NODE'
           const fs=require('fs');
           const cp=require('child_process');
@@ -43,14 +59,12 @@ jobs:
               joined+=s.trim();
             }
             if(joined.length!==106940||joined.length%4!==0) throw new Error(`${label}: bad Base64 length ${joined.length}`);
-            // Browser-compatible decoder test: Node's global atob follows the Web API rules.
             const binary=atob(joined);
             if(binary.charCodeAt(0)!==0x1f||binary.charCodeAt(1)!==0x8b) throw new Error(`${label}: atob output is not gzip`);
-            const gz=Buffer.from(binary,'latin1');
-            const data=JSON.parse(zlib.gunzipSync(gz).toString('utf8'));
+            const data=JSON.parse(zlib.gunzipSync(Buffer.from(binary,'latin1')).toString('utf8'));
             const counts=data.q.map(x=>x.length);
             if(data.q.length!==10||counts.some(n=>n!==100)||counts.reduce((a,b)=>a+b,0)!==1000) throw new Error(`${label}: invalid set counts ${counts.join(',')}`);
-            console.log(`PASS ${label}: atob + gzip + JSON = 10 x 100 questions`);
+            console.log(`PASS ${label}: 10 x 100 questions`);
           }
           verify('main',f=>fs.readFileSync('tax-exam/'+f,'utf8'));
           verify('gh-pages',f=>cp.execFileSync('git',['show',`origin/gh-pages:tax-exam/${f}`],{encoding:'utf8',maxBuffer:1024*1024}));
@@ -61,12 +75,19 @@ jobs:
           set -euo pipefail
           BASE='https://khonchaiherb-dev.github.io/Khonchai/tax-exam'
           mkdir -p /tmp/kexam-live
+          curl -fsSL --retry 12 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' "$BASE/index.html?verify=$GITHUB_SHA" -o /tmp/kexam-live/index.html
+          curl -fsSL --retry 12 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' "$BASE/app-v2.js?verify=$GITHUB_SHA" -o /tmp/kexam-live/app-v2.js
+          curl -fsSL --retry 12 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' "$BASE/enhancements-v8.css?verify=$GITHUB_SHA" -o /tmp/kexam-live/enhancements-v8.css
+          grep -q 'v=8' /tmp/kexam-live/index.html
+          grep -q 'enhancements-v8.css' /tmp/kexam-live/index.html
+          node --check /tmp/kexam-live/app-v2.js
+          grep -q 'ส่งคำตอบและประมวลผลคะแนน' /tmp/kexam-live/app-v2.js
+          grep -q 'ดูเฉลยทั้ง 100 ข้อ' /tmp/kexam-live/app-v2.js
+          grep -q 'ประวัติการทำข้อสอบ' /tmp/kexam-live/app-v2.js
           files=(bank-01.txt bank-02-03.txt bank-04-05.txt bank-06-07.txt bank-08-09.txt bank-10-11.txt bank-12-13.txt bank-14-15.txt bank-16-17.txt bank-18.txt)
           for f in "${files[@]}"; do
-            curl -fsSL --retry 8 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' "$BASE/$f?verify=$GITHUB_SHA" -o "/tmp/kexam-live/$f"
+            curl -fsSL --retry 12 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' "$BASE/$f?verify=$GITHUB_SHA" -o "/tmp/kexam-live/$f"
           done
-          curl -fsSL --retry 8 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' "$BASE/index.html?verify=$GITHUB_SHA" -o /tmp/kexam-live/index.html
-          grep -q 'v=7' /tmp/kexam-live/index.html
           node <<'NODE'
           const fs=require('fs'),crypto=require('crypto'),zlib=require('zlib');
           const expected={
@@ -82,5 +103,5 @@ jobs:
           const data=JSON.parse(zlib.gunzipSync(Buffer.from(binary,'latin1')).toString('utf8'));
           const counts=data.q.map(x=>x.length);
           if(data.q.length!==10||counts.some(n=>n!==100)) throw new Error('LIVE set counts invalid: '+counts.join(','));
-          console.log('PASS LIVE Pages: Web-API atob succeeds and all 1,000 questions decode');
+          console.log('PASS LIVE Pages: v8 app and all 1,000 questions verified');
           NODE
