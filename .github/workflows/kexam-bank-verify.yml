@@ -1,0 +1,45 @@
+name: K-EXAM Bank Verify
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-bank-verify.yml'
+      - 'tax-exam/bank-*.txt'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify compressed question bank
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const zlib = require('zlib');
+          const files = [
+            'bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt',
+            'bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt'
+          ];
+          let raw='';
+          for(const f of files){
+            const p='tax-exam/'+f;
+            const s=fs.readFileSync(p,'utf8');
+            const bad=[...s].filter(c=>!/[A-Za-z0-9+/=\r\n\t ]/.test(c));
+            console.log(f,'chars=',s.length,'bad=',bad.length,bad.length?JSON.stringify([...new Set(bad)]):'');
+            raw += s.trim();
+          }
+          const clean=raw.replace(/-/g,'+').replace(/_/g,'/').replace(/[^A-Za-z0-9+/=]/g,'').replace(/=/g,'');
+          console.log('raw joined chars=',raw.length,'clean chars=',clean.length,'mod4=',clean.length%4);
+          if(clean.length%4===1) throw new Error('Invalid Base64 length after sanitization');
+          const padded=clean + '='.repeat((4-clean.length%4)%4);
+          const gz=Buffer.from(padded,'base64');
+          console.log('decoded gzip bytes=',gz.length,'header=',gz.subarray(0,2).toString('hex'));
+          const json=zlib.gunzipSync(gz).toString('utf8');
+          const data=JSON.parse(json);
+          if(!Array.isArray(data.q)||data.q.length!==10) throw new Error('Expected 10 sets');
+          const lens=data.q.map(x=>x.length);
+          console.log('question counts=',lens.join(','));
+          if(lens.some(n=>n!==100)) throw new Error('Each set must contain exactly 100 questions');
+          console.log('PASS: 1,000 questions decoded and parsed successfully');
+          NODE
