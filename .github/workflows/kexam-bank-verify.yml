@@ -11,11 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify complete K-EXAM question bank
+        with:
+          fetch-depth: 1
+      - name: Verify source bank and gh-pages branch
         shell: bash
         run: |
+          git fetch origin gh-pages --depth=1
           node <<'NODE'
           const fs=require('fs');
+          const cp=require('child_process');
           const crypto=require('crypto');
           const zlib=require('zlib');
           const expected={
@@ -30,23 +34,53 @@ jobs:
             'bank-16-17.txt':'858daa1b66fc1ba67697eef08c58c23bc0eb7e60b97ec8f490d6accbf7b220e6',
             'bank-18.txt':'9f43fb2811e125621487e0088b743591cffbfdb4456441d3fb4073dda76590fe'
           };
+          function verify(label,loader){
+            let joined='';
+            for(const [f,want] of Object.entries(expected)){
+              const s=loader(f);
+              const got=crypto.createHash('sha256').update(s).digest('hex');
+              if(got!==want) throw new Error(`${label}/${f}: SHA-256 mismatch ${got}`);
+              joined+=s.trim();
+            }
+            if(joined.length!==106940||joined.length%4!==0) throw new Error(`${label}: bad Base64 length ${joined.length}`);
+            // Browser-compatible decoder test: Node's global atob follows the Web API rules.
+            const binary=atob(joined);
+            if(binary.charCodeAt(0)!==0x1f||binary.charCodeAt(1)!==0x8b) throw new Error(`${label}: atob output is not gzip`);
+            const gz=Buffer.from(binary,'latin1');
+            const data=JSON.parse(zlib.gunzipSync(gz).toString('utf8'));
+            const counts=data.q.map(x=>x.length);
+            if(data.q.length!==10||counts.some(n=>n!==100)||counts.reduce((a,b)=>a+b,0)!==1000) throw new Error(`${label}: invalid set counts ${counts.join(',')}`);
+            console.log(`PASS ${label}: atob + gzip + JSON = 10 x 100 questions`);
+          }
+          verify('main',f=>fs.readFileSync('tax-exam/'+f,'utf8'));
+          verify('gh-pages',f=>cp.execFileSync('git',['show',`origin/gh-pages:tax-exam/${f}`],{encoding:'utf8',maxBuffer:1024*1024}));
+          NODE
+      - name: Verify public GitHub Pages deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://khonchaiherb-dev.github.io/Khonchai/tax-exam'
+          mkdir -p /tmp/kexam-live
+          files=(bank-01.txt bank-02-03.txt bank-04-05.txt bank-06-07.txt bank-08-09.txt bank-10-11.txt bank-12-13.txt bank-14-15.txt bank-16-17.txt bank-18.txt)
+          for f in "${files[@]}"; do
+            curl -fsSL --retry 8 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' "$BASE/$f?verify=$GITHUB_SHA" -o "/tmp/kexam-live/$f"
+          done
+          curl -fsSL --retry 8 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' "$BASE/index.html?verify=$GITHUB_SHA" -o /tmp/kexam-live/index.html
+          grep -q 'v=7' /tmp/kexam-live/index.html
+          node <<'NODE'
+          const fs=require('fs'),crypto=require('crypto'),zlib=require('zlib');
+          const expected={
+            'bank-01.txt':'4a88b2136927e20adaa5d39e366b60e5ec34ecbe7b67d651fa87126f383245a8','bank-02-03.txt':'76b1da85f929c50e5b6dd2be92bb19d2727aa57cb58fe17df1bcf2e2f1d467f2','bank-04-05.txt':'5a8a7d76f35c15da53d4114efd0baef9c8670a58f08027f196b654eae915f584','bank-06-07.txt':'ebce58a1eefae119800a135576ea58e73c0d0949cced3558d04c1b8f41459a6e','bank-08-09.txt':'a63cf69ace989d2bea07778064426e8247ff9995d6db5d3eb82685794d7e55a8','bank-10-11.txt':'6962c6e436414b927128e25208f4e40e50a970f4e72af80d3e672079e59b1d84','bank-12-13.txt':'e5ac75a54b73ccd20a247d5b7e57bf5f756e2cf4f03aba17c21007eee36e07e5','bank-14-15.txt':'ea796111174f00947120eca793107aa4e797b6e84a9d5bcaca0a38f8c3bd6f1a','bank-16-17.txt':'858daa1b66fc1ba67697eef08c58c23bc0eb7e60b97ec8f490d6accbf7b220e6','bank-18.txt':'9f43fb2811e125621487e0088b743591cffbfdb4456441d3fb4073dda76590fe'};
           let joined='';
           for(const [f,want] of Object.entries(expected)){
-            const s=fs.readFileSync('tax-exam/'+f,'utf8');
+            const s=fs.readFileSync('/tmp/kexam-live/'+f,'utf8');
             const got=crypto.createHash('sha256').update(s).digest('hex');
-            if(got!==want) throw new Error(`${f}: SHA-256 mismatch`);
-            console.log('MATCH',f,'chars=',s.length);
+            if(got!==want) throw new Error(`LIVE ${f} mismatch ${got}`);
             joined+=s.trim();
           }
-          if(joined.length!==106940) throw new Error(`Unexpected joined Base64 length: ${joined.length}`);
-          if(joined.length%4!==0) throw new Error(`Base64 length is not divisible by 4: ${joined.length%4}`);
-          const gz=Buffer.from(joined,'base64');
-          if(gz[0]!==0x1f||gz[1]!==0x8b) throw new Error('Decoded content is not gzip');
-          const data=JSON.parse(zlib.gunzipSync(gz).toString('utf8'));
-          if(!Array.isArray(data.q)||data.q.length!==10) throw new Error('Expected exactly 10 exam sets');
-          const counts=data.q.map(set=>Array.isArray(set)?set.length:-1);
-          if(counts.some(n=>n!==100)) throw new Error(`Expected 100 questions per set, got ${counts.join(',')}`);
-          const total=counts.reduce((a,b)=>a+b,0);
-          if(total!==1000) throw new Error(`Expected 1,000 questions, got ${total}`);
-          console.log('PASS: Base64 decoded, gzip decompressed, JSON parsed, 10 sets x 100 = 1,000 questions');
+          const binary=atob(joined);
+          const data=JSON.parse(zlib.gunzipSync(Buffer.from(binary,'latin1')).toString('utf8'));
+          const counts=data.q.map(x=>x.length);
+          if(data.q.length!==10||counts.some(n=>n!==100)) throw new Error('LIVE set counts invalid: '+counts.join(','));
+          console.log('PASS LIVE Pages: Web-API atob succeeds and all 1,000 questions decode');
           NODE
