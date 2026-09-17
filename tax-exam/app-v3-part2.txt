@@ -1,0 +1,51 @@
+  $('#app').innerHTML=`${header(extra)}<main class="page"><section class="home-hero position-selected-hero"><div><div class="eyebrow">ตำแหน่งที่เลือก</div><h1>${esc(p.title)}<br>กรมสรรพากร</h1><p>${esc(p.description)}</p><div class="hero-chips"><span class="chip">10 ชุด × 100 ข้อ</span><span class="chip">ตอบครบก่อนส่ง</span><span class="chip">ดูเฉลยย้อนหลัง</span><span class="chip">บันทึกความคืบหน้าอัตโนมัติ</span></div></div><div class="hero-stat"><span>ทำเสร็จแล้ว</span><strong>${completed}<small>/10</small></strong><span>ชุดข้อสอบ</span></div></section><div class="section-title">เลือกชุดข้อสอบ</div><section class="sets">${cards}</section></main>${footer()}`;
+  bindBrand();$('#changePosition').onclick=()=>{persist();renderPositionHome()};document.querySelectorAll('.set-card').forEach(el=>el.onclick=()=>openSet(+el.dataset.set));
+}
+
+async function loadCompactBank(key=currentPosition){
+  const p=POSITIONS[key];if(!p)throw new Error('ยังไม่ได้เลือกตำแหน่งสอบ');
+  if(!bankPromises[key])bankPromises[key]=(async()=>{
+    const parts=await Promise.all(p.bankFiles.map(async f=>{const r=await fetch(f,{cache:'no-store'});if(!r.ok)throw new Error(`โหลดข้อมูลไม่สำเร็จ: ${f}`);return (await r.text()).trim()}));
+    const b64=parts.join('').replace(/\s+/g,'');
+    const bin=atob(b64),bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    if(typeof DecompressionStream==='undefined')throw new Error('เบราว์เซอร์นี้ไม่รองรับการเปิดคลังข้อสอบ กรุณาใช้ Chrome, Edge หรือ Safari รุ่นปัจจุบัน');
+    const ds=new DecompressionStream('gzip');const data=await new Response(new Blob([bytes]).stream().pipeThrough(ds)).json();
+    if(!Array.isArray(data.q)||data.q.length!==10||data.q.some(x=>!Array.isArray(x)||x.length!==100))throw new Error('คลังข้อสอบไม่ครบ 10 ชุด ชุดละ 100 ข้อ');return data
+  })().catch(e=>{delete bankPromises[key];throw e});
+  return bankPromises[key];
+}
+async function loadSet(n){const c=await loadCompactBank(),t=c.s,rows=c.q[n-1];return{set:n,title:`ชุดที่ ${n}`,questions:rows.map((r,i)=>({number:(n-1)*100+i+1,category:t[r[0]],prompt:t[r[1]],choices:r[2].map(x=>t[x]),answer:r[3],explanation:t[r[4]],wrongReasons:t[r[5]]}))}}
+
+function openSet(n){
+  currentSet=n;const old=getSetState(n),hist=getHistory(n),p=position();
+  if(old?.submitted){
+    modal(`<div class="modal-kicker">${esc(p.short)}</div><h3>ชุดที่ ${n} ทำเสร็จแล้ว</h3><p>คะแนนล่าสุด <strong>${old.score}/100</strong>${hist.length?` · คะแนนสูงสุด <strong>${Math.max(...hist.map(x=>x.score))}/100</strong>`:''}</p><div class="modal-actions wrap"><button class="ghost-btn" id="mClose">ยกเลิก</button><button class="ghost-btn" id="mHistory">ประวัติคะแนน</button><button class="primary-btn" id="mResult">ดูผลและเฉลย</button><button class="danger-btn" id="mRestart">เริ่มทำใหม่</button></div>`);
+    $('#mClose').onclick=()=>$('#modal').remove();$('#mHistory').onclick=()=>{$('#modal').remove();renderHistory(n)};$('#mResult').onclick=()=>{$('#modal').remove();beginExam(n,false,true)};$('#mRestart').onclick=()=>{$('#modal').remove();beginExam(n,true,false)};
+  }else{
+    const answered=old?Object.keys(old.answers||{}).length:0;
+    modal(`<div class="modal-kicker">${esc(p.short)}</div><h3>${old?'ทำต่อจากครั้งก่อน':'เริ่มทำข้อสอบ'} · ชุดที่ ${n}</h3><p>${old?`มีคำตอบที่บันทึกไว้ ${answered} ข้อ ระบบจะเปิดต่อจากเดิม`:'ระบบจะไม่แสดงเฉลยระหว่างทำข้อสอบ และจะเปิดให้ส่งคำตอบเมื่อทำครบ 100 ข้อ'}</p><div class="modal-actions"><button class="ghost-btn" id="mClose">ยกเลิก</button><button class="primary-btn" id="mStart">${old?'ทำต่อ':'เริ่มทำข้อสอบ'}</button></div>`);
+    $('#mClose').onclick=()=>$('#modal').remove();$('#mStart').onclick=()=>{$('#modal').remove();beginExam(n,false,false)};
+  }
+}
+async function beginExam(n,reset=false,showResult=false){
+  try{showLoading(`กำลังเตรียมข้อสอบชุดที่ ${n}...`);bank=await loadSet(n);let st=getSetState(n);if(reset||!st){st={answers:{},flags:{},startedAt:Date.now(),elapsed:0,submitted:false,score:null,lastIndex:0};putSetState(n,st)}state=st;currentSet=n;currentIndex=Math.min(99,state.lastIndex||0);if(showResult||state.submitted){renderResult();return}startTimestamp=Date.now();renderExam()}catch(e){showError(e)}
+}
+function stopTimer(){if(timerHandle){clearInterval(timerHandle);timerHandle=null}}
+function startTimer(){stopTimer();timerHandle=setInterval(()=>{if(!state||state.submitted)return;const sec=(state.elapsed||0)+(Date.now()-startTimestamp)/1000;document.querySelectorAll('[data-time]').forEach(x=>x.textContent=fmtTime(sec))},1000)}
+function persist(){if(!state||state.submitted||!currentPosition)return;if(startTimestamp){state.elapsed=(state.elapsed||0)+(Date.now()-startTimestamp)/1000;startTimestamp=Date.now()}state.lastIndex=currentIndex;putSetState(currentSet,state)}
+window.addEventListener('beforeunload',persist);
+function answeredCount(){return Object.keys(state?.answers||{}).length}
+function flagCount(){return Object.values(state?.flags||{}).filter(Boolean).length}
+function categoryProgress(){const m={};bank.questions.forEach((q,i)=>{m[q.category]??={total:0,answered:0};m[q.category].total++;if(state.answers[i]!==undefined)m[q.category].answered++});return m}
+function examNavButtons(){let nav='';for(let i=0;i<100;i++){const cls=['qnum'];if(state.answers[i]!==undefined)cls.push('answered');if(state.flags[i])cls.push('flagged');if(i===currentIndex)cls.push('current');nav+=`<button class="${cls.join(' ')}" data-i="${i}" aria-label="ข้อ ${i+1}">${i+1}</button>`}return nav}
+function firstUnanswered(){for(let i=0;i<100;i++)if(state.answers[i]===undefined)return i;return -1}
+function go(i){if(i<0||i>99)return;persist();currentIndex=i;state.lastIndex=i;putSetState(currentSet,state);renderExam();scrollTo({top:0,behavior:'smooth'})}
+function select(i){state.answers[currentIndex]=i;putSetState(currentSet,state);renderExam()}
+function clearAnswer(){delete state.answers[currentIndex];putSetState(currentSet,state);renderExam()}
+function toggleFlag(){state.flags[currentIndex]=!state.flags[currentIndex];if(!state.flags[currentIndex])delete state.flags[currentIndex];putSetState(currentSet,state);renderExam()}
+
+function renderExam(){
+  if(!bank||!state){renderSetHome();return}startTimer();const p=position(),q=bank.questions[currentIndex],answered=answeredCount(),flags=flagCount(),complete=answered===100;
+  const choices=q.choices.map((c,i)=>`<button class="choice ${state.answers[currentIndex]===i?'selected':''}" data-choice="${i}" aria-pressed="${state.answers[currentIndex]===i}"><span class="choice-letter">${LETTERS[i]}</span><span>${esc(c)}</span></button>`).join('');
+  const cats=categoryProgress();const catHtml=Object.entries(cats).map(([k,v])=>`<div class="cat-row"><div class="label"><span>${esc(k)}</span><span>${v.answered}/${v.total}</span></div><div class="bar"><span style="width:${pct(v.answered,v.total)}%"></span></div></div>`).join('');
+  const extra=`<span class="chip position-chip">${esc(p.short)}</span><span class="chip">ชุดที่ ${currentSet}</span><span class="timer" data-time>${fmtTime((state.elapsed||0)+(Date.now()-startTimestamp)/1000)}</span>`;
