@@ -1,0 +1,80 @@
+const LETTERS=['ก','ข','ค','ง'];
+const SETS=10;
+const POSITIONS={
+  'tax-auditor':{
+    key:'tax-auditor',
+    title:'นักตรวจสอบภาษีปฏิบัติการ',
+    short:'นักตรวจสอบภาษีฯ',
+    storageKey:'kexam_tax_v2',
+    bankFiles:['bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt'],
+    description:'บัญชีและวิเคราะห์งบ · ประมวลรัษฎากร · กรมสรรพากร · เศรษฐกิจ สังคม เทคโนโลยี · ข้อมูลข่าวสาร/PDPA',
+    badge:'คลังเดิม 1,000 ข้อ'
+  },
+  'revenue-academic':{
+    key:'revenue-academic',
+    title:'นักวิชาการสรรพากรปฏิบัติการ',
+    short:'นักวิชาการสรรพากรฯ',
+    storageKey:'kexam_revenue_academic_v1',
+    bankFiles:['ra-bank-01.txt','ra-bank-02.txt','ra-bank-03.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'],
+    description:'หลักภาษีอากรและประมวลรัษฎากร · กรมสรรพากร · เศรษฐกิจ สังคม เทคโนโลยี · พ.ร.บ.ข้อมูลข่าวสาร/PDPA',
+    badge:'คลังใหม่ 1,000 ข้อ'
+  }
+};
+
+let currentPosition=null,currentSet=1,currentIndex=0,state=null,bank=null;
+let bankPromises={},timerHandle=null,startTimestamp=null;
+let reviewWrongOnly=false,reviewIndices=[],reviewPos=0;
+const $=s=>document.querySelector(s);
+const esc=(x='')=>String(x).replace(/[&<>'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
+const pct=(a,b)=>b?Math.round((a/b)*100):0;
+const position=()=>POSITIONS[currentPosition]||null;
+const storageKey=()=>position()?.storageKey||'kexam_tax_v2';
+
+function loadGlobal(){try{return JSON.parse(localStorage.getItem(storageKey())||'{}')}catch{return {}}}
+function saveGlobal(g){localStorage.setItem(storageKey(),JSON.stringify(g))}
+function getSetState(n){return loadGlobal()['set'+n]||null}
+function putSetState(n,s){const g=loadGlobal();g['set'+n]=s;saveGlobal(g)}
+function getHistory(n){const g=loadGlobal();return (g.history&&g.history['set'+n])||[]}
+function appendHistory(n,record){const g=loadGlobal();g.history??={};const k='set'+n;const arr=Array.isArray(g.history[k])?g.history[k]:[];arr.unshift(record);g.history[k]=arr.slice(0,20);saveGlobal(g)}
+function bestScore(n){const h=getHistory(n);return h.length?Math.max(...h.map(x=>Number(x.score)||0)):null}
+function fmtTime(sec){sec=Math.max(0,Math.floor(sec||0));const h=String(Math.floor(sec/3600)).padStart(2,'0'),m=String(Math.floor((sec%3600)/60)).padStart(2,'0'),s=String(sec%60).padStart(2,'0');return `${h}:${m}:${s}`}
+function fmtDate(ts){if(!ts)return '-';try{return new Intl.DateTimeFormat('th-TH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(ts))}catch{return new Date(ts).toLocaleString('th-TH')}}
+function footer(){return `<footer class="footer"><div><strong>K-EXAM</strong> | ติวสอบราชการ อาจารย์คิม</div><div>www.k-exam.com &nbsp;|&nbsp; สงวนสิทธิ์ ห้ามทำซ้ำ ดัดแปลง และจำหน่ายโดยไม่ได้รับอนุญาต</div></footer>`}
+function header(extra=''){return `<header class="topbar"><div class="brand" role="button" tabindex="0" id="brandHome"><div class="brand-mark">K-EXAM</div><div class="brand-sub">ติวสอบราชการ อาจารย์คิม</div></div><div class="top-title">ระบบทำข้อสอบ</div><div class="top-actions">${extra}</div></header>`}
+function bindBrand(){const el=$('#brandHome');if(!el)return;el.onclick=()=>{persist();renderPositionHome()};el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();el.click()}}}
+function toast(msg){const d=document.createElement('div');d.className='toast';d.textContent=msg;document.body.appendChild(d);setTimeout(()=>d.remove(),1800)}
+function modal(html,wide=false){document.body.insertAdjacentHTML('beforeend',`<div class="modal-backdrop" id="modal" role="dialog" aria-modal="true"><div class="modal ${wide?'modal-wide':''}">${html}</div></div>`)}
+function setUrlPosition(key=null){try{const u=new URL(location.href);if(key)u.searchParams.set('position',key);else u.searchParams.delete('position');history.replaceState({},'',u)}catch{}}
+function sourceParam(){try{return new URL(location.href).searchParams.get('source')||''}catch{return ''}}
+
+function showLoading(title='กำลังเตรียมข้อสอบ...'){
+  $('#app').innerHTML=`${header()}<main class="page"><section class="loading-panel"><div class="loading-spinner" aria-hidden="true"></div><h2>${esc(title)}</h2><p>กรุณารอสักครู่ ระบบกำลังเตรียมข้อมูลสำหรับการทำข้อสอบ</p></section></main>${footer()}`;bindBrand();
+}
+function friendlyError(err){const m=String(err?.message||err||'');if(/atob|base64|gzip|decompress|JSON/i.test(m))return 'ข้อมูลข้อสอบโหลดไม่สมบูรณ์ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง';if(/fetch|โหลดข้อมูลไม่สำเร็จ|network/i.test(m))return 'ไม่สามารถเชื่อมต่อข้อมูลข้อสอบได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่';return m||'เกิดข้อผิดพลาดในการเปิดข้อสอบ กรุณาลองใหม่อีกครั้ง'}
+function showError(err){stopTimer();$('#app').innerHTML=`${header()}<main class="page"><section class="panel main-panel error-panel"><div class="error-icon">!</div><h2>ไม่สามารถเปิดข้อสอบได้</h2><p>${esc(friendlyError(err))}</p><div class="error-actions"><button class="ghost-btn" id="errorHome">กลับหน้าเลือกตำแหน่ง</button><button class="primary-btn" id="retry">ลองอีกครั้ง</button></div></section></main>${footer()}`;bindBrand();$('#errorHome').onclick=renderPositionHome;$('#retry').onclick=()=>location.reload()}
+
+function positionProgress(key){
+  const old=currentPosition;currentPosition=key;const g=loadGlobal();let completed=0,started=0,best=[];
+  for(let i=1;i<=SETS;i++){const s=g['set'+i];if(s){const a=Object.keys(s.answers||{}).length;if(a)started++;if(s.submitted)completed++}const b=bestScore(i);if(b!==null)best.push(b)}
+  currentPosition=old;
+  return{completed,started,best:best.length?Math.max(...best):null};
+}
+function renderPositionHome(){
+  stopTimer();persist();state=null;bank=null;currentPosition=null;setUrlPosition(null);
+  let cards='';
+  Object.values(POSITIONS).forEach((p,idx)=>{const pr=positionProgress(p.key);cards+=`<button class="position-card position-card-${idx+1}" data-position="${p.key}"><div class="position-top"><span class="position-kicker">ตำแหน่งที่ ${idx+1}</span><span class="position-badge">${p.badge}</span></div><h2>${esc(p.title)}</h2><p>${esc(p.description)}</p><div class="position-stats"><span><strong>10</strong> ชุด</span><span><strong>1,000</strong> ข้อ</span><span><strong>${pr.completed}</strong> ชุดที่ทำเสร็จ</span></div><div class="position-action"><span>${pr.started?'ทำต่อ / เลือกชุด':'เลือกตำแหน่งนี้'}</span><span aria-hidden="true">→</span></div>${pr.best!==null?`<div class="position-best">คะแนนสูงสุดที่เคยทำ ${pr.best}/100</div>`:''}</button>`});
+  $('#app').innerHTML=`${header()}<main class="page"><section class="position-hero"><div class="position-hero-copy"><div class="eyebrow">K-EXAM · ระบบฝึกทำข้อสอบกรมสรรพากร</div><h1>เลือกตำแหน่งที่จะสอบ</h1><p>เลือกตำแหน่งก่อนเริ่มทำข้อสอบ ระบบจะแยกคลังข้อสอบ คะแนน ประวัติ และความคืบหน้าของแต่ละตำแหน่งออกจากกัน</p><div class="hero-chips"><span class="chip">2 ตำแหน่ง</span><span class="chip">2,000 ข้อ</span><span class="chip">ตรวจคะแนนหลังส่ง</span><span class="chip">ดูเฉลยละเอียด</span></div></div><div class="position-hero-stat"><span>คลังข้อสอบรวม</span><strong>2,000</strong><span>ข้อ · 20 ชุด</span></div></section><div class="section-title">ตำแหน่งที่เปิดให้ทำข้อสอบ</div><section class="position-grid">${cards}</section><section class="privacy-note"><strong>การบันทึกความคืบหน้า</strong><span>คำตอบและคะแนนจะบันทึกอัตโนมัติในเบราว์เซอร์ของอุปกรณ์นี้</span></section></main>${footer()}`;
+  bindBrand();document.querySelectorAll('.position-card').forEach(el=>el.onclick=()=>selectPosition(el.dataset.position));
+}
+function selectPosition(key){if(!POSITIONS[key])return;currentPosition=key;setUrlPosition(key);renderSetHome()}
+
+function renderSetHome(){
+  if(!position()){renderPositionHome();return}stopTimer();persist();startTimestamp=null;state=null;bank=null;
+  const p=position(),g=loadGlobal();let cards='';let completed=0;
+  for(let s=1;s<=SETS;s++){
+    const st=g['set'+s],answered=st?Object.keys(st.answers||{}).length:0,best=bestScore(s);if(st?.submitted)completed++;
+    const score=st?.submitted?`${st.score}/100`:(answered?`ทำแล้ว ${answered} ข้อ`:'ยังไม่ได้เริ่ม');
+    const right=st?.submitted?'ดูผล / ทำใหม่':answered?'ทำต่อ':'เริ่มทำข้อสอบ';
+    cards+=`<button class="set-card" data-set="${s}"><div class="n">ชุดที่ ${s}</div><div class="meta">ข้อ ${(s-1)*100+1}–${s*100} · 100 ข้อ</div><div class="set-progress"><span style="width:${st?.submitted?100:answered}%"></span></div><div class="set-score"><span>${score}</span><span>${right}</span></div>${best!==null?`<div class="best-score">คะแนนสูงสุด ${best}/100</div>`:''}</button>`;
+  }
+  const extra=`<button class="ghost-btn compact-btn" id="changePosition">← เปลี่ยนตำแหน่ง</button>`;
