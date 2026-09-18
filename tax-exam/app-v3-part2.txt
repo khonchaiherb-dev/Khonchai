@@ -1,5 +1,5 @@
-  $('#app').innerHTML=`${header(extra)}<main class="page"><section class="home-hero position-selected-hero"><div><div class="eyebrow">ตำแหน่งที่เลือก</div><h1>${esc(p.title)}<br>กรมสรรพากร</h1><p>${esc(p.description)}</p><div class="hero-chips"><span class="chip">10 ชุด × 100 ข้อ</span><span class="chip">ตอบครบก่อนส่ง</span><span class="chip">ดูเฉลยย้อนหลัง</span><span class="chip">บันทึกความคืบหน้าอัตโนมัติ</span></div></div><div class="hero-stat"><span>ทำเสร็จแล้ว</span><strong>${completed}<small>/10</small></strong><span>ชุดข้อสอบ</span></div></section><div class="section-title">เลือกชุดข้อสอบ</div><section class="sets">${cards}</section><div class="section-title practice-title">ฝึกแบบสุ่มจากคลัง</div><section class="random-practice-wrap">${randomHtml}</section><div class="section-title insight-title">วิเคราะห์ผลการทำข้อสอบ</div>${weaknessHtml}</main>${footer()}`;
-  bindBrand();$('#changePosition').onclick=()=>{persist();renderPositionHome()};document.querySelectorAll('.set-card').forEach(el=>el.onclick=()=>openSet(+el.dataset.set));$('#randomPractice').onclick=()=>openSet(RANDOM_SET);
+  $('#app').innerHTML=`${header(extra)}<main class="page"><section class="home-hero position-selected-hero"><div><div class="eyebrow">ตำแหน่งที่เลือก</div><h1>${esc(p.title)}<br>กรมสรรพากร</h1><p>${esc(p.description)}</p><div class="hero-chips"><span class="chip">10 ชุด × 100 ข้อ</span><span class="chip">ตอบครบก่อนส่ง</span><span class="chip">ดูเฉลยย้อนหลัง</span><span class="chip">บันทึกความคืบหน้าอัตโนมัติ</span></div></div><div class="hero-stat"><span>ทำเสร็จแล้ว</span><strong>${completed}<small>/10</small></strong><span>ชุดข้อสอบ</span></div></section><div class="section-title">เลือกชุดข้อสอบ</div><section class="sets">${cards}</section><div class="section-title practice-title">ฝึกแบบสุ่มจากคลัง</div><section class="random-practice-wrap">${randomHtml}</section><div class="section-title insight-title">วิเคราะห์ผลการทำข้อสอบ</div>${weaknessHtml}<div class="section-title insight-title">ฝึกตามผลการทำข้อสอบ</div>${personalPracticeHtml}</main>${footer()}`;
+  bindBrand();$('#changePosition').onclick=()=>{persist();renderPositionHome()};document.querySelectorAll('.set-card').forEach(el=>el.onclick=()=>openSet(+el.dataset.set));$('#randomPractice').onclick=()=>openSet(RANDOM_SET);$('#wrongPractice').onclick=()=>beginPractice(WRONG_SET,null,true,false);const weakBtn=$('#weakPractice');if(weakBtn&&weak.length)weakBtn.onclick=()=>beginPractice(WEAK_SET,weak[0].name,true,false);
 }
 
 async function loadCompactBank(key=currentPosition){
@@ -14,7 +14,9 @@ async function loadCompactBank(key=currentPosition){
   })().catch(e=>{delete bankPromises[key];throw e});
   return bankPromises[key];
 }
-function decodeQuestion(c,r,si,qi){const t=c.s;return{number:si*100+qi+1,sourceSet:si+1,sourceIndex:qi+1,category:t[r[0]],prompt:t[r[1]],choices:r[2].map(x=>t[x]),answer:r[3],explanation:t[r[4]],wrongReasons:t[r[5]]}}
+function questionId(si,qi){const prefix=currentPosition==='revenue-academic'?'RA':'TA';return `${prefix}-S${String(si+1).padStart(2,'0')}-Q${String(qi+1).padStart(3,'0')}`}
+function parseQuestionId(id){const m=/^(RA|TA)-S(\d{2})-Q(\d{3})$/.exec(String(id||''));if(!m)return null;const expected=currentPosition==='revenue-academic'?'RA':'TA';if(m[1]!==expected)return null;const si=Number(m[2])-1,qi=Number(m[3])-1;return si>=0&&si<10&&qi>=0&&qi<100?{si,qi}:null}
+function decodeQuestion(c,r,si,qi){const t=c.s;return{id:questionId(si,qi),number:si*100+qi+1,sourceSet:si+1,sourceIndex:qi+1,category:t[r[0]],prompt:t[r[1]],choices:r[2].map(x=>t[x]),answer:r[3],explanation:t[r[4]],wrongReasons:t[r[5]]}}
 async function loadSet(n){const c=await loadCompactBank(),rows=c.q[n-1];return{set:n,title:`ชุดที่ ${n}`,questions:rows.map((r,i)=>decodeQuestion(c,r,n-1,i))}}
 function randomize(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){let j;if(globalThis.crypto?.getRandomValues){const x=new Uint32Array(1);crypto.getRandomValues(x);j=x[0]%(i+1)}else j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function buildRandomPlan(c){
@@ -34,14 +36,73 @@ async function loadRandomSet(savedIds=null){
   return{set:RANDOM_SET,title:'สุ่มจำลองสอบ 100 ข้อ',questions,randomIds:ids};
 }
 
+function questionFromId(c,id){const p=parseQuestionId(id);return p&&c.q?.[p.si]?.[p.qi]?decodeQuestion(c,c.q[p.si][p.qi],p.si,p.qi):null}
+function collectHistoryWrongIds(){
+  const out=[];
+  [...Array(SETS).keys()].map(i=>i+1).concat([RANDOM_SET,WRONG_SET,WEAK_SET]).forEach(n=>getHistory(n).forEach(h=>{if(Array.isArray(h?.wrongIds))out.push(...h.wrongIds)}));
+  return out;
+}
+async function collectWrongIds(c){
+  const ids=new Set(collectHistoryWrongIds().filter(id=>questionFromId(c,id)));
+  for(let sn=1;sn<=SETS;sn++){
+    const st=getSetState(sn);if(!st?.submitted)continue;
+    const set=c.q[sn-1]||[];
+    set.forEach((r,qi)=>{if(st.answers?.[qi]!==r[3])ids.add(questionId(sn-1,qi))});
+  }
+  const rs=getSetState(RANDOM_SET);
+  if(rs?.submitted&&Array.isArray(rs.randomIds))rs.randomIds.forEach((raw,i)=>{const m=/^(\d+):(\d+)$/.exec(String(raw));if(!m)return;const si=+m[1],qi=+m[2],r=c.q?.[si]?.[qi];if(r&&rs.answers?.[i]!==r[3])ids.add(questionId(si,qi))});
+  for(const kind of [WRONG_SET,WEAK_SET]){
+    const st=getSetState(kind);if(!st?.submitted||!Array.isArray(st.practiceIds))continue;
+    st.practiceIds.forEach((id,i)=>{const q=questionFromId(c,id);if(q&&st.answers?.[i]!==q.answer)ids.add(q.id)});
+  }
+  return [...ids];
+}
+function buildWeakPlan(c,category,limit=50){
+  const ids=[];c.q.forEach((set,si)=>set.forEach((r,qi)=>{if(String(c.s[r[0]]||'')===String(category))ids.push(questionId(si,qi))}));
+  if(!ids.length)throw new Error('ไม่พบข้อสอบในหมวดที่เลือก');
+  return randomize(ids).slice(0,Math.min(limit,ids.length));
+}
+async function loadPracticeSet(kind,{category=null,savedIds=null}={}){
+  const c=await loadCompactBank();let ids=Array.isArray(savedIds)?savedIds.map(String).filter(id=>questionFromId(c,id)):null;
+  if(kind===WRONG_SET){
+    if(!ids?.length){ids=await collectWrongIds(c);ids=randomize(ids).slice(0,Math.min(100,ids.length))}
+    if(!ids.length)throw new Error('ยังไม่พบข้อที่เคยตอบผิดในอุปกรณ์นี้ กรุณาทำและส่งข้อสอบอย่างน้อย 1 ชุดก่อน');
+    return{set:WRONG_SET,title:`ฝึกเฉพาะข้อที่เคยผิด ${ids.length} ข้อ`,questions:ids.map(id=>questionFromId(c,id)),practiceIds:ids};
+  }
+  if(kind===WEAK_SET){
+    if(!category)throw new Error('ยังไม่มีข้อมูลหมวดที่ควรทบทวน');
+    if(!ids?.length)ids=buildWeakPlan(c,category,50);
+    return{set:WEAK_SET,title:`ฝึกหมวดที่ควรทบทวน · ${category}`,questions:ids.map(id=>questionFromId(c,id)),practiceIds:ids,practiceCategory:category};
+  }
+  throw new Error('ไม่รู้จักโหมดฝึกนี้');
+}
+async function beginPractice(kind,category=null,reset=false,showResult=false){
+  try{
+    window.KEXAM_ANALYTICS?.track('exam_open',{position:currentPosition,set_no:null,exam_mode:kind===WRONG_SET?'wrong-practice':'weak-practice',reset:!!reset,show_result:!!showResult});
+    currentSet=kind;showLoading('กำลังเตรียมชุดฝึกเฉพาะบุคคล...');
+    let st=getSetState(kind);
+    if(kind===WEAK_SET&&category&&st?.practiceCategory!==category)reset=true;
+    const useCategory=category||st?.practiceCategory||null;
+    const saved=!reset&&Array.isArray(st?.practiceIds)?st.practiceIds:null;
+    bank=await loadPracticeSet(kind,{category:useCategory,savedIds:saved});
+    if(reset||!st||!saved){
+      st={answers:{},flags:{},startedAt:Date.now(),elapsed:0,submitted:false,score:null,lastIndex:0,total:bank.questions.length,practiceIds:bank.practiceIds,practiceCategory:bank.practiceCategory||null};
+      putSetState(kind,st);
+    }else if(!st.total){st.total=bank.questions.length;putSetState(kind,st)}
+    state=st;currentIndex=Math.min(Math.max(0,bank.questions.length-1),state.lastIndex||0);
+    if(showResult||state.submitted){renderResult();return}
+    startTimestamp=Date.now();renderExam();
+  }catch(e){if(kind===WRONG_SET&&/ยังไม่พบข้อที่เคยตอบผิด/.test(String(e?.message||e))){renderSetHome();toast('ยังไม่มีข้อผิดที่บันทึกไว้ กรุณาส่งข้อสอบอย่างน้อย 1 ชุดก่อน')}else showError(e)}
+}
+
 function openSet(n){
-  currentSet=n;const old=getSetState(n),hist=getHistory(n),p=position(),label=setLabel(n);
+  currentSet=n;const old=getSetState(n),hist=getHistory(n),p=position(),label=setLabel(n),oldTotal=Number(old?.total)||100;
   if(old?.submitted){
-    modal(`<div class="modal-kicker">${esc(p.short)}</div><h3>${esc(label)} ทำเสร็จแล้ว</h3><p>คะแนนล่าสุด <strong>${old.score}/100</strong>${hist.length?` · คะแนนสูงสุด <strong>${Math.max(...hist.map(x=>x.score))}/100</strong>`:''}</p><div class="modal-actions wrap"><button class="ghost-btn" id="mClose">ยกเลิก</button><button class="ghost-btn" id="mHistory">ประวัติคะแนน</button><button class="primary-btn" id="mResult">ดูผลและเฉลย</button><button class="danger-btn" id="mRestart">${isRandomSet(n)?'สุ่มชุดใหม่':'เริ่มทำใหม่'}</button></div>`);
+    modal(`<div class="modal-kicker">${esc(p.short)}</div><h3>${esc(label)} ทำเสร็จแล้ว</h3><p>คะแนนล่าสุด <strong>${old.score}/${oldTotal}</strong>${hist.length?` · คะแนนสูงสุด <strong>${Math.max(...hist.map(x=>x.score))}/${oldTotal}</strong>`:''}</p><div class="modal-actions wrap"><button class="ghost-btn" id="mClose">ยกเลิก</button><button class="ghost-btn" id="mHistory">ประวัติคะแนน</button><button class="primary-btn" id="mResult">ดูผลและเฉลย</button><button class="danger-btn" id="mRestart">${isRandomSet(n)?'สุ่มชุดใหม่':'เริ่มทำใหม่'}</button></div>`);
     $('#mClose').onclick=()=>$('#modal').remove();$('#mHistory').onclick=()=>{$('#modal').remove();renderHistory(n)};$('#mResult').onclick=()=>{$('#modal').remove();beginExam(n,false,true)};$('#mRestart').onclick=()=>{$('#modal').remove();beginExam(n,true,false)};
   }else{
     const answered=old?Object.keys(old.answers||{}).length:0;
-    modal(`<div class="modal-kicker">${esc(p.short)}</div><h3>${old?'ทำต่อจากครั้งก่อน':'เริ่มทำข้อสอบ'} · ${esc(label)}</h3><p>${old?`มีคำตอบที่บันทึกไว้ ${answered} ข้อ ระบบจะเปิดต่อจากเดิม`:'ระบบจะไม่แสดงเฉลยระหว่างทำข้อสอบ และจะเปิดให้ส่งคำตอบเมื่อทำครบ 100 ข้อ'}</p><div class="modal-actions"><button class="ghost-btn" id="mClose">ยกเลิก</button><button class="primary-btn" id="mStart">${old?'ทำต่อ':'เริ่มทำข้อสอบ'}</button></div>`);
+    modal(`<div class="modal-kicker">${esc(p.short)}</div><h3>${old?'ทำต่อจากครั้งก่อน':'เริ่มทำข้อสอบ'} · ${esc(label)}</h3><p>${old?`มีคำตอบที่บันทึกไว้ ${answered} ข้อ ระบบจะเปิดต่อจากเดิม`:'ระบบจะไม่แสดงเฉลยระหว่างทำข้อสอบ และจะเปิดให้ส่งคำตอบเมื่อทำครบทุกข้อ'}</p><div class="modal-actions"><button class="ghost-btn" id="mClose">ยกเลิก</button><button class="primary-btn" id="mStart">${old?'ทำต่อ':'เริ่มทำข้อสอบ'}</button></div>`);
     $('#mClose').onclick=()=>$('#modal').remove();$('#mStart').onclick=()=>{$('#modal').remove();beginExam(n,false,false)};
   }
 }
@@ -52,30 +113,31 @@ async function beginExam(n,reset=false,showResult=false){
     if(isRandomSet(n)){
       const saved=!reset&&Array.isArray(st?.randomIds)?st.randomIds:null;
       bank=await loadRandomSet(saved);
-      if(reset||!st||!saved){st={answers:{},flags:{},startedAt:Date.now(),elapsed:0,submitted:false,score:null,lastIndex:0,randomIds:bank.randomIds};putSetState(n,st)}
+      if(reset||!st||!saved){st={answers:{},flags:{},startedAt:Date.now(),elapsed:0,submitted:false,score:null,lastIndex:0,total:bank.questions.length,randomIds:bank.randomIds};putSetState(n,st)}else if(!st.total){st.total=bank.questions.length;putSetState(n,st)}
     }else{
       bank=await loadSet(n);
-      if(reset||!st){st={answers:{},flags:{},startedAt:Date.now(),elapsed:0,submitted:false,score:null,lastIndex:0};putSetState(n,st)}
+      if(reset||!st){st={answers:{},flags:{},startedAt:Date.now(),elapsed:0,submitted:false,score:null,lastIndex:0,total:bank.questions.length};putSetState(n,st)}else if(!st.total){st.total=bank.questions.length;putSetState(n,st)}
     }
-    state=st;currentIndex=Math.min(99,state.lastIndex||0);if(showResult||state.submitted){renderResult();return}startTimestamp=Date.now();renderExam()
+    state=st;currentIndex=Math.min(Math.max(0,bank.questions.length-1),state.lastIndex||0);if(showResult||state.submitted){renderResult();return}startTimestamp=Date.now();renderExam()
   }catch(e){showError(e)}
 }
 function stopTimer(){if(timerHandle){clearInterval(timerHandle);timerHandle=null}}
 function startTimer(){stopTimer();timerHandle=setInterval(()=>{if(!state||state.submitted)return;const sec=(state.elapsed||0)+(Date.now()-startTimestamp)/1000;document.querySelectorAll('[data-time]').forEach(x=>x.textContent=fmtTime(sec))},1000)}
 function persist(){if(!state||state.submitted||!currentPosition)return;if(startTimestamp){state.elapsed=(state.elapsed||0)+(Date.now()-startTimestamp)/1000;startTimestamp=Date.now()}state.lastIndex=currentIndex;putSetState(currentSet,state)}
 window.addEventListener('beforeunload',persist);
+function examTotal(){return Math.max(0,Number(bank?.questions?.length)||Number(state?.total)||0)}
 function answeredCount(){return Object.keys(state?.answers||{}).length}
 function flagCount(){return Object.values(state?.flags||{}).filter(Boolean).length}
 function categoryProgress(){const m={};bank.questions.forEach((q,i)=>{m[q.category]??={total:0,answered:0};m[q.category].total++;if(state.answers[i]!==undefined)m[q.category].answered++});return m}
-function examNavButtons(){let nav='';for(let i=0;i<100;i++){const cls=['qnum'];if(state.answers[i]!==undefined)cls.push('answered');if(state.flags[i])cls.push('flagged');if(i===currentIndex)cls.push('current');nav+=`<button class="${cls.join(' ')}" data-i="${i}" aria-label="ข้อ ${i+1}">${i+1}</button>`}return nav}
-function firstUnanswered(){for(let i=0;i<100;i++)if(state.answers[i]===undefined)return i;return -1}
-function go(i){if(i<0||i>99)return;persist();currentIndex=i;state.lastIndex=i;putSetState(currentSet,state);renderExam();scrollTo({top:0,behavior:'smooth'})}
+function examNavButtons(){let nav='';for(let i=0;i<examTotal();i++){const cls=['qnum'];if(state.answers[i]!==undefined)cls.push('answered');if(state.flags[i])cls.push('flagged');if(i===currentIndex)cls.push('current');nav+=`<button class="${cls.join(' ')}" data-i="${i}" aria-label="ข้อ ${i+1}">${i+1}</button>`}return nav}
+function firstUnanswered(){for(let i=0;i<examTotal();i++)if(state.answers[i]===undefined)return i;return -1}
+function go(i){if(i<0||i>=examTotal())return;persist();currentIndex=i;state.lastIndex=i;putSetState(currentSet,state);renderExam();scrollTo({top:0,behavior:'smooth'})}
 function select(i){state.answers[currentIndex]=i;putSetState(currentSet,state);renderExam()}
 function clearAnswer(){delete state.answers[currentIndex];putSetState(currentSet,state);renderExam()}
 function toggleFlag(){state.flags[currentIndex]=!state.flags[currentIndex];if(!state.flags[currentIndex])delete state.flags[currentIndex];putSetState(currentSet,state);renderExam()}
 
 function renderExam(){
-  if(!bank||!state){renderSetHome();return}startTimer();const p=position(),q=bank.questions[currentIndex],answered=answeredCount(),flags=flagCount(),complete=answered===100;
+  if(!bank||!state){renderSetHome();return}startTimer();const p=position(),q=bank.questions[currentIndex],total=examTotal(),answered=answeredCount(),flags=flagCount(),complete=answered===total;
   const choices=q.choices.map((c,i)=>`<button class="choice ${state.answers[currentIndex]===i?'selected':''}" data-choice="${i}" aria-pressed="${state.answers[currentIndex]===i}"><span class="choice-letter">${LETTERS[i]}</span><span>${esc(c)}</span></button>`).join('');
   const cats=categoryProgress();const catHtml=Object.entries(cats).map(([k,v])=>`<div class="cat-row"><div class="label"><span>${esc(k)}</span><span>${v.answered}/${v.total}</span></div><div class="bar"><span style="width:${pct(v.answered,v.total)}%"></span></div></div>`).join('');
   const extra=`<span class="chip position-chip">${esc(p.short)}</span><span class="chip">${esc(setLabel(currentSet))}</span><span class="timer" data-time>${fmtTime((state.elapsed||0)+(Date.now()-startTimestamp)/1000)}</span>`;

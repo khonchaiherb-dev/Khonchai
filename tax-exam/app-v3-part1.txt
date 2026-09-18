@@ -1,6 +1,8 @@
 const LETTERS=['ก','ข','ค','ง'];
 const SETS=10;
 const RANDOM_SET='random';
+const WRONG_SET='wrong';
+const WEAK_SET='weak';
 const POSITIONS={
   'tax-auditor':{
     key:'tax-auditor',
@@ -31,7 +33,10 @@ const pct=(a,b)=>b?Math.round((a/b)*100):0;
 const position=()=>POSITIONS[currentPosition]||null;
 const storageKey=()=>position()?.storageKey||'kexam_tax_v2';
 const isRandomSet=n=>String(n)===RANDOM_SET;
-const setLabel=n=>isRandomSet(n)?'สุ่มจำลองสอบ 100 ข้อ':`ชุดที่ ${n}`;
+const isWrongSet=n=>String(n)===WRONG_SET;
+const isWeakSet=n=>String(n)===WEAK_SET;
+const isPracticeSet=n=>isWrongSet(n)||isWeakSet(n);
+const setLabel=n=>isRandomSet(n)?'สุ่มจำลองสอบ 100 ข้อ':isWrongSet(n)?'ฝึกเฉพาะข้อที่เคยผิด':isWeakSet(n)?'ฝึกหมวดที่ควรทบทวน':`ชุดที่ ${n}`;
 
 function loadGlobal(){try{return JSON.parse(localStorage.getItem(storageKey())||'{}')}catch{return {}}}
 function saveGlobal(g){localStorage.setItem(storageKey(),JSON.stringify(g))}
@@ -94,4 +99,5 @@ function renderSetHome(){
   const randomHtml=`<button class="random-practice-card" id="randomPractice"><div class="random-orbit" aria-hidden="true">✦</div><div><div class="eyebrow">NOVA RANDOM PRACTICE</div><h3>สุ่มจำลองสอบ 100 ข้อจากคลัง 1,000 ข้อ</h3><p>ระบบสุ่มข้อใหม่โดยรักษาสัดส่วนหมวดเนื้อหาของคลังตำแหน่งนี้ เหมาะสำหรับจำลองสอบโดยไม่จำลำดับชุดเดิม</p><div class="random-tags"><span>ไม่ซ้ำในรอบเดียว</span><span>บันทึกความคืบหน้า</span><span>ตรวจคะแนนและเฉลยครบ</span></div></div><div class="random-side"><strong>${randomScore}</strong><span>${randomAction} →</span>${randomBest!==null?`<small>คะแนนสูงสุด ${randomBest}/100</small>`:''}</div></button>`;
   const weak=weaknessSummary();
   const weaknessHtml=weak.length?`<section class="weakness-card"><div class="weakness-head"><div><div class="eyebrow">PERFORMANCE INSIGHT</div><h3>จุดที่ควรทบทวนจากผลล่าสุด</h3><p>วิเคราะห์จากการส่งข้อสอบล่าสุดสูงสุด 10 ครั้งในอุปกรณ์นี้ เรียงจากหมวดที่มีร้อยละคำตอบถูกต่ำกว่า</p></div><span class="weakness-badge">${weak.length} หมวด</span></div><div class="weakness-list">${weak.slice(0,4).map((x,i)=>`<div class="weakness-row"><div class="weakness-rank">${i+1}</div><div class="weakness-main"><div class="weakness-label"><strong>${esc(x.name)}</strong><span>${x.correct}/${x.total} · ${x.percent}%</span></div><div class="weakness-bar"><span style="width:${x.percent}%"></span></div></div></div>`).join('')}</div></section>`:`<section class="weakness-card weakness-empty"><div><div class="eyebrow">PERFORMANCE INSIGHT</div><h3>ระบบวิเคราะห์จุดที่ควรทบทวนพร้อมใช้งาน</h3><p>เมื่อส่งข้อสอบอย่างน้อย 1 ครั้ง ระบบจะสรุปผลรายหมวดและเรียงหัวข้อที่ควรกลับไปทบทวนให้โดยอัตโนมัติ</p></div></section>`;
+  const personalPracticeHtml=`<section class="personal-practice-card"><div><div class="eyebrow">PERSONAL PRACTICE</div><h3>ฝึกจากผลของคุณ</h3><p>สร้างชุดฝึกจากข้อที่เคยตอบผิด หรือเลือกฝึกหมวดที่ควรทบทวนจากผลล่าสุด โดยระบบจะใช้ข้อจริงจากคลังตำแหน่งนี้</p></div><div class="personal-practice-actions"><button class="primary-btn" id="wrongPractice">ฝึกเฉพาะข้อที่เคยผิด</button>${weak.length?`<button class="ghost-btn" id="weakPractice">ฝึกหมวดอ่อนที่สุด · ${esc(weak[0].name)}</button>`:''}</div></section>`;
   const extra=`<button class="ghost-btn compact-btn" id="changePosition">← เปลี่ยนตำแหน่ง</button>`;

@@ -326,3 +326,13 @@ button:disabled{opacity:.45!important;filter:saturate(.45)!important;box-shadow:
 .weakness-bar span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#f59e0b,#0ea5e9,#2563eb)}
 .weakness-empty{background:linear-gradient(135deg,#fff,#f8fbff)}
 @media(max-width:620px){.weakness-head{display:block}.weakness-badge{display:inline-block;margin-top:12px}.weakness-label{display:block}.weakness-label span{display:block;margin-top:3px}.weakness-card{padding:18px}}
+
+/* NOVA personalized practice */
+.personal-practice-card{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:24px;border:1px solid var(--line,#dbe2ea);border-radius:20px;background:var(--panel,#fff);margin-bottom:24px}
+.personal-practice-card h3{margin:4px 0 8px}.personal-practice-card p{margin:0;max-width:760px;color:var(--muted,#667085)}
+.personal-practice-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end}
+.review-meta-line{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.question-id{font-size:.78rem;font-weight:700;letter-spacing:.04em;color:var(--muted,#667085);background:rgba(127,127,127,.08);padding:6px 9px;border-radius:999px}
+.report-row{display:flex;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--line,#e5e7eb)}
+.report-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}
+@media(max-width:760px){.personal-practice-card{align-items:stretch;flex-direction:column}.personal-practice-actions{justify-content:stretch}.personal-practice-actions button{width:100%}.report-options{grid-template-columns:1fr}}
