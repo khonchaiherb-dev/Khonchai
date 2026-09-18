@@ -20,11 +20,18 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin gh-pages --depth=1
+          grep -q 'SOURCE_GATE_THRESHOLD=70' .github/workflows/kexam-apply-lifecycle-decisions.yml
+          grep -q 'validatePublishSourceGate' .github/workflows/kexam-apply-lifecycle-decisions.yml
+          grep -q 'SOURCE GATE SELF-TEST PASS' .github/workflows/kexam-apply-lifecycle-decisions.yml
           node <<'NODE'
           const cp=require('child_process'),zlib=require('zlib'),crypto=require('crypto');
           const show=p=>cp.execFileSync('git',['show',`origin/gh-pages:${p}`],{encoding:'utf8',maxBuffer:12*1024*1024}).trim();
           const manifest=JSON.parse(show('tax-exam/question-publication-manifest.json'));
           const integrity=JSON.parse(show('tax-exam/question-content-integrity.json'));
+          const backlog=JSON.parse(show('tax-exam/source-verification-backlog.json'));
+          if(backlog.schema_version!==1||!Array.isArray(backlog.rows))throw new Error('invalid source-verification backlog');
+          const urgentPending=backlog.rows.filter(x=>Number(x.priority_score)>=70);
+          console.log('SOURCE GATE GRANDFATHERED CURRENTLY PUBLISHED',JSON.stringify({threshold:70,urgent_pending:urgentPending.length,note:'existing Published items are not withdrawn retroactively; future Verified->Published transitions are gated'}));
           if(integrity.schema_version!==1||integrity.algorithm!=='sha256')throw new Error('invalid question-content-integrity schema');
           if(Object.keys(integrity.questions||{}).length!==2000)throw new Error('content integrity baseline must contain exactly 2,000 Question IDs');
           const canonical=(data,r)=>JSON.stringify({
