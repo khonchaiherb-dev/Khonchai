@@ -4,6 +4,7 @@ const RANDOM_SET='random';
 const WRONG_SET='wrong';
 const WEAK_SET='weak';
 const TOPIC_SET='topic';
+const REPEAT_SET='repeat';
 const POSITIONS={
   'tax-auditor':{
     key:'tax-auditor',
@@ -37,8 +38,9 @@ const isRandomSet=n=>String(n)===RANDOM_SET;
 const isWrongSet=n=>String(n)===WRONG_SET;
 const isWeakSet=n=>String(n)===WEAK_SET;
 const isTopicSet=n=>String(n)===TOPIC_SET;
-const isPracticeSet=n=>isWrongSet(n)||isWeakSet(n)||isTopicSet(n);
-const setLabel=n=>isRandomSet(n)?'สุ่มจำลองสอบ 100 ข้อ':isWrongSet(n)?'ฝึกเฉพาะข้อที่เคยผิด':isWeakSet(n)?'ฝึกหมวดที่ควรทบทวน':isTopicSet(n)?'ฝึกหัวข้อย่อยที่ควรทบทวน':`ชุดที่ ${n}`;
+const isRepeatSet=n=>String(n)===REPEAT_SET;
+const isPracticeSet=n=>isWrongSet(n)||isWeakSet(n)||isTopicSet(n)||isRepeatSet(n);
+const setLabel=n=>isRandomSet(n)?'สุ่มจำลองสอบ 100 ข้อ':isWrongSet(n)?'ฝึกเฉพาะข้อที่เคยผิด':isWeakSet(n)?'ฝึกหมวดที่ควรทบทวน':isTopicSet(n)?'ฝึกหัวข้อย่อยที่ควรทบทวน':isRepeatSet(n)?'ฝึกข้อที่พลาดบ่อย':'ชุดที่ '+n;
 
 function loadGlobal(){try{return JSON.parse(localStorage.getItem(storageKey())||'{}')}catch{return {}}}
 function saveGlobal(g){localStorage.setItem(storageKey(),JSON.stringify(g))}
@@ -85,6 +87,13 @@ function weaknessTopicSummary(){
   recent.forEach(x=>Object.entries(x.topic||{}).forEach(([topic,v])=>{const total=Number(v?.total)||0,correct=Number(v?.correct)||0;if(!total)return;m[topic]??={total:0,correct:0};m[topic].total+=total;m[topic].correct+=Math.max(0,Math.min(correct,total))}));
   return Object.entries(m).filter(([,v])=>v.total>=2).map(([name,v])=>({name,...v,percent:pct(v.correct,v.total)})).sort((a,b)=>a.percent-b.percent||b.total-a.total||a.name.localeCompare(b.name,'th'));
 }
+function repeatedMistakeSummary(){
+  const stats=loadGlobal().itemStats||{};
+  return Object.entries(stats).map(([id,x])=>{
+    const attempts=Number(x?.attempts)||0,correct=Number(x?.correct)||0,accuracy=attempts?Math.round(correct*100/attempts):100,wrong=Math.max(0,attempts-correct);
+    return{id,attempts,correct,wrong,accuracy,topic:String(x?.topic||x?.category||''),prompt:String(x?.prompt||'')};
+  }).filter(x=>x.attempts>=2&&x.wrong>=1).sort((a,b)=>b.wrong-a.wrong||a.accuracy-b.accuracy||b.attempts-a.attempts||a.id.localeCompare(b.id)).slice(0,50);
+}
 function renderPositionHome(){
   stopTimer();persist();state=null;bank=null;currentPosition=null;setUrlPosition(null);
   let cards='';
@@ -107,8 +116,8 @@ function renderSetHome(){
   const randomScore=randomSt?.submitted?`${randomSt.score}/100`:(randomAnswered?`ทำแล้ว ${randomAnswered} ข้อ`:'ยังไม่ได้เริ่ม');
   const randomAction=randomSt?.submitted?'ดูผล / สุ่มชุดใหม่':randomAnswered?'ทำต่อ':'เริ่มสุ่มข้อสอบ';
   const randomHtml=`<button class="random-practice-card" id="randomPractice"><div class="random-orbit" aria-hidden="true">✦</div><div><div class="eyebrow">NOVA RANDOM PRACTICE</div><h3>สุ่มจำลองสอบ 100 ข้อจากคลัง 1,000 ข้อ</h3><p>ระบบสุ่มข้อใหม่โดยรักษาสัดส่วนหมวดเนื้อหาของคลังตำแหน่งนี้ เหมาะสำหรับจำลองสอบโดยไม่จำลำดับชุดเดิม</p><div class="random-tags"><span>ไม่ซ้ำในรอบเดียว</span><span>บันทึกความคืบหน้า</span><span>ตรวจคะแนนและเฉลยครบ</span></div></div><div class="random-side"><strong>${randomScore}</strong><span>${randomAction} →</span>${randomBest!==null?`<small>คะแนนสูงสุด ${randomBest}/100</small>`:''}</div></button>`;
-  const weak=weaknessSummary(),weakTopic=weaknessTopicSummary();
+  const weak=weaknessSummary(),weakTopic=weaknessTopicSummary(),repeatWeak=repeatedMistakeSummary();
   const weaknessHtml=weak.length?`<section class="weakness-card"><div class="weakness-head"><div><div class="eyebrow">PERFORMANCE INSIGHT</div><h3>จุดที่ควรทบทวนจากผลล่าสุด</h3><p>วิเคราะห์จากการส่งข้อสอบล่าสุดสูงสุด 10 ครั้งในอุปกรณ์นี้ เรียงจากหมวดที่มีร้อยละคำตอบถูกต่ำกว่า</p></div><span class="weakness-badge">${weak.length} หมวด</span></div><div class="weakness-list">${weak.slice(0,4).map((x,i)=>`<div class="weakness-row"><div class="weakness-rank">${i+1}</div><div class="weakness-main"><div class="weakness-label"><strong>${esc(x.name)}</strong><span>${x.correct}/${x.total} · ${x.percent}%</span></div><div class="weakness-bar"><span style="width:${x.percent}%"></span></div></div></div>`).join('')}</div></section>`:`<section class="weakness-card weakness-empty"><div><div class="eyebrow">PERFORMANCE INSIGHT</div><h3>ระบบวิเคราะห์จุดที่ควรทบทวนพร้อมใช้งาน</h3><p>เมื่อส่งข้อสอบอย่างน้อย 1 ครั้ง ระบบจะสรุปผลรายหมวดและเรียงหัวข้อที่ควรกลับไปทบทวนให้โดยอัตโนมัติ</p></div></section>`;
   const topicInsightHtml=weakTopic.length?`<section class="weakness-card topic-insight-card"><div class="weakness-head"><div><div class="eyebrow">SUBTOPIC INSIGHT</div><h3>หัวข้อย่อยที่ควรทบทวน</h3><p>วิเคราะห์จากผลสอบล่าสุดสูงสุด 10 ครั้ง และแยกละเอียดถึงหัวข้อย่อยของคลังข้อสอบ</p></div><span class="weakness-badge">${weakTopic.length} หัวข้อ</span></div><div class="weakness-list">${weakTopic.slice(0,5).map((x,i)=>`<div class="weakness-row"><div class="weakness-rank">${i+1}</div><div class="weakness-main"><div class="weakness-label"><strong>${esc(x.name)}</strong><span>${x.correct}/${x.total} · ${x.percent}%</span></div><div class="weakness-bar"><span style="width:${x.percent}%"></span></div></div></div>`).join('')}</div></section>`:'';
-  const personalPracticeHtml=`<section class="personal-practice-card"><div><div class="eyebrow">PERSONAL PRACTICE</div><h3>ฝึกจากผลของคุณ</h3><p>สร้างชุดฝึกจากข้อที่เคยตอบผิด หมวดที่ควรทบทวน หรือหัวข้อย่อยที่อ่อนที่สุด โดยใช้ข้อจริงจากคลังตำแหน่งนี้</p></div><div class="personal-practice-actions"><button class="primary-btn" id="wrongPractice">ฝึกเฉพาะข้อที่เคยผิด</button>${weak.length?`<button class="ghost-btn" id="weakPractice">ฝึกหมวดอ่อนที่สุด · ${esc(weak[0].name)}</button>`:''}${weakTopic.length?`<button class="ghost-btn" id="topicPractice">ฝึกหัวข้อย่อยอ่อนที่สุด · ${esc(weakTopic[0].name)}</button>`:''}</div></section>`;
+  const personalPracticeHtml=`<section class="personal-practice-card"><div><div class="eyebrow">PERSONAL PRACTICE</div><h3>ฝึกจากผลของคุณ</h3><p>สร้างชุดฝึกจากข้อที่เคยตอบผิด ข้อที่พลาดซ้ำ หมวดที่ควรทบทวน หรือหัวข้อย่อยที่อ่อนที่สุด โดยใช้ข้อจริงจากคลังตำแหน่งนี้</p></div><div class="personal-practice-actions"><button class="primary-btn" id="wrongPractice">ฝึกเฉพาะข้อที่เคยผิด</button>${repeatWeak.length?`<button class="ghost-btn" id="repeatPractice">ฝึกข้อที่พลาดบ่อย · ${Math.min(40,repeatWeak.length)} ข้อ</button>`:''}${weak.length?`<button class="ghost-btn" id="weakPractice">ฝึกหมวดอ่อนที่สุด · ${esc(weak[0].name)}</button>`:''}${weakTopic.length?`<button class="ghost-btn" id="topicPractice">ฝึกหัวข้อย่อยอ่อนที่สุด · ${esc(weakTopic[0].name)}</button>`:''}</div></section>`;
   const extra=`<button class="ghost-btn compact-btn" id="changePosition">← เปลี่ยนตำแหน่ง</button>`;
