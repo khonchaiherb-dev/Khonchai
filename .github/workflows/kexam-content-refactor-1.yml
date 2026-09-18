@@ -93,9 +93,9 @@ jobs:
                 if(ci===x.r[3])continue;
                 const wm=/มาตรา\s*40\((\d)\)/.exec(newChoices[ci]),section=wm?Number(wm[1]):null;
                 const basis=section&&canonical[section]?canonical[section]:newChoices[ci];
-                wrongParts.push(`${newChoices[ci]} ไม่ถูกต้อง เพราะเป็นเงินได้คนละประเภท โดยตัวเลือกนี้อธิบาย ${basis} ขณะที่ข้อเท็จจริงในโจทย์เข้าลักษณะ ${correctText}`);
+                wrongParts.push(`${newChoices[ci]} ไม่ถูกต้อง เพราะเป็นเงินได้คนละประเภทกับข้อเท็จจริงในโจทย์`);
               }
-              const wrong=wrongParts.join(' · ');
+              const wrong=wrongParts.join(' · ')+' · คำตอบที่ถูกต้องคือ '+correctText;
               const newIdx=[];for(const text of newChoices){d.s.push(text);newIdx.push(d.s.length-1)}x.r[2]=newIdx;
               put(x.r,5,wrong);
               changedChoices++;
@@ -137,9 +137,9 @@ jobs:
               if(!newChoices)throw new Error('ไม่พบชุดตัวลวง VAT ใหม่ที่ไม่ซ้ำสำหรับ '+x.id);
               usedChoiceKeys.add(newKey);
               const wrongParts=[];
-              for(let ci=0;ci<4;ci++)if(ci!==x.r[3])wrongParts.push(`${newChoices[ci]} ไม่ถูกต้อง เพราะเกณฑ์จดทะเบียน VAT ในโจทย์พิจารณาหน้าที่จากจำนวนรายรับและเงื่อนไขของกิจการ ไม่ใช่หลักตามตัวเลือกนี้ ขณะที่คำตอบที่ถูกคือ ${correctText}`);
+              for(let ci=0;ci<4;ci++)if(ci!==x.r[3])wrongParts.push(`${newChoices[ci]} ไม่ถูกต้อง เพราะไม่สอดคล้องกับเกณฑ์จดทะเบียน VAT ตามข้อเท็จจริงในโจทย์`);
               const newIdx=[];for(const text of newChoices){d.s.push(text);newIdx.push(d.s.length-1)}x.r[2]=newIdx;
-              put(x.r,5,wrongParts.join(' · '));
+              put(x.r,5,wrongParts.join(' · ')+' · คำตอบที่ถูกต้องคือ '+correctText);
               vatQuestionsChanged++;
             });
           }
@@ -159,6 +159,27 @@ jobs:
               put(x.r,1,np);changedPrompts++;
             });
           }
+
+          // Compact overlong generated wrong-choice reasons without removing any choice references.
+          let compactedWrongReasons=0;
+          for(const x of items){
+            const choices=(x.r[2]||[]).map(i=>String(d.s[i]??'').trim()),correctText=choices[x.r[3]],wrong=get(x.r,5);
+            if(wrong.length<=800)continue;
+            const section40=choices.every(c=>/มาตรา\s*40\((\d)\)/.test(c));
+            const vat=/VAT/i.test(choices.join(' '))&&/จดทะเบียน/i.test(choices.join(' '));
+            if(!section40&&!vat)continue;
+            const parts=[];
+            for(let ci=0;ci<4;ci++){
+              if(ci===x.r[3])continue;
+              parts.push(vat
+                ?`${choices[ci]} ไม่ถูกต้อง เพราะไม่สอดคล้องกับเกณฑ์จดทะเบียน VAT ตามข้อเท็จจริงในโจทย์`
+                :`${choices[ci]} ไม่ถูกต้อง เพราะเป็นเงินได้คนละประเภทกับข้อเท็จจริงในโจทย์`);
+            }
+            const compact=parts.join(' · ')+' · คำตอบที่ถูกต้องคือ '+correctText;
+            if(compact.length>800)throw new Error('ไม่สามารถย่อเหตุผลตัวเลือกผิดให้ต่ำกว่า 800 ตัวอักษรได้ '+x.id);
+            put(x.r,5,compact);compactedWrongReasons++;
+          }
+          console.log('compacted_wrong_reasons',compactedWrongReasons);
 
           // Full-bank validation after refactor.
           const prompts=[],choiceKeys=[];let answerCounts=[0,0,0,0];
