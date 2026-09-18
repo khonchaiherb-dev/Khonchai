@@ -7,6 +7,10 @@ on:
       - '.github/workflows/kexam-apply-lifecycle-decisions.yml'
   workflow_dispatch:
 
+concurrency:
+  group: kexam-gh-pages-writer
+  cancel-in-progress: false
+
 permissions:
   contents: write
   actions: write
