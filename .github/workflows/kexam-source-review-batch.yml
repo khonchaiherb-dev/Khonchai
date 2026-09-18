@@ -1,0 +1,144 @@
+name: K-EXAM Source Review Batch
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-source-review-batch.yml'
+  workflow_dispatch:
+    inputs:
+      batch_size:
+        description: 'จำนวนข้อในชุดตรวจ'
+        required: false
+        default: '50'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Build private source review batch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages --depth=1
+          SIZE="${{ github.event.inputs.batch_size || '50' }}"
+          if ! [[ "$SIZE" =~ ^[0-9]+$ ]] || [ "$SIZE" -lt 1 ] || [ "$SIZE" -gt 200 ]; then
+            echo "batch_size must be 1..200" >&2
+            exit 1
+          fi
+          BATCH_SIZE="$SIZE" node <<'NODE'
+          const cp=require('child_process'),zlib=require('zlib'),fs=require('fs');
+          const show=p=>cp.execFileSync('git',['show',`origin/gh-pages:${p}`],{encoding:'utf8',maxBuffer:64*1024*1024});
+          const backlog=JSON.parse(show('tax-exam/source-verification-backlog.json'));
+          if(backlog.schema_version!==1||!Array.isArray(backlog.rows))throw new Error('source backlog invalid');
+          const size=Number(process.env.BATCH_SIZE||50);
+
+          const configs={
+            'tax-auditor':{
+              prefix:'TA',
+              files:['bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt']
+            },
+            'revenue-academic':{
+              prefix:'RA',
+              files:['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt']
+            }
+          };
+          const banks={};
+          for(const [position,cfg] of Object.entries(configs)){
+            const b64=cfg.files.map(f=>show('tax-exam/'+f).trim()).join('').replace(/\s+/g,'');
+            const data=JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8'));
+            if(!Array.isArray(data.q)||data.q.length!==10||data.q.some(s=>s.length!==100))throw new Error(position+' bank invalid');
+            banks[position]=data;
+          }
+
+          const selected=backlog.rows.slice(0,size);
+          if(!selected.length)throw new Error('source backlog is empty');
+          const letters=['ก','ข','ค','ง'];
+          const batch=selected.map((row,idx)=>{
+            const data=banks[row.position];
+            if(!data)throw new Error('unknown position '+row.position);
+            const si=Number(row.set)-1,qi=Number(row.question)-1,r=data.q?.[si]?.[qi];
+            if(!r)throw new Error('bank row missing '+row.question_id);
+            const category=String(data.s[r[0]]||''),prompt=String(data.s[r[1]]||'');
+            const choices=(r[2]||[]).map(i=>String(data.s[i]||''));
+            const answer=Number(r[3]),answerText=choices[answer];
+            const explanation=String(data.s[r[4]]||''),wrongReasons=String(data.s[r[5]]||'');
+            if(choices.length!==4||answer<0||answer>3||!answerText)throw new Error('invalid question '+row.question_id);
+            return{
+              review_order:idx+1,
+              question_id:row.question_id,
+              position:row.position,
+              set:Number(row.set),
+              question:Number(row.question),
+              priority:row.priority,
+              priority_score:Number(row.priority_score)||0,
+              priority_reasons:Array.isArray(row.reasons)?row.reasons:[],
+              category,
+              topic:row.topic||category,
+              prompt,
+              choices,
+              correct_answer:{index:answer,letter:letters[answer],text:answerText},
+              explanation,
+              wrong_reasons:wrongReasons,
+              current_source_state:row.source_state||'pending',
+              review_form:{
+                decision:'',
+                reviewed_at:'',
+                review_note:'',
+                source_refs:[
+                  {title:'',url:'',checked_at:'',section:'',note:''}
+                ]
+              }
+            };
+          });
+
+          const out={
+            schema_version:1,
+            generated_at:new Date().toISOString(),
+            batch_size:batch.length,
+            selection_policy:'source-verification-backlog priority order',
+            warning:'ไฟล์นี้มีคำตอบและคำอธิบาย ใช้สำหรับการตรวจภายใน ไม่ควรเผยแพร่เป็นไฟล์สาธารณะ',
+            questions:batch
+          };
+          fs.writeFileSync('/tmp/kexam-source-review-batch.json',JSON.stringify(out,null,2)+'\n');
+
+          const decisionTemplate={
+            schema_version:1,
+            updated_at:new Date().toISOString().slice(0,10),
+            records:batch.map(q=>({
+              question_id:q.question_id,
+              decision:'',
+              reviewed_at:'',
+              review_note:'',
+              source_refs:[{title:'',url:'',checked_at:'',section:'',note:''}]
+            }))
+          };
+          fs.writeFileSync('/tmp/kexam-source-review-decisions-template.json',JSON.stringify(decisionTemplate,null,2)+'\n');
+
+          const csvCell=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+          const header=['review_order','question_id','position','priority','priority_score','category','topic','prompt','correct_letter','correct_answer','decision','reviewed_at','review_note','source_title','source_url','source_checked_at','source_section'];
+          const lines=[header.join(',')];
+          for(const q of batch){
+            lines.push([
+              q.review_order,q.question_id,q.position,q.priority,q.priority_score,q.category,q.topic,q.prompt,
+              q.correct_answer.letter,q.correct_answer.text,'','','','','','',''
+            ].map(csvCell).join(','));
+          }
+          fs.writeFileSync('/tmp/kexam-source-review-batch.csv','\ufeff'+lines.join('\r\n'));
+
+          const counts=batch.reduce((m,q)=>{m[q.priority]=(m[q.priority]||0)+1;return m},{});
+          console.log('SOURCE REVIEW BATCH',JSON.stringify({size:batch.length,priority:counts,first:batch[0].question_id,last:batch.at(-1).question_id}));
+          NODE
+
+      - name: Upload private review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kexam-source-review-batch
+          path: |
+            /tmp/kexam-source-review-batch.json
+            /tmp/kexam-source-review-batch.csv
+            /tmp/kexam-source-review-decisions-template.json
+          if-no-files-found: error
+          retention-days: 30
