@@ -1,0 +1,126 @@
+name: K-EXAM Diversify Academic VAT Choices
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-diversify-academic-vat-choices.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diversify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 1
+
+      - name: Diversify repeated VAT registration choices safely
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs'),zlib=require('zlib');
+          const files=['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'];
+          const paths=files.map(f=>'tax-exam/'+f);
+          const b64=paths.map(p=>fs.readFileSync(p,'utf8').trim()).join('').replace(/\s+/g,'');
+          const d=JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8'));
+          const s=d.s;
+          const old=[
+            'รายรับเกินเกณฑ์ VAT ต้องยื่นจดทะเบียนภายใน 30 วัน หากไม่มีข้อยกเว้น',
+            'ให้ใช้อัตราภาษีธุรกิจเฉพาะแทนโดยอัตโนมัติ',
+            'ไม่ต้องจด VAT เพราะเกณฑ์พิจารณาจากกำไรสุทธิเท่านั้น',
+            'ต้องจด VAT เสมอไม่ว่ารายรับเท่าใด'
+          ];
+          const variants=[
+            [
+              'เมื่อรายรับเกินเกณฑ์ VAT และไม่มีข้อยกเว้น ต้องยื่นคำขอจดทะเบียนภายใน 30 วัน',
+              'ให้เปลี่ยนไปเสียภาษีธุรกิจเฉพาะแทนโดยอัตโนมัติ',
+              'ไม่ต้องจดทะเบียน VAT เพราะให้พิจารณากำไรสุทธิเป็นเกณฑ์เท่านั้น',
+              'มีหน้าที่จดทะเบียน VAT ทุกกรณีโดยไม่ขึ้นกับจำนวนรายรับ'
+            ],
+            [
+              'กรณีรายรับเกินเกณฑ์ VAT และกิจการไม่อยู่ในข้อยกเว้น ต้องยื่นจดทะเบียนภายใน 30 วัน',
+              'เมื่อรายรับเกินเกณฑ์ให้เสียภาษีธุรกิจเฉพาะแทนทันทีโดยอัตโนมัติ',
+              'ไม่เกิดหน้าที่จด VAT เนื่องจากเกณฑ์ต้องดูเฉพาะกำไรสุทธิ',
+              'ต้องจด VAT เสมอ แม้รายรับยังไม่ถึงเกณฑ์'
+            ],
+            [
+              'หากรายรับเกินเกณฑ์จดทะเบียน VAT และไม่มีข้อยกเว้น ต้องยื่นคำขอภายใน 30 วัน',
+              'รายรับเกินเกณฑ์ทำให้เปลี่ยนเป็นผู้เสียภาษีธุรกิจเฉพาะโดยอัตโนมัติ',
+              'ไม่ต้องยื่นจด VAT เพราะจำนวนกำไรสุทธิเป็นเกณฑ์เพียงอย่างเดียว',
+              'ไม่ว่ารายรับจะเป็นเท่าใดก็ต้องจดทะเบียน VAT ทุกกรณี'
+            ]
+          ];
+          const sortedKey=a=>JSON.stringify([...a].sort());
+          const targetKey=sortedKey(old);
+          const matches=[];
+          d.q.forEach((set,si)=>set.forEach((r,qi)=>{
+            const choices=(r[2]||[]).map(x=>String(s[x]??'').trim());
+            if(sortedKey(choices)===targetKey)matches.push({r,si,qi,choices});
+          }));
+          if(matches.length!==19)throw new Error('คาดว่าจะพบชุดตัวเลือก VAT ซ้ำ 19 ข้อ แต่พบ '+matches.length);
+          if(matches.some(x=>x.r[3]!==0))throw new Error('พบคำตอบของกลุ่ม VAT ที่ไม่ได้อยู่ตัวเลือก ก. จึงยุติเพื่อความปลอดภัย');
+
+          let changed=0;
+          matches.slice(10).forEach((m,idx)=>{
+            const v=variants[idx%variants.length];
+            const oldChoices=m.choices;
+            const newIdx=[];
+            for(let i=0;i<4;i++){s.push(v[i]);newIdx.push(s.length-1)}
+            m.r[2]=newIdx;
+            for(const field of [4,5]){
+              let t=String(s[m.r[field]]??'');
+              for(let i=0;i<4;i++)t=t.split(oldChoices[i]).join(v[i]);
+              s.push(t);m.r[field]=s.length-1;
+            }
+            changed++;
+          });
+          if(changed!==9)throw new Error('จำนวนข้อที่ปรับไม่ถูกต้อง: '+changed);
+
+          const all=[];
+          d.q.forEach((set,si)=>set.forEach((r,qi)=>all.push({
+            id:(si+1)+'.'+(qi+1),
+            prompt:String(s[r[1]]??'').trim(),
+            choices:(r[2]||[]).map(x=>String(s[x]??'').trim()),
+            answer:r[3],
+            exp:String(s[r[4]]??''),
+            wrong:String(s[r[5]]??'')
+          })));
+          const counts=new Map();
+          for(const x of all){const k=sortedKey(x.choices);counts.set(k,(counts.get(k)||0)+1)}
+          const maxChoiceReuse=Math.max(...counts.values());
+          if(maxChoiceReuse>10)throw new Error('ยังมีชุดตัวเลือกซ้ำเกิน 10 ข้อ: '+maxChoiceReuse);
+          for(const x of all){
+            const answerText=x.choices[x.answer];
+            if(!answerText||!x.exp.includes(answerText))throw new Error('คำอธิบายไม่สอดคล้องกับตัวเลือกคำตอบ: '+x.id);
+            for(let i=0;i<4;i++)if(i!==x.answer&&!x.wrong.includes(x.choices[i]))throw new Error('เหตุผลข้อผิดไม่อ้างตัวเลือกปัจจุบัน: '+x.id+' choice '+i);
+          }
+          console.log('vat_choice_group_found',matches.length);
+          console.log('questions_reworded',changed);
+          console.log('max_exact_choice_set_reuse',maxChoiceReuse);
+
+          const enc=zlib.gzipSync(Buffer.from(JSON.stringify(d)),{level:9}).toString('base64');
+          let pos=0;
+          for(let i=0;i<files.length;i++){
+            let end=i===files.length-1?enc.length:Math.floor(enc.length*(i+1)/files.length);
+            if(i<files.length-1)end-=end%4;
+            fs.writeFileSync(paths[i],enc.slice(pos,end));
+            pos=end;
+          }
+          const check=paths.map(p=>fs.readFileSync(p,'utf8').trim()).join('');
+          const d2=JSON.parse(zlib.gunzipSync(Buffer.from(check,'base64')).toString('utf8'));
+          if(d2.q.length!==10||d2.q.some(set=>set.length!==100))throw new Error('คลังหลังเขียนไม่ครบ 10 x 100');
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tax-exam/ra-bank-*.txt
+          if git diff --cached --quiet; then
+            echo "No academic VAT choice changes needed"
+            exit 0
+          fi
+          git commit -m "Diversify repeated academic VAT choice wording"
+          git push origin HEAD:gh-pages
