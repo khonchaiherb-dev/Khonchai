@@ -2,8 +2,40 @@
   bindBrand();$('#changePosition').onclick=()=>{persist();renderPositionHome()};document.querySelectorAll('.set-card').forEach(el=>el.onclick=()=>openSet(+el.dataset.set));$('#randomPractice').onclick=()=>openSet(RANDOM_SET);$('#wrongPractice').onclick=()=>beginPractice(WRONG_SET,null,true,false);const weakBtn=$('#weakPractice');if(weakBtn&&weak.length)weakBtn.onclick=()=>beginPractice(WEAK_SET,weak[0].name,true,false);const topicBtn=$('#topicPractice');if(topicBtn&&weakTopic.length)topicBtn.onclick=()=>beginPractice(TOPIC_SET,weakTopic[0].name,true,false);
 }
 
+async function loadPublicationManifest(){
+  if(publicationManifest)return publicationManifest;
+  if(!publicationManifestPromise)publicationManifestPromise=(async()=>{
+    const r=await fetch('question-publication-manifest.json',{cache:'no-store'});
+    if(!r.ok)throw new Error('โหลด Publication Manifest ไม่สำเร็จ');
+    const m=await r.json();
+    if(Number(m?.schema_version)!==1||!m?.positions)throw new Error('Publication Manifest ไม่ถูกต้อง');
+    for(const key of Object.keys(POSITIONS)){
+      const ids=m.positions?.[key]?.published_ids;
+      if(!Array.isArray(ids))throw new Error(`Publication Manifest ไม่มีรายการ Published ของ ${key}`);
+      publishedIdSets[key]=new Set(ids.map(String));
+    }
+    publicationManifest=m;return m;
+  })().catch(e=>{publicationManifestPromise=null;throw e});
+  return publicationManifestPromise;
+}
+function isPublishedQuestionId(id,key=currentPosition){
+  const set=publishedIdSets[key];return !!set&&set.has(String(id));
+}
+function publicationInfo(id,key=currentPosition){
+  const m=publicationManifest,pos=m?.positions?.[key],published=isPublishedQuestionId(id,key);
+  const verified=Array.isArray(pos?.source_verified_ids)&&pos.source_verified_ids.includes(String(id));
+  const o=m?.source_overrides?.[id]||{};
+  return{
+    status:published?'Published':Array.isArray(pos?.retired_ids)&&pos.retired_ids.includes(String(id))?'Retired':'Unpublished',
+    qaState:published?(m?.defaults?.Published?.qa_state||'verified'):'not-published',
+    sourceState:o.source_state||(verified?'verified':m?.defaults?.Published?.source_state||'pending'),
+    sourceRefs:Array.isArray(o.source_refs)?o.source_refs:(m?.defaults?.Published?.source_refs||[]),
+    lastQaVerified:o.last_qa_verified||m?.defaults?.Published?.last_qa_verified||null
+  };
+}
+
 async function loadCompactBank(key=currentPosition){
-  const p=POSITIONS[key];if(!p)throw new Error('ยังไม่ได้เลือกตำแหน่งสอบ');
+  const p=POSITIONS[key];if(!p)throw new Error('ยังไม่ได้เลือกตำแหน่งสอบ');await loadPublicationManifest();
   if(!bankPromises[key])bankPromises[key]=(async()=>{
     const parts=await Promise.all(p.bankFiles.map(async f=>{const r=await fetch(f,{cache:'no-store'});if(!r.ok)throw new Error(`โหลดข้อมูลไม่สำเร็จ: ${f}`);return (await r.text()).trim()}));
     const b64=parts.join('').replace(/\s+/g,'');
@@ -37,8 +69,8 @@ function deriveTopic(category,prompt){
   for(const [name,re] of rules)if(re.test(x))return name;
   return c||'อื่น ๆ';
 }
-function decodeQuestion(c,r,si,qi){const t=c.s,category=t[r[0]],prompt=t[r[1]];return{id:questionId(si,qi),number:si*100+qi+1,sourceSet:si+1,sourceIndex:qi+1,category,topic:deriveTopic(category,prompt),prompt,choices:r[2].map(x=>t[x]),answer:r[3],explanation:t[r[4]],wrongReasons:t[r[5]]}}
-async function loadSet(n){const c=await loadCompactBank(),rows=c.q[n-1];return{set:n,title:`ชุดที่ ${n}`,questions:rows.map((r,i)=>decodeQuestion(c,r,n-1,i))}}
+function decodeQuestion(c,r,si,qi){const t=c.s,category=t[r[0]],prompt=t[r[1]],id=questionId(si,qi),pub=publicationInfo(id);return{id,number:si*100+qi+1,sourceSet:si+1,sourceIndex:qi+1,category,topic:deriveTopic(category,prompt),lifecycleStatus:pub.status,qaState:pub.qaState,sourceState:pub.sourceState,lastQaVerified:pub.lastQaVerified,prompt,choices:r[2].map(x=>t[x]),answer:r[3],explanation:t[r[4]],wrongReasons:t[r[5]]}}
+async function loadSet(n){const c=await loadCompactBank(),rows=c.q[n-1],questions=rows.map((r,i)=>decodeQuestion(c,r,n-1,i)).filter(q=>isPublishedQuestionId(q.id));if(!questions.length)throw new Error('ชุดนี้ไม่มีข้อที่ผ่านสถานะ Published');return{set:n,title:`ชุดที่ ${n}`,questions}}
 function randomize(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){let j;if(globalThis.crypto?.getRandomValues){const x=new Uint32Array(1);crypto.getRandomValues(x);j=x[0]%(i+1)}else j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function allocateSample(groups,target){
   const total=Object.values(groups).reduce((n,ids)=>n+ids.length,0);if(!total||target<=0)return[];
@@ -50,7 +82,7 @@ function allocateSample(groups,target){
 }
 function buildRandomPlan(c){
   const cats={};let total=0;
-  c.q.forEach((set,si)=>set.forEach((r,qi)=>{const cat=String(c.s[r[0]]||'ไม่ระบุ'),prompt=String(c.s[r[1]]||''),topic=deriveTopic(cat,prompt);cats[cat]??={};(cats[cat][topic]??=[]).push(`${si}:${qi}`);total++}));
+  c.q.forEach((set,si)=>set.forEach((r,qi)=>{const id=questionId(si,qi);if(!isPublishedQuestionId(id))return;const cat=String(c.s[r[0]]||'ไม่ระบุ'),prompt=String(c.s[r[1]]||''),topic=deriveTopic(cat,prompt);cats[cat]??={};(cats[cat][topic]??=[]).push(`${si}:${qi}`);total++}));
   const catEntries=Object.entries(cats).map(([cat,topics])=>{const size=Object.values(topics).reduce((n,a)=>n+a.length,0),raw=size/total*100;return{cat,topics,size,raw,quota:Math.floor(raw)}});
   let left=100-catEntries.reduce((n,x)=>n+x.quota,0);
   catEntries.sort((a,b)=>(b.raw-b.quota)-(a.raw-a.quota)||b.size-a.size||a.cat.localeCompare(b.cat,'th'));
@@ -61,13 +93,13 @@ function buildRandomPlan(c){
 }
 async function loadRandomSet(savedIds=null){
   const c=await loadCompactBank();let ids=Array.isArray(savedIds)?savedIds.map(String):null;
-  const valid=id=>{const m=/^(\d+):(\d+)$/.exec(id);if(!m)return false;const si=+m[1],qi=+m[2];return !!c.q?.[si]?.[qi]};
+  const valid=id=>{const m=/^(\d+):(\d+)$/.exec(id);if(!m)return false;const si=+m[1],qi=+m[2];return !!c.q?.[si]?.[qi]&&isPublishedQuestionId(questionId(si,qi))};
   if(!ids||ids.length!==100||new Set(ids).size!==100||ids.some(id=>!valid(id)))ids=buildRandomPlan(c);
   const questions=ids.map(id=>{const [si,qi]=id.split(':').map(Number);return decodeQuestion(c,c.q[si][qi],si,qi)});
   return{set:RANDOM_SET,title:'สุ่มจำลองสอบ 100 ข้อ',questions,randomIds:ids};
 }
 
-function questionFromId(c,id){const p=parseQuestionId(id);return p&&c.q?.[p.si]?.[p.qi]?decodeQuestion(c,c.q[p.si][p.qi],p.si,p.qi):null}
+function questionFromId(c,id){const p=parseQuestionId(id);return p&&isPublishedQuestionId(id)&&c.q?.[p.si]?.[p.qi]?decodeQuestion(c,c.q[p.si][p.qi],p.si,p.qi):null}
 function collectHistoryWrongIds(){
   const out=[];
   [...Array(SETS).keys()].map(i=>i+1).concat([RANDOM_SET,WRONG_SET,WEAK_SET,TOPIC_SET]).forEach(n=>getHistory(n).forEach(h=>{if(Array.isArray(h?.wrongIds))out.push(...h.wrongIds)}));
@@ -89,12 +121,12 @@ async function collectWrongIds(c){
   return [...ids];
 }
 function buildWeakPlan(c,category,limit=50){
-  const ids=[];c.q.forEach((set,si)=>set.forEach((r,qi)=>{if(String(c.s[r[0]]||'')===String(category))ids.push(questionId(si,qi))}));
+  const ids=[];c.q.forEach((set,si)=>set.forEach((r,qi)=>{const id=questionId(si,qi);if(isPublishedQuestionId(id)&&String(c.s[r[0]]||'')===String(category))ids.push(id)}));
   if(!ids.length)throw new Error('ไม่พบข้อสอบในหมวดที่เลือก');
   return randomize(ids).slice(0,Math.min(limit,ids.length));
 }
 function buildTopicPlan(c,topic,limit=40){
-  const ids=[];c.q.forEach((set,si)=>set.forEach((r,qi)=>{const cat=String(c.s[r[0]]||''),prompt=String(c.s[r[1]]||'');if(deriveTopic(cat,prompt)===String(topic))ids.push(questionId(si,qi))}));
+  const ids=[];c.q.forEach((set,si)=>set.forEach((r,qi)=>{const id=questionId(si,qi);if(!isPublishedQuestionId(id))return;const cat=String(c.s[r[0]]||''),prompt=String(c.s[r[1]]||'');if(deriveTopic(cat,prompt)===String(topic))ids.push(id)}));
   if(!ids.length)throw new Error('ไม่พบข้อสอบในหัวข้อย่อยที่เลือก');
   return randomize(ids).slice(0,Math.min(limit,ids.length));
 }
