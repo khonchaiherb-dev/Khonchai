@@ -25,7 +25,7 @@ jobs:
           git show origin/gh-pages:tax-exam/sw-v2.js | grep -q "kexam-tax-v25"
           git show origin/gh-pages:tax-exam/sw-v2.js | grep -q 'question-content-integrity.json'
           git show origin/gh-pages:tax-exam/sw-v2.js | grep -q 'source-reverification-watchlist.json'
-          for f in app-v3.js base64-fix.js app-v3-part1.txt app-v3-part2.txt app-v3-part3.txt app-v3-part4.txt positions-v10.css cosmic-v12.css analytics-config.js analytics-v13.js admin/index.html admin/admin-v13.js admin/admin-v13.css sw-v2.js manifest.webmanifest question-publication-manifest.json question-content-integrity.json source-verification-backlog.json source-reverification-watchlist.json; do
+          for f in app-v3.js base64-fix.js app-v3-part1.txt app-v3-part2.txt app-v3-part3.txt app-v3-part4.txt positions-v10.css cosmic-v12.css analytics-config.js analytics-v13.js admin/index.html admin/admin-v13.js admin/admin-v13.css sw-v2.js manifest.webmanifest question-publication-manifest.json question-content-integrity.json source-verification-backlog.json source-reverification-watchlist.json source-review-batch-registry.json; do
             git cat-file -e "origin/gh-pages:tax-exam/$f"
           done
           for f in supabase/migrations/20260918_kexam_analytics.sql supabase/migrations/20260918_kexam_item_analytics_v2.sql supabase/migrations/20260918_kexam_item_discrimination_v3.sql supabase/migrations/20260918_kexam_item_psychometrics_v4.sql supabase/migrations/20260918_kexam_quality_review_v5.sql supabase/migrations/20260918_kexam_item_time_v6.sql supabase/functions/kexam-ingest/index.ts supabase/functions/kexam-dashboard/index.ts; do
@@ -94,6 +94,10 @@ jobs:
           grep -q 'sourceFreshnessSummaryHtml' /tmp/admin.js
           grep -q 'filteredFreshnessRows' /tmp/admin.js
           grep -q 'exportFreshnessCsv' /tmp/admin.js
+          grep -q 'sourceReviewBatchRegistry' /tmp/admin.js
+          grep -q 'sourceBatchSummaryHtml' /tmp/admin.js
+          grep -q 'sourceBatchHistoryHtml' /tmp/admin.js
+          grep -q 'source-review-batch-registry.json' /tmp/admin.js
           grep -q 'question-content-integrity.json' /tmp/admin.js
           grep -q 'text/csv' /tmp/admin.js
           grep -q '#itemStats' /tmp/admin.js || grep -q "itemStats').innerHTML" /tmp/admin.js
@@ -148,6 +152,22 @@ jobs:
           console.log('PASS content integrity baseline',ids.length);
           NODE
           node <<'NODE'
+          const cp=require('child_process');
+          const show=p=>cp.execFileSync('git',['show',`origin/gh-pages:tax-exam/${p}`],{encoding:'utf8',maxBuffer:16*1024*1024}).trim();
+          const x=JSON.parse(show('source-review-batch-registry.json'));
+          if(x.schema_version!==1||!Array.isArray(x.batches))throw new Error('invalid source review batch registry');
+          const idRe=/^SRB-\d{8}-[a-f0-9]{12}$/,hashRe=/^[a-f0-9]{64}$/,qidRe=/^(RA|TA)-S(0[1-9]|10)-Q(0[0-9]{2}|100)$/;
+          const seen=new Set(),forbidden=['prompt','choices','correct_answer','explanation','wrong_reasons','source_refs'];
+          for(const b of x.batches){
+            if(!idRe.test(String(b.batch_id||''))||seen.has(b.batch_id))throw new Error('invalid/duplicate batch_id '+b.batch_id);seen.add(b.batch_id);
+            if(!hashRe.test(String(b.batch_snapshot_sha256||'')))throw new Error('invalid batch snapshot '+b.batch_id);
+            if(!['generated','applied'].includes(String(b.status||'')))throw new Error('invalid batch status '+b.batch_id);
+            if(!Array.isArray(b.question_ids)||b.question_ids.length!==Number(b.batch_size||0)||new Set(b.question_ids).size!==b.question_ids.length||b.question_ids.some(id=>!qidRe.test(String(id))))throw new Error('invalid registry Question IDs '+b.batch_id);
+            const raw=JSON.stringify(b);for(const k of forbidden)if(raw.includes('"'+k+'"'))throw new Error('registry leaks '+k);
+          }
+          console.log('PASS source review batch registry',JSON.stringify({batches:x.batches.length,generated:x.batches.filter(b=>b.status==='generated').length,applied:x.batches.filter(b=>b.status==='applied').length}));
+          NODE
+          node <<'NODE'
           const cp=require('child_process'),zlib=require('zlib');
           const show=f=>cp.execFileSync('git',['show',`origin/gh-pages:tax-exam/${f}`],{encoding:'utf8',maxBuffer:4*1024*1024}).trim();
           const tax=['bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt'];
@@ -185,14 +205,14 @@ jobs:
           grep -q 'app-v3.js?v=25' /tmp/live/index.html
           grep -q 'analytics-v13.js?v=25' /tmp/live/index.html
           grep -q 'cosmic-v12.css?v=25' /tmp/live/index.html
-          files=(app-v3.js base64-fix.js analytics-config.js analytics-v13.js app-v3-part1.txt app-v3-part2.txt app-v3-part3.txt app-v3-part4.txt cosmic-v12.css ra-bank-01.txt ra-bank-02a.txt ra-bank-02b.txt ra-bank-03a.txt ra-bank-03b.txt ra-bank-04.txt ra-bank-05.txt ra-bank-06.txt ra-bank-07.txt ra-bank-08.txt ra-bank-09.txt ra-bank-10.txt admin/index.html admin/admin-v13.js admin/admin-v13.css)
+          files=(app-v3.js base64-fix.js analytics-config.js analytics-v13.js app-v3-part1.txt app-v3-part2.txt app-v3-part3.txt app-v3-part4.txt cosmic-v12.css ra-bank-01.txt ra-bank-02a.txt ra-bank-02b.txt ra-bank-03a.txt ra-bank-03b.txt ra-bank-04.txt ra-bank-05.txt ra-bank-06.txt ra-bank-07.txt ra-bank-08.txt ra-bank-09.txt ra-bank-10.txt admin/index.html admin/admin-v13.js admin/admin-v13.css source-review-batch-registry.json)
           
           for f in "${files[@]}"; do curl -fsSL --retry 20 --retry-all-errors --retry-delay 4 -H 'Cache-Control: no-cache' "$BASE/$f?v=25-$GITHUB_SHA" -o "/tmp/live/$(basename $f)"; done
           node --check /tmp/live/app-v3.js
           node --check /tmp/live/base64-fix.js
           node --check /tmp/live/analytics-v13.js
           node --check /tmp/live/admin-v13.js
-          grep -q 'admin-v13.js?v=27' /tmp/live/index.html
+          grep -q 'admin-v13.js?v=29' /tmp/live/index.html
           grep -q 'difficulty_index' /tmp/live/admin-v13.js
           grep -q 'discrimination' /tmp/live/admin-v13.js
           grep -q 'distractor_efficiency' /tmp/live/admin-v13.js
@@ -211,9 +231,19 @@ jobs:
           grep -q 'sourceFreshnessSummaryHtml' /tmp/live/admin-v13.js
           grep -q 'filteredFreshnessRows' /tmp/live/admin-v13.js
           grep -q 'exportFreshnessCsv' /tmp/live/admin-v13.js
+          grep -q 'sourceReviewBatchRegistry' /tmp/live/admin-v13.js
+          grep -q 'sourceBatchSummaryHtml' /tmp/live/admin-v13.js
+          grep -q 'sourceBatchHistoryHtml' /tmp/live/admin-v13.js
           grep -q 'question-content-integrity.json' /tmp/live/admin-v13.js
           grep -q 'text/csv' /tmp/live/admin-v13.js
           grep -q 'K-EXAM Analytics' /tmp/live/index.html || true
+          node <<'NODE'
+          const fs=require('fs');
+          const x=JSON.parse(fs.readFileSync('/tmp/live/source-review-batch-registry.json','utf8'));
+          if(x.schema_version!==1||!Array.isArray(x.batches)||x.batches.length<1)throw new Error('LIVE source review registry missing/invalid');
+          if(JSON.stringify(x).match(/"(prompt|choices|correct_answer|explanation|wrong_reasons|source_refs)"/))throw new Error('LIVE registry leaks private review data');
+          console.log('PASS LIVE source review registry',x.batches.length);
+          NODE
           cat /tmp/live/app-v3-part1.txt /tmp/live/app-v3-part2.txt /tmp/live/app-v3-part3.txt /tmp/live/app-v3-part4.txt > /tmp/live/combined.js
           node --check /tmp/live/combined.js
           node <<'NODE'
