@@ -1,4 +1,5 @@
 name: K-EXAM Content Integrity Baseline
+# gh-pages writer safety: targeted concurrency + rebase retry
 
 on:
   push:
@@ -12,6 +13,10 @@ on:
         required: true
         type: boolean
         default: false
+
+concurrency:
+  group: kexam-content-integrity-writer
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -162,4 +167,16 @@ jobs:
             exit 0
           fi
           git commit -m "Update question content integrity baseline"
-          git push origin HEAD:gh-pages
+          for attempt in 1 2 3 4 5; do
+            git fetch origin gh-pages
+            if git rebase origin/gh-pages; then
+              if git push origin HEAD:gh-pages; then
+                exit 0
+              fi
+            else
+              git rebase --abort || true
+            fi
+            sleep $((attempt * 2))
+          done
+          echo "Unable to update gh-pages after 5 attempts" >&2
+          exit 1

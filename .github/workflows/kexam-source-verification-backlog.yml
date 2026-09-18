@@ -1,10 +1,15 @@
 name: K-EXAM Source Verification Backlog
+# gh-pages writer safety: targeted concurrency + rebase retry
 on:
   push:
     paths:
       - '.github/workflows/kexam-source-verification-backlog.yml'
       - 'docs/KEXAM_QUESTION_LIFECYCLE.md'
   workflow_dispatch:
+
+concurrency:
+  group: kexam-source-backlog-writer
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -122,4 +127,16 @@ jobs:
             exit 0
           fi
           git commit -m "Update source verification backlog"
-          git push origin HEAD:gh-pages
+          for attempt in 1 2 3 4 5; do
+            git fetch origin gh-pages
+            if git rebase origin/gh-pages; then
+              if git push origin HEAD:gh-pages; then
+                exit 0
+              fi
+            else
+              git rebase --abort || true
+            fi
+            sleep $((attempt * 2))
+          done
+          echo "Unable to update gh-pages after 5 attempts" >&2
+          exit 1

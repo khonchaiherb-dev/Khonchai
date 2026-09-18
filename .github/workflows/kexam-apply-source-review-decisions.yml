@@ -1,4 +1,5 @@
 name: K-EXAM Apply Source Review Decisions
+# gh-pages writer safety: targeted concurrency + rebase retry
 on:
   push:
     paths:
@@ -6,6 +7,10 @@ on:
       - 'docs/KEXAM_SOURCE_REVIEW_PIPELINE.md'
       - '.github/workflows/kexam-apply-source-review-decisions.yml'
   workflow_dispatch:
+
+concurrency:
+  group: kexam-publication-manifest-writer
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -180,7 +185,19 @@ jobs:
             echo "Publication manifest unchanged"
           else
             git commit -m "Apply source review decisions"
-            git push origin HEAD:gh-pages
+            for attempt in 1 2 3 4 5; do
+            git fetch origin gh-pages
+            if git rebase origin/gh-pages; then
+              if git push origin HEAD:gh-pages; then
+                exit 0
+              fi
+            else
+              git rebase --abort || true
+            fi
+            sleep $((attempt * 2))
+          done
+          echo "Unable to update gh-pages after 5 attempts" >&2
+          exit 1
           fi
 
       - name: Refresh source backlog and lifecycle verification
