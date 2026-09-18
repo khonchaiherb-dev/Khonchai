@@ -2934,5 +2934,178 @@
       "content_hash_algorithm": "sha256",
       "content_sha256": "f2923becf49bcf083b0f2d2c4eebfcda4ca74873b49930b3315b3e5cfb848ab6"
     }
-  }
+  },
+  "remediation_log": [
+    {
+      "remediation_id": "TA-REM-TA-S02-Q080-6311629783ba",
+      "remediation_signature": "680ce4bc67f1d7ca511eeb4c02995b864886bdbae5ab8666866e2be66c7bb9c8",
+      "question_id": "TA-S02-Q080",
+      "position": "tax-auditor",
+      "internal_transition": [
+        "Published",
+        "Reviewed",
+        "Verified",
+        "Published"
+      ],
+      "reviewed_at": "2026-09-18",
+      "review_note": "ปรับข้อซ้ำเป็นสถานการณ์ประยุกต์ พร้อมออกแบบตัวลวงใหม่เฉพาะบริบท ตรวจคำตอบ เฉลย และเหตุผลตัวเลือกผิดให้สอดคล้องกันแล้ว",
+      "old_content_sha256": "6311629783ba97f0cb11f5c378ecdbecf1c288d94717fc9e6de4a898253720d8",
+      "new_content_sha256": "81b5528b7e07dee006c5e7049999a393d9811444cc6a5bbe94d3bf6d2e482ad0",
+      "source_verification_reset": false,
+      "qa_state": "verified",
+      "applied_at": "2026-09-18T11:02:56.131Z"
+    },
+    {
+      "remediation_id": "TA-REM-TA-S03-Q040-b5a081fb5b15",
+      "remediation_signature": "d366764aa69d0482628c72e27886d697aad4dddd235fb391f34be18381942e35",
+      "question_id": "TA-S03-Q040",
+      "position": "tax-auditor",
+      "internal_transition": [
+        "Published",
+        "Reviewed",
+        "Verified",
+        "Published"
+      ],
+      "reviewed_at": "2026-09-18",
+      "review_note": "ปรับข้อซ้ำเป็นสถานการณ์ประยุกต์ พร้อมออกแบบตัวลวงใหม่เฉพาะบริบท ตรวจคำตอบ เฉลย และเหตุผลตัวเลือกผิดให้สอดคล้องกันแล้ว",
+      "old_content_sha256": "b5a081fb5b15eea7572e6b33ef045db88d36c699327446c18ee63d2219ed2379",
+      "new_content_sha256": "3c4e4372265164767ed2f20170e1cfb43f43f37bb5a102f8c31d10b4f687be75",
+      "source_verification_reset": false,
+      "qa_state": "verified",
+      "applied_at": "2026-09-18T11:02:56.131Z"
+    },
+    {
+      "remediation_id": "TA-REM-TA-S04-Q063-b06ff9058002",
+      "remediation_signature": "65d4cad9f2d1911ea8b792aaf295e8a1b0d164e02f2379a2a0d132853fdcb8c6",
+      "question_id": "TA-S04-Q063",
+      "position": "tax-auditor",
+      "internal_transition": [
+        "Published",
+        "Reviewed",
+        "Verified",
+        "Published"
+      ],
+      "reviewed_at": "2026-09-18",
+      "review_note": "ปรับข้อซ้ำเป็นสถานการณ์ประยุกต์ พร้อมออกแบบตัวลวงใหม่เฉพาะบริบท ตรวจคำตอบ เฉลย และเหตุผลตัวเลือกผิดให้สอดคล้องกันแล้ว",
+      "old_content_sha256": "b06ff9058002fe499faf842617ccdee18078883615c54ffa60117e5b5deaa443",
+      "new_content_sha256": "470ec322097fe91a3c3091b756c83e37da50ba3645a2afe7f20aaf33a5dd4759",
+      "source_verification_reset": false,
+      "qa_state": "verified",
+      "applied_at": "2026-09-18T11:02:56.131Z"
+    },
+    {
+      "remediation_id": "TA-REM-TA-S05-Q049-48d00ffd1b8f",
+      "remediation_signature": "ddc1e886a7b9d723e163cd80c50a76710e846356036be21868307365b3d2b27f",
+      "question_id": "TA-S05-Q049",
+      "position": "tax-auditor",
+      "internal_transition": [
+        "Published",
+        "Reviewed",
+        "Verified",
+        "Published"
+      ],
+      "reviewed_at": "2026-09-18",
+      "review_note": "ปรับข้อซ้ำเป็นสถานการณ์ประยุกต์ พร้อมออกแบบตัวลวงใหม่เฉพาะบริบท ตรวจคำตอบ เฉลย และเหตุผลตัวเลือกผิดให้สอดคล้องกันแล้ว",
+      "old_content_sha256": "48d00ffd1b8f6db9f216c8d36d939a7ddcab766b10ada39f1e66a14fdd16a285",
+      "new_content_sha256": "2a739b47007fdf4f40a996e141caba243a35a0199b71546a90e87a14425bc0b4",
+      "source_verification_reset": false,
+      "qa_state": "verified",
+      "applied_at": "2026-09-18T11:02:56.131Z"
+    },
+    {
+      "remediation_id": "TA-REM-TA-S06-Q061-c1ea61b8b3d8",
+      "remediation_signature": "86047112d46e8a78d85bf900b9822c736cefa648d3f22050895d79d559c2119b",
+      "question_id": "TA-S06-Q061",
+      "position": "tax-auditor",
+      "internal_transition": [
+        "Published",
+        "Reviewed",
+        "Verified",
+        "Published"
+      ],
+      "reviewed_at": "2026-09-18",
+      "review_note": "ปรับข้อซ้ำเป็นสถานการณ์ประยุกต์ พร้อมออกแบบตัวลวงใหม่เฉพาะบริบท ตรวจคำตอบ เฉลย และเหตุผลตัวเลือกผิดให้สอดคล้องกันแล้ว",
+      "old_content_sha256": "c1ea61b8b3d8eaecae40e3ccb2450b9c7feb0ce03495191aaf09d3a1139474ab",
+      "new_content_sha256": "abee773781f10831b63c3a7e03374f843d42ad1591332a403ee47740d7d57ee8",
+      "source_verification_reset": false,
+      "qa_state": "verified",
+      "applied_at": "2026-09-18T11:02:56.131Z"
+    },
+    {
+      "remediation_id": "TA-REM-TA-S07-Q066-5a2b96f3ce24",
+      "remediation_signature": "69663969a68fcf00d3595b8c0e079ae5197528c7fbb3abbfc72742e13721ce0e",
+      "question_id": "TA-S07-Q066",
+      "position": "tax-auditor",
+      "internal_transition": [
+        "Published",
+        "Reviewed",
+        "Verified",
+        "Published"
+      ],
+      "reviewed_at": "2026-09-18",
+      "review_note": "ปรับข้อซ้ำเป็นสถานการณ์ประยุกต์ พร้อมออกแบบตัวลวงใหม่เฉพาะบริบท ตรวจคำตอบ เฉลย และเหตุผลตัวเลือกผิดให้สอดคล้องกันแล้ว",
+      "old_content_sha256": "5a2b96f3ce2423c8390b872e752d4aa55aaa55348d5e27df3dbd8f2459da789e",
+      "new_content_sha256": "e61c0af282790702ae83a135971db3a1c3f4de7eec7c405de006f299c70fea1b",
+      "source_verification_reset": false,
+      "qa_state": "verified",
+      "applied_at": "2026-09-18T11:02:56.131Z"
+    },
+    {
+      "remediation_id": "TA-REM-TA-S08-Q063-f63aef990b70",
+      "remediation_signature": "5f7c3517d38aa153d6502904520a100326ea97582563d13f23ef26083122b172",
+      "question_id": "TA-S08-Q063",
+      "position": "tax-auditor",
+      "internal_transition": [
+        "Published",
+        "Reviewed",
+        "Verified",
+        "Published"
+      ],
+      "reviewed_at": "2026-09-18",
+      "review_note": "ปรับข้อซ้ำเป็นสถานการณ์ประยุกต์ พร้อมออกแบบตัวลวงใหม่เฉพาะบริบท ตรวจคำตอบ เฉลย และเหตุผลตัวเลือกผิดให้สอดคล้องกันแล้ว",
+      "old_content_sha256": "f63aef990b70429b91dffc3299531941937ad416700567f437872b7ab33c2866",
+      "new_content_sha256": "fee10613728151c80302e05f4a713f116b26adef3be38962f1da2f8e4b42b509",
+      "source_verification_reset": false,
+      "qa_state": "verified",
+      "applied_at": "2026-09-18T11:02:56.132Z"
+    },
+    {
+      "remediation_id": "TA-REM-TA-S09-Q076-5d78f8a0e019",
+      "remediation_signature": "a8d84bb2b5330a1df113e08d23e5736a2a87d3907fe2d354706624b9556ae1d1",
+      "question_id": "TA-S09-Q076",
+      "position": "tax-auditor",
+      "internal_transition": [
+        "Published",
+        "Reviewed",
+        "Verified",
+        "Published"
+      ],
+      "reviewed_at": "2026-09-18",
+      "review_note": "ปรับข้อซ้ำเป็นสถานการณ์ประยุกต์ พร้อมออกแบบตัวลวงใหม่เฉพาะบริบท ตรวจคำตอบ เฉลย และเหตุผลตัวเลือกผิดให้สอดคล้องกันแล้ว",
+      "old_content_sha256": "5d78f8a0e0198db60a554207e561b40411bcf78d1d5ec0857b4bcd92904215a5",
+      "new_content_sha256": "0bf89fdb78754ec5f818b04d20619b39f3bb9123b3cd9b2243377092a65fd2c3",
+      "source_verification_reset": false,
+      "qa_state": "verified",
+      "applied_at": "2026-09-18T11:02:56.132Z"
+    },
+    {
+      "remediation_id": "TA-REM-TA-S10-Q052-8992d5764900",
+      "remediation_signature": "cada46abc9e36b7b9d2a2c2d15c13876017af825ace590cb1a8df748d527d0f9",
+      "question_id": "TA-S10-Q052",
+      "position": "tax-auditor",
+      "internal_transition": [
+        "Published",
+        "Reviewed",
+        "Verified",
+        "Published"
+      ],
+      "reviewed_at": "2026-09-18",
+      "review_note": "ปรับข้อซ้ำเป็นสถานการณ์ประยุกต์ พร้อมออกแบบตัวลวงใหม่เฉพาะบริบท ตรวจคำตอบ เฉลย และเหตุผลตัวเลือกผิดให้สอดคล้องกันแล้ว",
+      "old_content_sha256": "8992d576490030f933697eee5b1523286cb56c31f9f0954c7e3a66607469d7d5",
+      "new_content_sha256": "449237e37b17420bb7d6bdfe1542bdaf304d1c2b70086a17a9492def35cdd75f",
+      "source_verification_reset": false,
+      "qa_state": "verified",
+      "applied_at": "2026-09-18T11:02:56.132Z"
+    }
+  ]
 }
