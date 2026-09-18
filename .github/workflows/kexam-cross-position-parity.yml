@@ -55,3 +55,68 @@ jobs:
           const academic=audit('REVENUE_ACADEMIC',load(academicFiles));
           console.log('\nPARITY NOTE: ทั้งสองตำแหน่งใช้โครงระบบ 10 ชุด x 100 ข้อ, 4 ตัวเลือก, ส่งเมื่อครบ, เฉลยหลังส่ง; blueprint เนื้อหาแยกตามตำแหน่ง');
           NODE
+
+      - name: Build tax-auditor duplicate backlog with stable Question IDs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages --depth=1
+          node <<'NODE'
+          const cp=require('child_process'),zlib=require('zlib');
+          const files=['bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt'];
+          const show=f=>cp.execFileSync('git',['show',`origin/gh-pages:tax-exam/${f}`],{encoding:'utf8',maxBuffer:8*1024*1024}).trim();
+          const d=JSON.parse(zlib.gunzipSync(Buffer.from(files.map(show).join('').replace(/\s+/g,''),'base64')).toString('utf8'));
+          const norm=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu,'');
+          const shape=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[0-9๐-๙]+/g,'#').replace(/[\s\p{P}\p{S}]+/gu,'');
+          const qid=(si,qi)=>`TA-S${String(si+1).padStart(2,'0')}-Q${String(qi+1).padStart(3,'0')}`;
+          const items=[];
+          d.q.forEach((set,si)=>set.forEach((r,qi)=>items.push({
+            id:qid(si,qi),
+            set:si+1,
+            q:qi+1,
+            category:String(d.s[r[0]]??'').trim(),
+            prompt:String(d.s[r[1]]??'').trim(),
+            choices:(r[2]||[]).map(x=>String(d.s[x]??'').trim()),
+            answer:r[3],
+            explanation:String(d.s[r[4]]??'').trim(),
+            wrong:String(d.s[r[5]]??'').trim()
+          })));
+          const group=(keyFn,min=2)=>{
+            const m=new Map();for(const x of items){const k=keyFn(x);const a=m.get(k)||[];a.push(x);m.set(k,a)}
+            return [...m.values()].filter(a=>a.length>=min).sort((a,b)=>b.length-a.length||a[0].id.localeCompare(b[0].id));
+          };
+          const exact=group(x=>x.prompt);
+          const normalized=group(x=>norm(x.prompt));
+          const promptShape=group(x=>shape(x.prompt));
+          const choiceSet=group(x=>JSON.stringify([...x.choices].map(norm).sort()));
+          const exp=group(x=>norm(x.explanation));
+          const wrong=group(x=>norm(x.wrong));
+          const summary={
+            questions:items.length,
+            unique_exact_prompts:new Set(items.map(x=>x.prompt)).size,
+            unique_normalized_prompts:new Set(items.map(x=>norm(x.prompt))).size,
+            exact_prompt_groups:exact.length,
+            exact_prompt_max:exact[0]?.length||1,
+            normalized_prompt_groups:normalized.length,
+            normalized_prompt_max:normalized[0]?.length||1,
+            prompt_shape_groups:promptShape.length,
+            prompt_shape_max:promptShape[0]?.length||1,
+            choice_set_groups:choiceSet.length,
+            choice_set_max:choiceSet[0]?.length||1,
+            explanation_groups:exp.length,
+            explanation_max:exp[0]?.length||1,
+            wrong_reason_groups:wrong.length,
+            wrong_reason_max:wrong[0]?.length||1
+          };
+          console.log('TAX_AUDITOR_DUPLICATE_SUMMARY',JSON.stringify(summary));
+          const print=(label,groups)=>groups.slice(0,20).forEach((g,i)=>console.log(label,JSON.stringify({
+            rank:i+1,reuse:g.length,ids:g.map(x=>x.id),category:g[0].category,sample:g[0].prompt.slice(0,220)
+          })));
+          print('TOP_EXACT_PROMPT',exact);
+          print('TOP_NORMALIZED_PROMPT',normalized);
+          print('TOP_PROMPT_SHAPE',promptShape);
+          print('TOP_CHOICE_SET',choiceSet);
+          print('TOP_EXPLANATION',exp);
+          print('TOP_WRONG_REASON',wrong);
+          if(items.length!==1000)throw new Error('tax-auditor bank must contain 1,000 questions');
+          NODE
