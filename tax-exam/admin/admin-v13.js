@@ -6,7 +6,7 @@
   const pct=n=>Number.isFinite(Number(n))?`${Math.round(Number(n)*10)/10}%`:'–';
   const endpoint=()=>{const b=String(CFG.supabaseUrl||'').replace(/\/$/,'');return b&&CFG.dashboardFunction?`${b}/functions/v1/${CFG.dashboardFunction}`:''};
   const connected=()=>Boolean(endpoint()&&CFG.supabaseAnonKey);
-  let days=30,qualityRowsCache=[];
+  let days=30,qualityRowsCache=[],sourceReservationMap=new Map();
   let publicationCoverageCache=null,sourceBacklogCache=null,contentIntegrityCache=null,sourceFreshnessCache=null,sourceBatchRegistryCache=null;
 
   function localEvents(){try{return JSON.parse(localStorage.getItem('kexam_analytics_local_v1')||'[]')||[]}catch{return[]}}
@@ -121,12 +121,28 @@
       sourceBatchRegistryCache=data;return data;
     }catch{return{schema_version:1,updated_at:null,batches:[],error:true}}
   }
-  function sourceBacklogSummaryHtml(summary={}){
-    return `<div class="metrics"><div class="panel metric"><div class="label">รอตรวจทั้งหมด</div><strong>${fmt(summary.total_pending||0)}</strong><small>source_state = pending</small></div><div class="panel metric"><div class="label">เร่งด่วน</div><strong>${fmt(summary.urgent||0)}</strong><small>มาตรา/อัตรา/กำหนดเวลาหลายสัญญาณ</small></div><div class="panel metric"><div class="label">สูง</div><strong>${fmt(summary.high||0)}</strong><small>ควรตรวจเป็นลำดับต้น</small></div><div class="panel metric"><div class="label">ปกติ</div><strong>${fmt(summary.normal||0)}</strong><small>ตรวจตามลำดับ backlog</small></div></div>`;
+  function sourceBacklogSummaryHtml(summary={},reservedCount=0){
+    const total=Number(summary.total_pending||0),available=Math.max(0,total-Number(reservedCount||0));
+    return `<div class="metrics"><div class="panel metric"><div class="label">รอตรวจทั้งหมด</div><strong>${fmt(total)}</strong><small>source_state = pending</small></div><div class="panel metric"><div class="label">ว่างสำหรับ Batch</div><strong>${fmt(available)}</strong><small>ยังไม่อยู่ใน active reservation</small></div><div class="panel metric"><div class="label">อยู่ใน Batch</div><strong>${fmt(reservedCount)}</strong><small>Question ID ที่ถูกจองชั่วคราว</small></div><div class="panel metric"><div class="label">เร่งด่วน</div><strong>${fmt(summary.urgent||0)}</strong><small>มาตรา/อัตรา/กำหนดเวลาหลายสัญญาณ</small></div><div class="panel metric"><div class="label">สูง</div><strong>${fmt(summary.high||0)}</strong><small>ควรตรวจเป็นลำดับต้น</small></div><div class="panel metric"><div class="label">ปกติ</div><strong>${fmt(summary.normal||0)}</strong><small>ตรวจตามลำดับ backlog</small></div></div>`;
+  }
+  function buildSourceReservationMap(registry={}){
+    const map=new Map(),now=Date.now();
+    for(const b of registry.batches||[]){
+      if(b.status!=='generated'||b.operational_batch===false||b.reservation_released_at)continue;
+      const expires=Date.parse(String(b.reservation_expires_at||''));if(!Number.isFinite(expires)||expires<=now)continue;
+      for(const id of b.question_ids||[])map.set(String(id),{batch_id:b.batch_id,reservation_expires_at:b.reservation_expires_at,generated_at:b.generated_at});
+    }
+    return map;
+  }
+  function batchEffectiveStatus(b){
+    if(b.status==='applied')return'Applied';
+    if(b.operational_batch===false||b.reservation_released_at)return'Released';
+    const expires=Date.parse(String(b.reservation_expires_at||''));if(Number.isFinite(expires)&&expires<=Date.now())return'Expired';
+    return'Active';
   }
   function sourceBatchSummaryHtml(registry={}){
-    const rows=Array.isArray(registry.batches)?registry.batches:[],generated=rows.filter(x=>x.status==='generated').length,applied=rows.filter(x=>x.status==='applied').length,totalQuestions=rows.reduce((n,x)=>n+(Number(x.batch_size)||0),0);
-    return `<div class="metrics"><div class="panel metric"><div class="label">Batch ทั้งหมด</div><strong>${fmt(rows.length)}</strong><small>ประวัติชุดตรวจที่ลงทะเบียน</small></div><div class="panel metric"><div class="label">รอ Apply</div><strong>${fmt(generated)}</strong><small>status = generated</small></div><div class="panel metric"><div class="label">Apply แล้ว</div><strong>${fmt(applied)}</strong><small>status = applied</small></div><div class="panel metric"><div class="label">Question ID รวม</div><strong>${fmt(totalQuestions)}</strong><small>นับตาม batch history</small></div></div>`;
+    const rows=Array.isArray(registry.batches)?registry.batches:[],active=rows.filter(x=>batchEffectiveStatus(x)==='Active').length,applied=rows.filter(x=>batchEffectiveStatus(x)==='Applied').length,released=rows.filter(x=>['Released','Expired'].includes(batchEffectiveStatus(x))).length,totalQuestions=rows.reduce((n,x)=>n+(Number(x.batch_size)||0),0);
+    return `<div class="metrics"><div class="panel metric"><div class="label">Batch ทั้งหมด</div><strong>${fmt(rows.length)}</strong><small>ประวัติชุดตรวจที่ลงทะเบียน</small></div><div class="panel metric"><div class="label">Active Reservation</div><strong>${fmt(active)}</strong><small>จอง Question ID อยู่</small></div><div class="panel metric"><div class="label">Apply แล้ว</div><strong>${fmt(applied)}</strong><small>ผลตรวจถูก apply แล้ว</small></div><div class="panel metric"><div class="label">Released / Expired</div><strong>${fmt(released)}</strong><small>ไม่จอง backlog แล้ว</small></div><div class="panel metric"><div class="label">Question ID รวม</div><strong>${fmt(totalQuestions)}</strong><small>นับตาม batch history</small></div></div>`;
   }
   function sourceBatchHistoryHtml(registry={}){
     const rows=Array.isArray(registry.batches)?registry.batches:[];if(!rows.length)return '<div class="empty">ยังไม่มี Source Review Batch Registry</div>';
@@ -135,7 +151,7 @@
       const pos=Object.entries(b.selection_summary?.positions||{}).map(([k,v])=>`${k==='revenue-academic'?'นักวิชาการฯ':k==='tax-auditor'?'นักตรวจสอบฯ':k} ${fmt(v)}`).join(' · ');
       const topics=Object.entries(b.selection_summary?.topics||{}).sort((a,c)=>Number(c[1])-Number(a[1])).slice(0,4).map(([k,v])=>`${k} ${fmt(v)}`).join(' · ');
       const counts=b.decision_counts?Object.entries(b.decision_counts).map(([k,v])=>`${k} ${fmt(v)}`).join(' · '):'ยังไม่ Apply';
-      return `<div class="row"><div><div class="name">${esc(b.batch_id||'ไม่มี Batch ID')} · ${esc(b.status||'-')} · ${fmt(b.batch_size)} ข้อ</div><div class="meta">สร้าง ${esc(when)} · โหมด ${esc(b.review_mode||'-')}<br>ตำแหน่ง: ${esc(pos||'-')}${topics?`<br>หัวข้อ: ${esc(topics)}`:''}<br>ผลรวม: ${esc(counts)} · Snapshot ${esc(String(b.batch_snapshot_sha256||'').slice(0,16))}…</div></div><div class="val">${esc(b.status==='applied'?'Apply แล้ว':'รอตรวจ')}</div></div>`
+      const effective=batchEffectiveStatus(b),expiry=b.reservation_expires_at?new Intl.DateTimeFormat('th-TH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(b.reservation_expires_at)):'-';const operational=effective==='Active'?`จองถึง ${expiry}`:effective==='Released'?'ปลด reservation แล้ว':effective==='Expired'?'reservation หมดอายุ':'ผลตรวจถูก apply แล้ว';return `<div class="row"><div><div class="name">${esc(b.batch_id||'ไม่มี Batch ID')} · ${esc(effective)} · ${fmt(b.batch_size)} ข้อ</div><div class="meta">สร้าง ${esc(when)} · โหมด ${esc(b.review_mode||'-')} · ${esc(operational)}<br>ตำแหน่ง: ${esc(pos||'-')}${topics?`<br>หัวข้อ: ${esc(topics)}`:''}<br>ผลรวม: ${esc(counts)} · Snapshot ${esc(String(b.batch_snapshot_sha256||'').slice(0,16))}…${b.reservation_release_reason?`<br>เหตุผลปลด: ${esc(b.reservation_release_reason)}`:''}</div></div><div class="val">${esc(effective)}</div></div>`
     }).join('')}</div>`;
   }
   function syncSourcePositionOptions(rows=[]){
@@ -145,18 +161,21 @@
     if(values.includes(keep))el.value=keep;
   }
   function filteredSourceRows(){
-    const data=sourceBacklogCache||{rows:[]},pri=$('#sourcePriority')?.value||'',pos=$('#sourcePosition')?.value||'',q=String($('#sourceSearch')?.value||'').trim().toLowerCase();
-    return (data.rows||[]).filter(r=>(!pri||r.priority===pri)&&(!pos||r.position===pos)&&(!q||[r.question_id,r.category,r.topic,r.prompt].some(v=>String(v||'').toLowerCase().includes(q))));
+    const data=sourceBacklogCache||{rows:[]},pri=$('#sourcePriority')?.value||'',pos=$('#sourcePosition')?.value||'',reservation=$('#sourceReservation')?.value||'',q=String($('#sourceSearch')?.value||'').trim().toLowerCase();
+    return (data.rows||[]).filter(r=>{
+      const reserved=sourceReservationMap.has(String(r.question_id||''));
+      return (!pri||r.priority===pri)&&(!pos||r.position===pos)&&(!reservation||(reservation==='reserved'?reserved:!reserved))&&(!q||[r.question_id,r.category,r.topic,r.prompt].some(v=>String(v||'').toLowerCase().includes(q)))
+    });
   }
   function sourceBacklogList(rows=[]){
     if(!rows.length)return '<div class="empty">ไม่พบรายการตามตัวกรอง</div>';
-    return `<div class="list">${rows.slice(0,100).map(r=>{const pos=r.position==='revenue-academic'?'นักวิชาการสรรพากรฯ':r.position==='tax-auditor'?'นักตรวจสอบภาษีฯ':r.position||'-';const reasons=Array.isArray(r.reasons)?r.reasons.join(' · '):'';return `<div class="row"><div><div class="name">${esc(r.question_id||'ไม่มีรหัส')} · ${esc(r.priority||'ปกติ')} · Priority ${fmt(r.priority_score||0)}</div><div class="meta">${esc(pos)} · ชุด ${fmt(r.set)} ข้อ ${fmt(r.question)} · ${esc(r.topic||r.category||'ไม่ระบุ')}${reasons?`<br>เหตุผลจัดคิว: ${esc(reasons)}`:''}${r.prompt?`<br>${esc(String(r.prompt).slice(0,190))}`:''}</div></div><div class="val">${esc(r.priority||'ปกติ')}</div></div>`}).join('')}</div>`;
+    return `<div class="list">${rows.slice(0,100).map(r=>{const pos=r.position==='revenue-academic'?'นักวิชาการสรรพากรฯ':r.position==='tax-auditor'?'นักตรวจสอบภาษีฯ':r.position||'-';const reasons=Array.isArray(r.reasons)?r.reasons.join(' · '):'',reservation=sourceReservationMap.get(String(r.question_id||''));const reserveText=reservation?`<br>อยู่ใน Batch ${esc(reservation.batch_id)} · จองถึง ${esc(new Intl.DateTimeFormat('th-TH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(reservation.reservation_expires_at)))}`:'';return `<div class="row"><div><div class="name">${esc(r.question_id||'ไม่มีรหัส')} · ${esc(r.priority||'ปกติ')} · Priority ${fmt(r.priority_score||0)}</div><div class="meta">${esc(pos)} · ชุด ${fmt(r.set)} ข้อ ${fmt(r.question)} · ${esc(r.topic||r.category||'ไม่ระบุ')}${reserveText}${reasons?`<br>เหตุผลจัดคิว: ${esc(reasons)}`:''}${r.prompt?`<br>${esc(String(r.prompt).slice(0,190))}`:''}</div></div><div class="val">${reservation?'อยู่ใน Batch':esc(r.priority||'ปกติ')}</div></div>`}).join('')}</div>`;
   }
   function refreshSourceBacklog(){if($('#sourceBacklog'))$('#sourceBacklog').innerHTML=sourceBacklogList(filteredSourceRows())}
   function exportSourceBacklogCsv(){
     const rows=filteredSourceRows();if(!rows.length)return;
-    const header=['question_id','position','set','question','priority','priority_score','category','topic','reasons','prompt','source_state'];
-    const lines=[header.join(',')];for(const r of rows)lines.push([r.question_id,r.position,r.set,r.question,r.priority,r.priority_score,r.category,r.topic,(r.reasons||[]).join(' | '),r.prompt,r.source_state].map(csvCell).join(','));
+    const header=['question_id','position','set','question','priority','priority_score','category','topic','reservation_batch_id','reservation_expires_at','reasons','prompt','source_state'];
+    const lines=[header.join(',')];for(const r of rows){const reservation=sourceReservationMap.get(String(r.question_id||''));lines.push([r.question_id,r.position,r.set,r.question,r.priority,r.priority_score,r.category,r.topic,reservation?.batch_id||'',reservation?.reservation_expires_at||'',(r.reasons||[]).join(' | '),r.prompt,r.source_state].map(csvCell).join(','))}
     const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`kexam-source-verification-backlog-${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0);
   }
 
@@ -331,7 +350,8 @@
     $('#publicationCoverage').innerHTML=publicationCoverageHtml(pub);
     if($('#lifecycleDecisions'))$('#lifecycleDecisions').innerHTML=lifecycleDecisionList(pub.decisionLog||[]);
     if($('#contentIntegrityCoverage'))$('#contentIntegrityCoverage').innerHTML=contentIntegrityCoverageHtml(integrity);
-    if($('#sourceBacklogSummary'))$('#sourceBacklogSummary').innerHTML=sourceBacklogSummaryHtml(sourceBacklog.summary||{});
+    sourceReservationMap=buildSourceReservationMap(batchRegistry);
+    if($('#sourceBacklogSummary'))$('#sourceBacklogSummary').innerHTML=sourceBacklogSummaryHtml(sourceBacklog.summary||{},sourceReservationMap.size);
     if($('#sourceBatchSummary'))$('#sourceBatchSummary').innerHTML=sourceBatchSummaryHtml(batchRegistry);
     if($('#sourceBatchHistory'))$('#sourceBatchHistory').innerHTML=sourceBatchHistoryHtml(batchRegistry);
     syncSourcePositionOptions(sourceBacklog.rows||[]);
@@ -365,6 +385,7 @@
   $('#exportFreshness').onclick=exportFreshnessCsv;
   $('#sourcePriority').onchange=refreshSourceBacklog;
   $('#sourcePosition').onchange=refreshSourceBacklog;
+  $('#sourceReservation').onchange=refreshSourceBacklog;
   $('#sourceSearch').oninput=refreshSourceBacklog;
   $('#exportSourceBacklog').onclick=exportSourceBacklogCsv;
   $('#qualityPriority').onchange=refreshQualityQueue;
