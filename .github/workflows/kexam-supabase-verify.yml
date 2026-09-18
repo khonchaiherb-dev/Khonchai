@@ -52,6 +52,7 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 -f supabase/migrations/20260918_kexam_item_discrimination_v3.sql
           psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 -f supabase/migrations/20260918_kexam_item_psychometrics_v4.sql
           psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 -f supabase/migrations/20260918_kexam_quality_review_v5.sql
+          psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 -f supabase/migrations/20260918_kexam_item_time_v6.sql
 
       - name: Verify centralized item analytics
         run: |
@@ -62,12 +63,12 @@ jobs:
           ) values
           (
             '00000000-0000-4000-8000-000000000001','user-a','session-a','exam_submit','revenue-academic',1,20,300,'direct','desktop','18','/tax-exam/',
-            '{"total":20,"exam_mode":"fixed","wrong_questions":["RA-S01-Q002"],"item_responses":["RA-S01-Q001|0|0","RA-S01-Q002|1|2"],"topic_result":{"ภาษีมูลค่าเพิ่ม (VAT)":{"correct":1,"total":2}}}'::jsonb,
+            '{"total":20,"exam_mode":"fixed","wrong_questions":["RA-S01-Q002"],"item_responses":["RA-S01-Q001|0|0","RA-S01-Q002|1|2"],"item_times":["RA-S01-Q001|30","RA-S01-Q002|90"],"topic_result":{"ภาษีมูลค่าเพิ่ม (VAT)":{"correct":1,"total":2}}}'::jsonb,
             now()
           ),
           (
             '00000000-0000-4000-8000-000000000002','user-b','session-b','exam_submit','revenue-academic',2,50,600,'direct','mobile','18','/tax-exam/',
-            '{"total":100,"exam_mode":"random","wrong_questions":[],"item_responses":["RA-S01-Q001|0|0","RA-S01-Q002|2|2"],"topic_result":{"ภาษีมูลค่าเพิ่ม (VAT)":{"correct":2,"total":2}}}'::jsonb,
+            '{"total":100,"exam_mode":"random","wrong_questions":[],"item_responses":["RA-S01-Q001|0|0","RA-S01-Q002|2|2"],"item_times":["RA-S01-Q001|20","RA-S01-Q002|40"],"topic_result":{"ภาษีมูลค่าเพิ่ม (VAT)":{"correct":2,"total":2}}}'::jsonb,
             now()
           ),
           (
@@ -82,7 +83,7 @@ jobs:
           ),
           (
             '00000000-0000-4000-8000-000000000005','user-a','session-a2','exam_submit','revenue-academic',1,10,240,'direct','desktop','18','/tax-exam/',
-            '{"total":20,"exam_mode":"fixed","wrong_questions":[],"item_responses":["RA-S01-Q002|2|2"],"topic_result":{"ภาษีมูลค่าเพิ่ม (VAT)":{"correct":1,"total":1}}}'::jsonb,
+            '{"total":20,"exam_mode":"fixed","wrong_questions":[],"item_responses":["RA-S01-Q002|2|2"],"item_times":["RA-S01-Q002|10"],"topic_result":{"ภาษีมูลค่าเพิ่ม (VAT)":{"correct":1,"total":1}}}'::jsonb,
             now() + interval '1 minute'
           );
 
@@ -109,6 +110,10 @@ jobs:
                 and (x->>'distractor_efficiency')::numeric between 33.3 and 33.4
                 and (x->>'discrimination')::numeric < 0
                 and x->>'psychometric_basis' = 'first-response-per-user'
+                and x->>'time_basis' = 'first-response-per-user-active-time'
+                and (x->>'time_samples')::int = 2
+                and (x->>'avg_time_seconds')::numeric = 65.0
+                and (x->>'median_time_seconds')::numeric = 65.0
                 and x ? 'avg_rest_correct'
                 and x ? 'avg_rest_incorrect'
                 and x ? 'quality_status'
