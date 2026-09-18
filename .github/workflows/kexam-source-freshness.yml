@@ -8,6 +8,10 @@ on:
   schedule:
     - cron: '20 0 * * 1'
 
+concurrency:
+  group: kexam-gh-pages-writer
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
