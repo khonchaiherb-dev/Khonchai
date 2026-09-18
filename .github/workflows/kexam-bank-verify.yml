@@ -23,7 +23,7 @@ jobs:
           git show origin/gh-pages:tax-exam/index.html | grep -q '2,000'
           git show origin/gh-pages:tax-exam/manifest.webmanifest | grep -q '2,000'
           git show origin/gh-pages:tax-exam/sw-v2.js | grep -q "kexam-tax-v23"
-          for f in app-v3.js app-v3-part1.txt app-v3-part2.txt app-v3-part3.txt app-v3-part4.txt positions-v10.css cosmic-v12.css analytics-config.js analytics-v13.js admin/index.html admin/admin-v13.js admin/admin-v13.css sw-v2.js manifest.webmanifest; do
+          for f in app-v3.js app-v3-part1.txt app-v3-part2.txt app-v3-part3.txt app-v3-part4.txt positions-v10.css cosmic-v12.css analytics-config.js analytics-v13.js admin/index.html admin/admin-v13.js admin/admin-v13.css sw-v2.js manifest.webmanifest question-publication-manifest.json question-content-integrity.json source-verification-backlog.json; do
             git cat-file -e "origin/gh-pages:tax-exam/$f"
           done
           for f in supabase/migrations/20260918_kexam_analytics.sql supabase/migrations/20260918_kexam_item_analytics_v2.sql supabase/migrations/20260918_kexam_item_discrimination_v3.sql supabase/migrations/20260918_kexam_item_psychometrics_v4.sql supabase/migrations/20260918_kexam_quality_review_v5.sql supabase/migrations/20260918_kexam_item_time_v6.sql supabase/functions/kexam-ingest/index.ts supabase/functions/kexam-dashboard/index.ts; do
@@ -111,6 +111,18 @@ jobs:
           grep -q "wrong-practice" /tmp/loader.js
           grep -q "weak-practice" /tmp/loader.js
           grep -q "set('v','23')" /tmp/loader.js
+          node <<'NODE'
+          const cp=require('child_process');
+          const show=p=>cp.execFileSync('git',['show',`origin/gh-pages:tax-exam/${p}`],{encoding:'utf8',maxBuffer:16*1024*1024}).trim();
+          const x=JSON.parse(show('question-content-integrity.json'));
+          if(x.schema_version!==1||x.algorithm!=='sha256')throw new Error('invalid content integrity schema');
+          if(!Array.isArray(x.canonical_fields)||!x.canonical_fields.includes('answer')||!x.canonical_fields.includes('wrong_reasons'))throw new Error('content integrity canonical fields incomplete');
+          const ids=Object.keys(x.questions||{});
+          if(ids.length!==2000)throw new Error('content integrity baseline must contain exactly 2,000 IDs');
+          if(new Set(ids).size!==2000)throw new Error('content integrity baseline contains duplicate IDs');
+          if(ids.some(id=>!/^(RA|TA)-S(0[1-9]|10)-Q(0[0-9]{2}|100)$/.test(id)))throw new Error('content integrity baseline contains invalid Question ID');
+          console.log('PASS content integrity baseline',ids.length);
+          NODE
           node <<'NODE'
           const cp=require('child_process'),zlib=require('zlib');
           const show=f=>cp.execFileSync('git',['show',`origin/gh-pages:tax-exam/${f}`],{encoding:'utf8',maxBuffer:4*1024*1024}).trim();
