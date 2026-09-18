@@ -46,6 +46,17 @@
       <div id="sourceBacklog" style="margin-top:12px"></div>
     </section>
 
+    <section class="panel section" style="margin-top:16px">
+      <div class="section-head"><div><h3>รอบทบทวนแหล่งอ้างอิง</h3><div class="section-sub">ติดตาม source-verified ที่ถึงรอบตรวจซ้ำตามความเสี่ยงของข้อมูล โดยสถานะเกินกำหนดเป็นเพียงคิวทบทวน ไม่ได้หมายความว่าข้อสอบผิด</div></div></div>
+      <div class="top-actions" style="margin:8px 0 14px">
+        <select class="btn" id="freshnessStatus" aria-label="สถานะรอบทบทวน"><option value="">ทุกสถานะ</option><option value="เกินกำหนด">เกินกำหนด</option><option value="ใกล้ครบกำหนด">ใกล้ครบกำหนด</option><option value="ยังสดใหม่">ยังสดใหม่</option></select>
+        <select class="btn" id="freshnessPosition" aria-label="ตำแหน่ง"><option value="">ทุกตำแหน่ง</option></select>
+        <button class="btn" id="exportFreshness">ส่งออก CSV</button>
+      </div>
+      <div id="freshnessSummary"></div>
+      <div id="freshnessList" style="margin-top:12px"></div>
+    </section>
+
     <section class="grid2">
       <div class="panel section"><div class="section-head"><div><h3>แนวโน้มการใช้งาน</h3><div class="section-sub">จำนวนการเปิดระบบรายวัน</div></div></div><div id="dailyChart"></div></div>
       <div class="panel section"><div class="section-head"><div><h3>แหล่งที่มาของผู้ใช้</h3><div class="section-sub">QR / TikTok / Facebook / Direct</div></div></div><div id="sources"></div></div>
@@ -96,6 +107,6 @@
     <div class="footer">K-EXAM · ติวสอบราชการ อาจารย์คิม · www.k-exam.com</div>
   </main>
   <script src="../analytics-config.js?v=25"></script>
-  <script src="admin-v13.js?v=26"></script>
+  <script src="admin-v13.js?v=27"></script>
 </body>
 </html>
