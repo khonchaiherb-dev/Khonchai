@@ -9,7 +9,7 @@
         if('caches' in window){for(const k of await caches.keys())if(k.startsWith('kexam-tax-'))await caches.delete(k)}
         if('serviceWorker' in navigator){for(const r of await navigator.serviceWorker.getRegistrations())await r.unregister()}
       }catch(_){}
-      const u=new URL(location.href);u.searchParams.set('v','14');u.searchParams.set('reset','1');location.replace(u.toString());
+      const u=new URL(location.href);u.searchParams.set('v','15');u.searchParams.set('reset','1');location.replace(u.toString());
     });
     console.error('[K-EXAM BOOT]',err);
   };
@@ -36,15 +36,15 @@
     );
     inject(
       "async function beginExam(n,reset=false,showResult=false){",
-      "async function beginExam(n,reset=false,showResult=false){\n  window.KEXAM_ANALYTICS?.track('exam_open',{position:currentPosition,set_no:isRandomSet(n)?null:n,exam_mode:isRandomSet(n)?'random':'fixed',reset:!!reset,show_result:!!showResult});"
+      "async function beginExam(n,reset=false,showResult=false){\n  window.KEXAM_ANALYTICS?.track('exam_open',{position:currentPosition,set_no:Number.isInteger(Number(n))?Number(n):null,exam_mode:isRandomSet(n)?'random':isWrongSet(n)?'wrong-practice':isWeakSet(n)?'weak-practice':'fixed',reset:!!reset,show_result:!!showResult});"
     );
     inject(
       "function renderResult(){\n  stopTimer();",
-      "function renderResult(){\n  try{if(state?.submitted&&state?.submittedAt){const wrongQuestions=bank?.questions?.map((q,i)=>state.answers?.[i]===q.answer?null:q.number).filter(Boolean)||[];window.KEXAM_ANALYTICS?.trackOnce('exam_submit',`${currentPosition}:${currentSet}:${state.submittedAt}`,{position:currentPosition,set_no:isRandomSet(currentSet)?null:currentSet,exam_mode:isRandomSet(currentSet)?'random':'fixed',score:Number(state.score)||0,elapsed_seconds:Math.round(state.elapsed||0),wrong_questions:wrongQuestions,category_result:resultStats()})}}catch(_){}\n  stopTimer();"
+      "function renderResult(){\n  try{if(state?.submitted&&state?.submittedAt){const wrongQuestions=bank?.questions?.map((q,i)=>state.answers?.[i]===q.answer?null:(q.id||q.number)).filter(Boolean)||[];window.KEXAM_ANALYTICS?.trackOnce('exam_submit',`${currentPosition}:${currentSet}:${state.submittedAt}`,{position:currentPosition,set_no:Number.isInteger(Number(currentSet))?Number(currentSet):null,exam_mode:isRandomSet(currentSet)?'random':isWrongSet(currentSet)?'wrong-practice':isWeakSet(currentSet)?'weak-practice':'fixed',score:Number(state.score)||0,total:Number(state.total)||bank?.questions?.length||100,elapsed_seconds:Math.round(state.elapsed||0),wrong_questions:wrongQuestions,category_result:resultStats()})}}catch(_){}\n  stopTimer();"
     );
     inject(
       "function openReview(wrongOnly=false,target=null){reviewWrongOnly=wrongOnly;",
-      "function openReview(wrongOnly=false,target=null){window.KEXAM_ANALYTICS?.track('review_open',{position:currentPosition,set_no:isRandomSet(currentSet)?null:currentSet,exam_mode:isRandomSet(currentSet)?'random':'fixed',wrong_only:!!wrongOnly});reviewWrongOnly=wrongOnly;"
+      "function openReview(wrongOnly=false,target=null){window.KEXAM_ANALYTICS?.track('review_open',{position:currentPosition,set_no:Number.isInteger(Number(currentSet))?Number(currentSet):null,exam_mode:isRandomSet(currentSet)?'random':isWrongSet(currentSet)?'wrong-practice':isWeakSet(currentSet)?'weak-practice':'fixed',wrong_only:!!wrongOnly});reviewWrongOnly=wrongOnly;"
     );
 
     code += "\n;init();";
