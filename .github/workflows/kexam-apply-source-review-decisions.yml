@@ -33,6 +33,9 @@ jobs:
           const show=p=>cp.execFileSync('git',['show',`origin/gh-pages:${p}`],{encoding:'utf8',maxBuffer:32*1024*1024});
           const manifest=JSON.parse(show('tax-exam/question-publication-manifest.json'));
           if(manifest.schema_version!==1)throw new Error('publication manifest schema_version must be 1');
+          const integrity=JSON.parse(show('tax-exam/question-content-integrity.json'));
+          if(integrity.schema_version!==1||integrity.algorithm!=='sha256')throw new Error('invalid content integrity baseline');
+          if(Object.keys(integrity.questions||{}).length!==2000)throw new Error('content integrity baseline must contain exactly 2,000 Question IDs');
 
           const lifecycleFields={
             Draft:'draft_ids',
@@ -81,6 +84,9 @@ jobs:
               }
               const status=idToStatus.get(id);
               if(status!=='Published'&&status!=='Verified')throw new Error(id+' can only be source-verified from Published or Verified; current='+status);
+              const baseline=integrity.questions?.[id];
+              if(!baseline||!baseline.sha256)throw new Error(id+' missing content integrity hash');
+              if(baseline.position!==idToPosition.get(id))throw new Error(id+' content integrity position mismatch');
             }
           }
 
@@ -107,6 +113,8 @@ jobs:
                 ...(out.source_overrides[id]||{}),
                 ...base,
                 source_state:'verified',
+                content_hash_algorithm:'sha256',
+                content_sha256:integrity.questions[id].sha256,
                 source_refs:rec.source_refs.map(ref=>({
                   title:String(ref.title).trim(),
                   url:String(ref.url).trim(),
@@ -125,6 +133,8 @@ jobs:
                 source_state:'pending',
                 review_result:'needs_revision'
               };
+              delete out.source_overrides[id].content_hash_algorithm;
+              delete out.source_overrides[id].content_sha256;
               needsRevision++;
             }else if(decision==='retired'){
               removeFromAll(p,id);ensureUniquePush(p.retired_ids,id);
@@ -136,6 +146,8 @@ jobs:
                 review_result:'retired',
                 retired_at:String(rec.reviewed_at)
               };
+              delete out.source_overrides[id].content_hash_algorithm;
+              delete out.source_overrides[id].content_sha256;
               retired++;
             }
           }
