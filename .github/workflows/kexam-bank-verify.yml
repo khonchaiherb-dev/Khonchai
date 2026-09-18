@@ -24,7 +24,8 @@ jobs:
           git show origin/gh-pages:tax-exam/manifest.webmanifest | grep -q '2,000'
           git show origin/gh-pages:tax-exam/sw-v2.js | grep -q "kexam-tax-v25"
           git show origin/gh-pages:tax-exam/sw-v2.js | grep -q 'question-content-integrity.json'
-          for f in app-v3.js base64-fix.js app-v3-part1.txt app-v3-part2.txt app-v3-part3.txt app-v3-part4.txt positions-v10.css cosmic-v12.css analytics-config.js analytics-v13.js admin/index.html admin/admin-v13.js admin/admin-v13.css sw-v2.js manifest.webmanifest question-publication-manifest.json question-content-integrity.json source-verification-backlog.json; do
+          git show origin/gh-pages:tax-exam/sw-v2.js | grep -q 'source-reverification-watchlist.json'
+          for f in app-v3.js base64-fix.js app-v3-part1.txt app-v3-part2.txt app-v3-part3.txt app-v3-part4.txt positions-v10.css cosmic-v12.css analytics-config.js analytics-v13.js admin/index.html admin/admin-v13.js admin/admin-v13.css sw-v2.js manifest.webmanifest question-publication-manifest.json question-content-integrity.json source-verification-backlog.json source-reverification-watchlist.json; do
             git cat-file -e "origin/gh-pages:tax-exam/$f"
           done
           for f in supabase/migrations/20260918_kexam_analytics.sql supabase/migrations/20260918_kexam_item_analytics_v2.sql supabase/migrations/20260918_kexam_item_discrimination_v3.sql supabase/migrations/20260918_kexam_item_psychometrics_v4.sql supabase/migrations/20260918_kexam_quality_review_v5.sql supabase/migrations/20260918_kexam_item_time_v6.sql supabase/functions/kexam-ingest/index.ts supabase/functions/kexam-dashboard/index.ts; do
@@ -89,6 +90,10 @@ jobs:
           grep -q 'avg_time_seconds' /tmp/admin.js
           grep -q 'median_time_seconds' /tmp/admin.js
           grep -q 'contentIntegrityCoverageHtml' /tmp/admin.js
+          grep -q 'sourceFreshnessWatchlist' /tmp/admin.js
+          grep -q 'sourceFreshnessSummaryHtml' /tmp/admin.js
+          grep -q 'filteredFreshnessRows' /tmp/admin.js
+          grep -q 'exportFreshnessCsv' /tmp/admin.js
           grep -q 'question-content-integrity.json' /tmp/admin.js
           grep -q 'text/csv' /tmp/admin.js
           grep -q '#itemStats' /tmp/admin.js || grep -q "itemStats').innerHTML" /tmp/admin.js
@@ -114,6 +119,22 @@ jobs:
           grep -q "wrong-practice" /tmp/loader.js
           grep -q "weak-practice" /tmp/loader.js
           grep -q "set('v','25')" /tmp/loader.js
+          node <<'NODE'
+          const cp=require('child_process');
+          const show=p=>cp.execFileSync('git',['show',`origin/gh-pages:tax-exam/${p}`],{encoding:'utf8',maxBuffer:16*1024*1024}).trim();
+          const x=JSON.parse(show('source-reverification-watchlist.json'));
+          if(x.schema_version!==1)throw new Error('source freshness schema_version must be 1');
+          if(!x.summary||!Array.isArray(x.rows))throw new Error('source freshness summary/rows missing');
+          if(x.rows.length!==Number(x.summary.total_verified||0))throw new Error('source freshness rows must equal total_verified');
+          for(const r of x.rows){
+            if(!/^(RA|TA)-S(0[1-9]|10)-Q(0[0-9]{2}|100)$/.test(String(r.question_id||'')))throw new Error('invalid freshness Question ID');
+            if(!['ยังสดใหม่','ใกล้ครบกำหนด','เกินกำหนด'].includes(r.status))throw new Error('invalid freshness status '+r.status);
+            if(!/^\d{4}-\d{2}-\d{2}$/.test(String(r.checked_at||''))||!/^\d{4}-\d{2}-\d{2}$/.test(String(r.due_at||'')))throw new Error('invalid freshness dates '+r.question_id);
+            if(![90,180,365].includes(Number(r.review_interval_days)))throw new Error('invalid freshness interval '+r.question_id);
+            if(!/^[a-f0-9]{64}$/.test(String(r.content_sha256||'')))throw new Error('freshness row missing content hash '+r.question_id);
+          }
+          console.log('PASS source freshness watchlist',JSON.stringify(x.summary));
+          NODE
           node <<'NODE'
           const cp=require('child_process');
           const show=p=>cp.execFileSync('git',['show',`origin/gh-pages:tax-exam/${p}`],{encoding:'utf8',maxBuffer:16*1024*1024}).trim();
@@ -171,7 +192,7 @@ jobs:
           node --check /tmp/live/base64-fix.js
           node --check /tmp/live/analytics-v13.js
           node --check /tmp/live/admin-v13.js
-          grep -q 'admin-v13.js?v=26' /tmp/live/index.html
+          grep -q 'admin-v13.js?v=27' /tmp/live/index.html
           grep -q 'difficulty_index' /tmp/live/admin-v13.js
           grep -q 'discrimination' /tmp/live/admin-v13.js
           grep -q 'distractor_efficiency' /tmp/live/admin-v13.js
@@ -186,6 +207,10 @@ jobs:
           grep -q 'avg_time_seconds' /tmp/live/admin-v13.js
           grep -q 'median_time_seconds' /tmp/live/admin-v13.js
           grep -q 'contentIntegrityCoverageHtml' /tmp/live/admin-v13.js
+          grep -q 'sourceFreshnessWatchlist' /tmp/live/admin-v13.js
+          grep -q 'sourceFreshnessSummaryHtml' /tmp/live/admin-v13.js
+          grep -q 'filteredFreshnessRows' /tmp/live/admin-v13.js
+          grep -q 'exportFreshnessCsv' /tmp/live/admin-v13.js
           grep -q 'question-content-integrity.json' /tmp/live/admin-v13.js
           grep -q 'text/csv' /tmp/live/admin-v13.js
           grep -q 'K-EXAM Analytics' /tmp/live/index.html || true
