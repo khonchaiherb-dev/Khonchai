@@ -1,0 +1,182 @@
+name: K-EXAM Apply Source Review Decisions
+on:
+  push:
+    paths:
+      - 'data/kexam-source-review-decisions.json'
+      - 'docs/KEXAM_SOURCE_REVIEW_PIPELINE.md'
+      - '.github/workflows/kexam-apply-source-review-decisions.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  validate-and-apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Validate source review decisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages --depth=1
+          node <<'NODE'
+          const cp=require('child_process'),fs=require('fs');
+          const decisions=JSON.parse(fs.readFileSync('data/kexam-source-review-decisions.json','utf8'));
+          if(decisions.schema_version!==1)throw new Error('decision schema_version must be 1');
+          if(!Array.isArray(decisions.records))throw new Error('decision records must be an array');
+
+          const show=p=>cp.execFileSync('git',['show',`origin/gh-pages:${p}`],{encoding:'utf8',maxBuffer:32*1024*1024});
+          const manifest=JSON.parse(show('tax-exam/question-publication-manifest.json'));
+          if(manifest.schema_version!==1)throw new Error('publication manifest schema_version must be 1');
+
+          const lifecycleFields={
+            Draft:'draft_ids',
+            Reviewed:'reviewed_ids',
+            Verified:'verified_ids',
+            Published:'published_ids',
+            Retired:'retired_ids'
+          };
+          const idToPosition=new Map(),idToStatus=new Map();
+          for(const [position,p] of Object.entries(manifest.positions||{})){
+            for(const [status,field] of Object.entries(lifecycleFields)){
+              if(!Array.isArray(p[field]))throw new Error(position+' missing '+field);
+              for(const id of p[field]){
+                if(idToPosition.has(id))throw new Error('Question ID appears more than once in lifecycle: '+id);
+                idToPosition.set(id,position);idToStatus.set(id,status);
+              }
+            }
+          }
+
+          const seen=new Set();
+          const allowed=new Set(['verified','needs_revision','retired']);
+          const today=new Date().toISOString().slice(0,10);
+          const dateRe=/^\d{4}-\d{2}-\d{2}$/;
+          const validDate=s=>dateRe.test(String(s||''))&&!Number.isNaN(Date.parse(String(s)+'T00:00:00Z'))&&String(s)<=today;
+          const cleanText=(v,name,id,min=1)=>{const s=String(v||'').trim();if(s.length<min)throw new Error(id+' missing/invalid '+name);return s};
+
+          for(const rec of decisions.records){
+            const id=cleanText(rec?.question_id,'question_id','record');
+            if(seen.has(id))throw new Error('duplicate decision for '+id);seen.add(id);
+            if(!idToPosition.has(id))throw new Error('unknown Question ID '+id);
+            const decision=String(rec?.decision||'').trim();
+            if(!allowed.has(decision))throw new Error(id+' invalid decision '+decision);
+            if(!validDate(rec?.reviewed_at))throw new Error(id+' reviewed_at must be valid YYYY-MM-DD and not future');
+            cleanText(rec?.review_note,'review_note',id,12);
+
+            if(decision==='verified'){
+              const refs=rec?.source_refs;
+              if(!Array.isArray(refs)||!refs.length)throw new Error(id+' verified decision requires source_refs');
+              for(const [idx,ref] of refs.entries()){
+                cleanText(ref?.title,'source_refs['+idx+'].title',id,4);
+                const url=cleanText(ref?.url,'source_refs['+idx+'].url',id,8);
+                let u;try{u=new URL(url)}catch{throw new Error(id+' invalid source URL '+url)}
+                if(u.protocol!=='https:')throw new Error(id+' source URL must use HTTPS');
+                if(!validDate(ref?.checked_at))throw new Error(id+' source checked_at must be valid and not future');
+                if(ref.section!=null&&String(ref.section).trim().length<2)throw new Error(id+' source section is too short');
+              }
+              const status=idToStatus.get(id);
+              if(status!=='Published'&&status!=='Verified')throw new Error(id+' can only be source-verified from Published or Verified; current='+status);
+            }
+          }
+
+          const out=structuredClone(manifest);
+          out.source_overrides=out.source_overrides||{};
+          let verified=0,needsRevision=0,retired=0;
+
+          const removeFromAll=(p,id)=>{
+            for(const field of Object.values(lifecycleFields))p[field]=(p[field]||[]).filter(x=>x!==id);
+          };
+          const ensureUniquePush=(arr,id)=>{if(!arr.includes(id))arr.push(id);return arr};
+
+          for(const rec of decisions.records){
+            const id=String(rec.question_id),position=idToPosition.get(id),p=out.positions[position],decision=String(rec.decision);
+            p.source_verified_ids=Array.isArray(p.source_verified_ids)?p.source_verified_ids:[];
+            const base={
+              reviewed_at:String(rec.reviewed_at),
+              review_note:String(rec.review_note).trim()
+            };
+
+            if(decision==='verified'){
+              p.source_verified_ids=ensureUniquePush(p.source_verified_ids,id);
+              out.source_overrides[id]={
+                ...(out.source_overrides[id]||{}),
+                ...base,
+                source_state:'verified',
+                source_refs:rec.source_refs.map(ref=>({
+                  title:String(ref.title).trim(),
+                  url:String(ref.url).trim(),
+                  checked_at:String(ref.checked_at),
+                  ...(ref.section?{section:String(ref.section).trim()}:{}),
+                  ...(ref.note?{note:String(ref.note).trim()}: {})
+                }))
+              };
+              verified++;
+            }else if(decision==='needs_revision'){
+              removeFromAll(p,id);ensureUniquePush(p.reviewed_ids,id);
+              p.source_verified_ids=p.source_verified_ids.filter(x=>x!==id);
+              out.source_overrides[id]={
+                ...(out.source_overrides[id]||{}),
+                ...base,
+                source_state:'pending',
+                review_result:'needs_revision'
+              };
+              needsRevision++;
+            }else if(decision==='retired'){
+              removeFromAll(p,id);ensureUniquePush(p.retired_ids,id);
+              p.source_verified_ids=p.source_verified_ids.filter(x=>x!==id);
+              out.source_overrides[id]={
+                ...(out.source_overrides[id]||{}),
+                ...base,
+                source_state:'pending',
+                review_result:'retired',
+                retired_at:String(rec.reviewed_at)
+              };
+              retired++;
+            }
+          }
+
+          for(const p of Object.values(out.positions||{})){
+            for(const field of Object.values(lifecycleFields))p[field]=[...new Set(p[field]||[])].sort();
+            p.source_verified_ids=[...new Set(p.source_verified_ids||[])].sort();
+          }
+          out.generated_at=today;
+          fs.writeFileSync('/tmp/question-publication-manifest.json',JSON.stringify(out,null,2)+'\n');
+          console.log('SOURCE REVIEW DECISIONS',JSON.stringify({records:decisions.records.length,verified,needsRevision,retired}));
+          NODE
+
+      - name: Apply decisions to deployed manifest
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$(node -p "require('./data/kexam-source-review-decisions.json').records.length")" = "0" ]; then
+            echo "No source review decisions to apply"
+            exit 0
+          fi
+          git fetch origin gh-pages --depth=1
+          git checkout -B gh-pages origin/gh-pages
+          cp /tmp/question-publication-manifest.json tax-exam/question-publication-manifest.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tax-exam/question-publication-manifest.json
+          if git diff --cached --quiet; then
+            echo "Publication manifest unchanged"
+          else
+            git commit -m "Apply source review decisions"
+            git push origin HEAD:gh-pages
+          fi
+
+      - name: Refresh source backlog and lifecycle verification
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run kexam-source-verification-backlog.yml --ref main
+          gh workflow run kexam-publication-lifecycle-verify.yml --ref main
