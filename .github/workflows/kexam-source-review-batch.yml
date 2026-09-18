@@ -195,12 +195,15 @@ jobs:
           });
 
           if(mode==='pending'&&!batch.length)throw new Error('source verification backlog is empty');
+          const selectionPositions=batch.reduce((m,q)=>{m[q.position]=(m[q.position]||0)+1;return m},{});
+          const selectionTopics=batch.reduce((m,q)=>{m[q.topic]=(m[q.topic]||0)+1;return m},{});
           const out={
             schema_version:1,
             generated_at:new Date().toISOString(),
             review_mode:mode,
             batch_size:batch.length,
             selection_policy:mode==='pending'?'priority score first, then stratified by position and topic':'freshness priority first, then stratified by position and topic',
+            selection_summary:{positions:selectionPositions,topics:selectionTopics},
             note:mode==='reverify'&&batch.length===0?'ยังไม่มี source-verified ที่ใกล้หรือเกินกำหนดทบทวน':null,
             warning:'ไฟล์นี้มีคำตอบและคำอธิบาย ใช้สำหรับการตรวจภายใน ไม่ควรเผยแพร่เป็นไฟล์สาธารณะ',
             questions:batch
@@ -235,8 +238,16 @@ jobs:
           fs.writeFileSync('/tmp/kexam-source-review-batch.csv','\ufeff'+lines.join('\r\n'));
 
           const counts=batch.reduce((m,q)=>{m[q.priority]=(m[q.priority]||0)+1;return m},{});
-          const positions=batch.reduce((m,q)=>{m[q.position]=(m[q.position]||0)+1;return m},{});
-          const topics=batch.reduce((m,q)=>{m[q.topic]=(m[q.topic]||0)+1;return m},{});
+          const positions=selectionPositions,topics=selectionTopics;
+          if(mode==='pending'&&batch.length>=10){
+            const availableUrgent=pendingRows.filter(r=>r.priority==='เร่งด่วน');
+            const availablePositions=new Set(availableUrgent.map(r=>r.position));
+            if(availablePositions.size>=2&&Object.keys(positions).length<2)throw new Error('stratified batch lost a position despite urgent backlog coverage');
+            const availableTopics=new Set(availableUrgent.map(r=>r.topic||r.category||'อื่น ๆ'));
+            if(availableTopics.size>=3&&Object.keys(topics).length<3)throw new Error('stratified batch should cover at least 3 urgent topics');
+            const maxTopic=Math.max(...Object.values(topics));
+            if(Object.keys(topics).length>=3&&maxTopic>Math.ceil(batch.length*0.60))throw new Error('stratified batch is too concentrated in one topic: '+maxTopic+'/'+batch.length);
+          }
           console.log('SOURCE REVIEW BATCH',JSON.stringify({mode,size:batch.length,priority:counts,positions,topics,first:batch[0]?.question_id||null,last:batch.at(-1)?.question_id||null}));
           NODE
 
