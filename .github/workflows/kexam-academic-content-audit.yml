@@ -1,0 +1,82 @@
+name: K-EXAM Academic Content Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-academic-content-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit revenue-academic bank in depth
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages --depth=1
+          node <<'NODE'
+          const cp=require('child_process'),zlib=require('zlib');
+          const files=['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'];
+          const show=f=>cp.execFileSync('git',['show',`origin/gh-pages:tax-exam/${f}`],{encoding:'utf8',maxBuffer:8*1024*1024}).trim();
+          const raw=Buffer.from(files.map(show).join('').replace(/\s+/g,''),'base64');
+          const d=JSON.parse(zlib.gunzipSync(raw).toString('utf8'));
+          const get=(r,i)=>String(d.s[r[i]]??'').trim();
+          const norm=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu,'');
+          const percentile=(a,p)=>{const b=[...a].sort((x,y)=>x-y);return b[Math.min(b.length-1,Math.floor((b.length-1)*p))]};
+          const dupStats=(arr,label)=>{
+            const m=new Map();
+            arr.forEach((x,i)=>{const k=norm(x);if(!k)return;const v=m.get(k)||[];v.push(i+1);m.set(k,v)});
+            const dups=[...m.entries()].filter(([,v])=>v.length>1).sort((a,b)=>b[1].length-a[1].length);
+            console.log(label,'duplicate groups =',dups.length,'max reuse =',dups[0]?.[1].length||1);
+            if(dups.length) console.log(label,'top groups',JSON.stringify(dups.slice(0,5).map(([k,v])=>({reuse:v.length,items:v,sample:k.slice(0,120)}))));
+            return dups;
+          };
+          if(!Array.isArray(d.q)||d.q.length!==10||d.q.some(s=>!Array.isArray(s)||s.length!==100)) throw new Error('bank shape invalid');
+
+          const all=[],prompts=[],exps=[],wrongs=[],choiceSets=[];
+          const requiredPerSet={
+            'หลักภาษีอากรและประมวลรัษฎากร':60,
+            'กรมสรรพากร':15,
+            'เศรษฐกิจ-สังคม-เทคโนโลยี':15,
+            'ข้อมูลข่าวสาร/PDPA':10
+          };
+          d.q.forEach((set,si)=>{
+            const cats={},ans=[0,0,0,0];
+            let maxRun=1,run=1,last=null;
+            set.forEach((r,qi)=>{
+              const cat=get(r,0),prompt=get(r,1),choices=(r[2]||[]).map(x=>String(d.s[x]??'').trim()),exp=get(r,4),wrong=get(r,5);
+              cats[cat]=(cats[cat]||0)+1;ans[r[3]]++;
+              if(last===r[3]){run++;maxRun=Math.max(maxRun,run)}else{last=r[3];run=1}
+              const globalNo=si*100+qi+1;
+              if(/TODO|PLACEHOLDER|Lorem ipsum|ทดสอบระบบ|คำถามตัวอย่าง/i.test(prompt+' '+exp+' '+wrong)) throw new Error(`ข้อ ${globalNo}: พบข้อความชั่วคราว/placeholder`);
+              if(/<script|javascript:/i.test(prompt+' '+exp+' '+wrong+choices.join(' '))) throw new Error(`ข้อ ${globalNo}: พบข้อความไม่ปลอดภัย`);
+              if(prompt.length<25) throw new Error(`ข้อ ${globalNo}: คำถามสั้นเกินไป (${prompt.length})`);
+              if(exp.length<40) throw new Error(`ข้อ ${globalNo}: คำอธิบายสั้นเกินไป (${exp.length})`);
+              if(wrong.length<40) throw new Error(`ข้อ ${globalNo}: เหตุผลตัวเลือกผิดสั้นเกินไป (${wrong.length})`);
+              if(choices.length!==4||new Set(choices.map(norm)).size!==4) throw new Error(`ข้อ ${globalNo}: ตัวเลือกไม่ครบหรือซ้ำ`);
+              prompts.push(prompt);exps.push(exp);wrongs.push(wrong);choiceSets.push(choices.map(norm).sort().join('|'));
+              all.push({globalNo,si:si+1,qi:qi+1,cat,prompt,choices,answer:r[3],exp,wrong});
+            });
+            for(const [k,v] of Object.entries(requiredPerSet)) if(cats[k]!==v) throw new Error(`ชุด ${si+1}: หมวด ${k} ต้องมี ${v} ข้อ แต่พบ ${cats[k]||0}`);
+            if(Object.keys(cats).some(k=>!(k in requiredPerSet))) throw new Error(`ชุด ${si+1}: พบหมวดนอก blueprint: ${Object.keys(cats).filter(k=>!(k in requiredPerSet)).join(', ')}`);
+            console.log(`SET ${si+1} categories`,JSON.stringify(cats),'answers',ans.join('/'),'max answer run',maxRun);
+          });
+
+          const promptLens=prompts.map(x=>x.length),expLens=exps.map(x=>x.length),wrongLens=wrongs.map(x=>x.length);
+          console.log('PROMPT length min/p10/median/max',Math.min(...promptLens),percentile(promptLens,.1),percentile(promptLens,.5),Math.max(...promptLens));
+          console.log('EXPLANATION length min/p10/median/max',Math.min(...expLens),percentile(expLens,.1),percentile(expLens,.5),Math.max(...expLens));
+          console.log('WRONG-REASON length min/p10/median/max',Math.min(...wrongLens),percentile(wrongLens,.1),percentile(wrongLens,.5),Math.max(...wrongLens));
+          const pd=dupStats(prompts,'PROMPT');
+          if(pd.length) throw new Error('พบคำถามซ้ำหลังปรับรูปแบบตัวอักษร/วรรคตอน');
+          const ed=dupStats(exps,'EXPLANATION');
+          const wd=dupStats(wrongs,'WRONG_REASON');
+          dupStats(choiceSets,'CHOICE_SET');
+          const genericExp=ed.filter(([,v])=>v.length>=4).length;
+          const genericWrong=wd.filter(([,v])=>v.length>=4).length;
+          if(genericExp) throw new Error('พบคำอธิบายซ้ำตั้งแต่ 4 ข้อขึ้นไป');
+          if(genericWrong) throw new Error('พบเหตุผลตัวเลือกผิดซ้ำตั้งแต่ 4 ข้อขึ้นไป');
+
+          console.log('PASS: advanced content audit for นักวิชาการสรรพากรปฏิบัติการ');
+          console.log('Blueprint ต่อชุด 60/15/15/10, อธิบาย/เหตุผลขั้นต่ำ 40 ตัวอักษร, ไม่มีคำถามซ้ำแบบ normalized, ไม่มีข้อความชั่วคราว');
+          NODE
