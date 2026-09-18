@@ -1,0 +1,112 @@
+name: K-EXAM Publication Lifecycle Verify
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-publication-lifecycle-verify.yml'
+      - 'docs/KEXAM_QUESTION_LIFECYCLE.md'
+      - 'docs/KEXAM_QUESTION_STANDARD.md'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify lifecycle manifest against deployed banks
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages --depth=1
+          node <<'NODE'
+          const cp=require('child_process'),zlib=require('zlib');
+          const show=p=>cp.execFileSync('git',['show',`origin/gh-pages:${p}`],{encoding:'utf8',maxBuffer:12*1024*1024}).trim();
+          const manifest=JSON.parse(show('tax-exam/question-publication-manifest.json'));
+          const order=['Draft','Reviewed','Verified','Published','Retired'];
+          if(manifest.schema_version!==1)throw new Error('manifest schema_version must be 1');
+          if(JSON.stringify(manifest.lifecycle_order)!==JSON.stringify(order))throw new Error('lifecycle_order must be Draft -> Reviewed -> Verified -> Published -> Retired');
+          if(manifest.publication_policy?.live_status!=='Published')throw new Error('live_status must be Published');
+          if(manifest.publication_policy?.required_qa_state!=='verified')throw new Error('Published QA policy must require verified');
+          if(manifest.defaults?.Published?.qa_state!=='verified')throw new Error('Published default qa_state must be verified');
+          const allowedSource=new Set(['pending','verified','not-applicable']);
+          if(!allowedSource.has(manifest.defaults?.Published?.source_state))throw new Error('invalid Published source_state');
+
+          const configs={
+            'tax-auditor':{
+              prefix:'TA',
+              files:['bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt']
+            },
+            'revenue-academic':{
+              prefix:'RA',
+              files:['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt']
+            }
+          };
+          const allKnown=new Set();
+          const summaries={};
+
+          for(const [position,cfg] of Object.entries(configs)){
+            const p=manifest.positions?.[position];
+            if(!p)throw new Error('manifest missing position '+position);
+            const b64=cfg.files.map(f=>show('tax-exam/'+f)).join('').replace(/\s+/g,'');
+            const bank=JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8'));
+            if(!Array.isArray(bank.q)||bank.q.length!==10||bank.q.some(set=>!Array.isArray(set)||set.length!==100))throw new Error(position+' bank must be 10 x 100');
+            const bankIds=new Set();
+            for(let si=0;si<10;si++)for(let qi=0;qi<100;qi++)bankIds.add(`${cfg.prefix}-S${String(si+1).padStart(2,'0')}-Q${String(qi+1).padStart(3,'0')}`);
+
+            const fields={Draft:'draft_ids',Reviewed:'reviewed_ids',Verified:'verified_ids',Published:'published_ids',Retired:'retired_ids'};
+            const lifecycleMembership=new Map();
+            for(const [status,field] of Object.entries(fields)){
+              if(!Array.isArray(p[field]))throw new Error(position+' missing '+field);
+              if(new Set(p[field]).size!==p[field].length)throw new Error(position+' duplicate IDs inside '+field);
+              for(const id of p[field]){
+                if(!new RegExp('^'+cfg.prefix+'-S(0[1-9]|10)-Q(0[0-9]{2}|100)$').test(id))throw new Error('invalid '+position+' Question ID '+id);
+                if(!bankIds.has(id))throw new Error(position+' lifecycle ID not found in bank: '+id);
+                const prev=lifecycleMembership.get(id);
+                if(prev)throw new Error(id+' belongs to multiple lifecycle states: '+prev+' and '+status);
+                lifecycleMembership.set(id,status);allKnown.add(id);
+              }
+            }
+            if(lifecycleMembership.size!==bankIds.size){
+              const missing=[...bankIds].filter(id=>!lifecycleMembership.has(id)).slice(0,20);
+              throw new Error(position+' lifecycle does not cover all bank IDs; missing '+missing.join(', '));
+            }
+            const published=new Set(p.published_ids);
+            if(!published.size)throw new Error(position+' must have at least one Published question');
+            const sourceVerified=new Set(p.source_verified_ids||[]);
+            for(const id of sourceVerified){
+              if(!bankIds.has(id))throw new Error('source_verified ID not in bank: '+id);
+              const status=lifecycleMembership.get(id);
+              if(status!=='Verified'&&status!=='Published')throw new Error('source_verified ID must be Verified or Published: '+id);
+              const o=manifest.source_overrides?.[id];
+              if(!o||o.source_state!=='verified'||!Array.isArray(o.source_refs)||!o.source_refs.length)throw new Error('source_verified ID needs verified source_overrides with source_refs: '+id);
+            }
+            summaries[position]={
+              Draft:p.draft_ids.length,Reviewed:p.reviewed_ids.length,Verified:p.verified_ids.length,
+              Published:p.published_ids.length,Retired:p.retired_ids.length,sourceVerified:sourceVerified.size,
+              sourcePending:p.published_ids.length-[...sourceVerified].filter(id=>published.has(id)).length
+            };
+          }
+
+          for(const [id,o] of Object.entries(manifest.source_overrides||{})){
+            if(!allKnown.has(id))throw new Error('source_overrides contains unknown ID '+id);
+            if(!allowedSource.has(o.source_state))throw new Error('invalid source_state for '+id);
+            if(o.source_state==='verified'){
+              if(!Array.isArray(o.source_refs)||!o.source_refs.length)throw new Error('verified source needs source_refs for '+id);
+              for(const ref of o.source_refs){
+                if(!ref||typeof ref!=='object'||!String(ref.title||'').trim()||!String(ref.url||'').trim()||!/^\d{4}-\d{2}-\d{2}$/.test(String(ref.checked_at||''))){
+                  throw new Error('source_ref must include title, url, checked_at YYYY-MM-DD for '+id);
+                }
+              }
+            }
+          }
+
+          const app=show('tax-exam/app-v3-part1.txt')+'\n'+show('tax-exam/app-v3-part2.txt')+'\n'+show('tax-exam/app-v3-part3.txt')+'\n'+show('tax-exam/app-v3-part4.txt');
+          const sw=show('tax-exam/sw-v2.js');
+          const admin=show('tax-exam/admin/admin-v13.js');
+          for(const needle of ['loadPublicationManifest','isPublishedQuestionId','publicationInfo','question-publication-manifest.json'])if(!app.includes(needle))throw new Error('runtime publication gate missing '+needle);
+          if(!sw.includes('question-publication-manifest.json'))throw new Error('service worker does not cache publication manifest');
+          if(!admin.includes('publicationCoverageHtml'))throw new Error('admin publication coverage missing');
+          console.log('PASS publication lifecycle',JSON.stringify(summaries));
+          NODE
