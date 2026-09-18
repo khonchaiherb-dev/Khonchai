@@ -1,3 +1,4 @@
+/// <reference lib="deno.ns" />
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const allowedEvents=new Set(['page_view','position_select','exam_open','exam_submit','review_open','question_report']);
