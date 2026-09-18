@@ -32,7 +32,7 @@ jobs:
           set -euo pipefail
           git fetch origin gh-pages --depth=1
           SIZE="${{ github.event.inputs.batch_size || '50' }}"
-          MODE="${{ github.event.inputs.review_mode || 'pending' }}"
+          MODE="${{ github.event.inputs.review_mode || 'reverify' }}"
           if ! [[ "$SIZE" =~ ^[0-9]+$ ]] || [ "$SIZE" -lt 1 ] || [ "$SIZE" -gt 200 ]; then
             echo "batch_size must be 1..200" >&2
             exit 1
