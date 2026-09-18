@@ -134,3 +134,29 @@ Source Review Batch รุ่นใหม่ใส่ `reviewed_content_sha256` 
 - หากเนื้อหาถูกแก้หลังสร้าง batch ระบบต้องปฏิเสธ decision เดิมและให้สร้าง batch ใหม่เพื่อทบทวนเนื้อหาฉบับปัจจุบัน
 
 decision เก่าที่ถูก apply และผูก `content_sha256` ไว้แล้วก่อนเปิดใช้นโยบายนี้ สามารถผ่านแบบ legacy grandfathering ได้เมื่อข้อมูลใน Manifest ตรงกับผลตรวจเดิม เพื่อไม่ทำลายประวัติการตรวจที่ผ่านมา
+
+
+## Source Review Batch Registry
+
+ระบบเก็บประวัติชุดตรวจใน `tax-exam/source-review-batch-registry.json` โดยเก็บเฉพาะ metadata ที่ปลอดภัยต่อการเผยแพร่ เช่น
+
+- `batch_id`
+- `batch_snapshot_sha256`
+- วันที่สร้างและโหมดตรวจ
+- จำนวนข้อ
+- สรุปการกระจายตำแหน่ง/หัวข้อ
+- รายการ Question ID
+- สถานะ `generated` หรือ `applied`
+- จำนวนผลตรวจเมื่อ apply แล้ว
+
+Registry **ห้าม** เก็บ prompt, choices, คำตอบ, explanation, wrong reasons หรือ source references ของชุดตรวจ
+
+เมื่อ decision ที่มี `batch_id` ถูก apply:
+- ต้องพบ batch เดิมใน Registry
+- snapshot ต้องตรงกัน
+- Question ID ทั้งชุดต้องตรงกับ Registry
+- หากสถานะเป็น `generated` ให้เปลี่ยนเป็น `applied` และบันทึก decision counts
+- การ apply ซ้ำด้วยข้อมูลเดิมต้องเป็น idempotent
+- หาก batch เดิมถูก apply แล้วแต่จำนวน decision ไม่ตรง ต้องหยุดการทำงาน
+
+ไฟล์ review artifact ที่มีคำถามและคำตอบยังคงเป็น private GitHub Actions artifact และไม่ถูกย้ายเข้า Registry

@@ -30,6 +30,34 @@ jobs:
           const integrity=JSON.parse(show('tax-exam/question-content-integrity.json'));
           const backlog=JSON.parse(show('tax-exam/source-verification-backlog.json'));
           if(backlog.schema_version!==1||!Array.isArray(backlog.rows))throw new Error('invalid source-verification backlog');
+          let batchRegistry=null;
+          try{batchRegistry=JSON.parse(show('tax-exam/source-review-batch-registry.json'))}catch(e){
+            console.log('SOURCE REVIEW BATCH REGISTRY not initialized yet');
+          }
+          if(batchRegistry){
+            if(batchRegistry.schema_version!==1||!Array.isArray(batchRegistry.batches))throw new Error('invalid source review batch registry');
+            const idRe=/^SRB-\d{8}-[a-f0-9]{12}$/,hashRe=/^[a-f0-9]{64}$/,qidRe=/^(RA|TA)-S(0[1-9]|10)-Q(0[0-9]{2}|100)$/;
+            const seenBatch=new Set();
+            const forbidden=['prompt','choices','correct_answer','explanation','wrong_reasons','source_refs'];
+            for(const b of batchRegistry.batches){
+              if(!idRe.test(String(b.batch_id||'')))throw new Error('invalid registry batch_id '+b.batch_id);
+              if(seenBatch.has(b.batch_id))throw new Error('duplicate registry batch_id '+b.batch_id);seenBatch.add(b.batch_id);
+              if(!hashRe.test(String(b.batch_snapshot_sha256||'')))throw new Error('invalid registry snapshot '+b.batch_id);
+              if(!['pending','reverify'].includes(String(b.review_mode||'')))throw new Error('invalid registry review_mode '+b.batch_id);
+              if(!['generated','applied'].includes(String(b.status||'')))throw new Error('invalid registry status '+b.batch_id);
+              if(!Array.isArray(b.question_ids)||b.question_ids.length!==Number(b.batch_size||0))throw new Error('registry batch_size mismatch '+b.batch_id);
+              if(new Set(b.question_ids).size!==b.question_ids.length||b.question_ids.some(id=>!qidRe.test(String(id))))throw new Error('invalid/duplicate registry Question IDs '+b.batch_id);
+              const serialized=JSON.stringify(b);
+              for(const key of forbidden)if(serialized.includes('"'+key+'"'))throw new Error('registry leaks private review field '+key+' in '+b.batch_id);
+              if(b.status==='applied'){
+                if(!String(b.applied_at||'').trim()||!b.decision_counts)throw new Error('applied registry entry missing applied_at/decision_counts '+b.batch_id);
+                const counts=b.decision_counts||{},sum=(Number(counts.verified)||0)+(Number(counts.needs_revision)||0)+(Number(counts.retired)||0);
+                if(sum!==b.question_ids.length)throw new Error('applied registry decision counts mismatch '+b.batch_id);
+                if(!Array.isArray(b.applied_question_ids)||new Set(b.applied_question_ids).size!==b.question_ids.length)throw new Error('applied registry Question ID coverage mismatch '+b.batch_id);
+              }
+            }
+            console.log('PASS source review batch registry',JSON.stringify({batches:batchRegistry.batches.length,generated:batchRegistry.batches.filter(x=>x.status==='generated').length,applied:batchRegistry.batches.filter(x=>x.status==='applied').length}));
+          }
           const urgentPending=backlog.rows.filter(x=>Number(x.priority_score)>=70);
           console.log('SOURCE GATE GRANDFATHERED CURRENTLY PUBLISHED',JSON.stringify({threshold:70,urgent_pending:urgentPending.length,note:'existing Published items are not withdrawn retroactively; future Verified->Published transitions are gated'}));
           if(integrity.schema_version!==1||integrity.algorithm!=='sha256')throw new Error('invalid question-content-integrity schema');
