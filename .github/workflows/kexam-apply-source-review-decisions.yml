@@ -83,25 +83,47 @@ jobs:
             if(reviewedHash!==baseline.sha256)throw new Error(id+' review is stale: reviewed_content_sha256 does not match current content baseline');
             return 'bound';
           };
-          const currentDecisionRows=decisions.records.filter(rec=>String(rec?.reviewed_content_sha256||'').trim());
-          const hasBatchIdentity=Boolean(String(decisions.batch_id||'').trim()||String(decisions.batch_snapshot_sha256||'').trim()||currentDecisionRows.some(rec=>String(rec?.review_batch_id||'').trim()));
-          if(hasBatchIdentity){
-            const batchId=String(decisions.batch_id||'').trim(),snapshot=String(decisions.batch_snapshot_sha256||'').trim().toLowerCase();
-            if(!batchIdRe.test(batchId))throw new Error('invalid or missing batch_id for hash-bound source review decisions');
-            if(!hashRe.test(snapshot))throw new Error('invalid or missing batch_snapshot_sha256');
-            for(const rec of currentDecisionRows){
-              if(String(rec.review_batch_id||'').trim()!==batchId)throw new Error(String(rec.question_id||'record')+' review_batch_id does not match decisions.batch_id');
-            }
-            const payload=currentDecisionRows.map(rec=>({
+          const computeBatchSnapshot=(reviewMode,rows)=>{
+            const payload=rows.map(rec=>({
               question_id:String(rec.question_id||''),
               content_sha256:String(rec.reviewed_content_sha256||'').trim().toLowerCase()
             })).sort((a,b)=>a.question_id.localeCompare(b.question_id));
-            const computed=crypto.createHash('sha256').update(JSON.stringify({review_mode:String(decisions.review_mode||'pending'),questions:payload}),'utf8').digest('hex');
+            return crypto.createHash('sha256').update(JSON.stringify({review_mode:String(reviewMode||'pending'),questions:payload}),'utf8').digest('hex');
+          };
+          const validateBatchIdentity=input=>{
+            const rows=(input.records||[]).filter(rec=>String(rec?.reviewed_content_sha256||'').trim());
+            const hasIdentity=Boolean(String(input.batch_id||'').trim()||String(input.batch_snapshot_sha256||'').trim()||rows.some(rec=>String(rec?.review_batch_id||'').trim()));
+            if(!hasIdentity)return{mode:'legacy',records:rows.length};
+            const batchId=String(input.batch_id||'').trim(),snapshot=String(input.batch_snapshot_sha256||'').trim().toLowerCase();
+            if(!batchIdRe.test(batchId))throw new Error('invalid or missing batch_id for hash-bound source review decisions');
+            if(!hashRe.test(snapshot))throw new Error('invalid or missing batch_snapshot_sha256');
+            for(const rec of rows){
+              if(String(rec.review_batch_id||'').trim()!==batchId)throw new Error(String(rec.question_id||'record')+' review_batch_id does not match decisions.batch_id');
+            }
+            const computed=computeBatchSnapshot(input.review_mode,rows);
             if(computed!==snapshot)throw new Error('batch_snapshot_sha256 does not match the decision rows');
-            const expectedId=`SRB-${String(decisions.updated_at||'').replace(/-/g,'')}-${snapshot.slice(0,12)}`;
+            const expectedId=`SRB-${String(input.updated_at||'').replace(/-/g,'')}-${snapshot.slice(0,12)}`;
             if(batchId!==expectedId)throw new Error('batch_id does not match updated_at + snapshot digest');
-            console.log('SOURCE REVIEW BATCH IDENTITY PASS',JSON.stringify({batchId,records:currentDecisionRows.length}));
+            return{mode:'bound',batchId,records:rows.length};
+          };
+          {
+            const sampleEntries=Object.entries(integrity.questions||{}).slice(0,2);
+            if(sampleEntries.length===2){
+              const rows=sampleEntries.map(([question_id,x])=>({question_id,reviewed_content_sha256:x.sha256}));
+              const snapshot=computeBatchSnapshot('pending',rows);
+              const batchId=`SRB-${today.replace(/-/g,'')}-${snapshot.slice(0,12)}`;
+              const good={review_mode:'pending',updated_at:today,batch_id:batchId,batch_snapshot_sha256:snapshot,records:rows.map(r=>({...r,review_batch_id:batchId}))};
+              const result=validateBatchIdentity(good);
+              if(result.mode!=='bound')throw new Error('batch identity self-test did not accept valid snapshot');
+              let badIdBlocked=false;try{validateBatchIdentity({...good,batch_id:`SRB-${today.replace(/-/g,'')}-000000000000`})}catch(e){badIdBlocked=/review_batch_id|batch_id/.test(String(e.message||e))}
+              if(!badIdBlocked)throw new Error('batch identity self-test failed to reject modified batch_id');
+              let badSnapshotBlocked=false;try{validateBatchIdentity({...good,batch_snapshot_sha256:'0'.repeat(64)})}catch(e){badSnapshotBlocked=/batch_snapshot_sha256/.test(String(e.message||e))}
+              if(!badSnapshotBlocked)throw new Error('batch identity self-test failed to reject modified snapshot');
+              console.log('SOURCE REVIEW BATCH IDENTITY SELF-TEST PASS',JSON.stringify({batchId,records:rows.length}));
+            }
           }
+          const batchIdentityResult=validateBatchIdentity(decisions);
+          if(batchIdentityResult.mode==='bound')console.log('SOURCE REVIEW BATCH IDENTITY PASS',JSON.stringify(batchIdentityResult));
 
           {
             const sample=Object.entries(integrity.questions||{}).find(([id])=>!manifest.positions?.[manifest.positions?.['tax-auditor']?.published_ids?.includes(id)?'tax-auditor':'revenue-academic']?.source_verified_ids?.includes(id));
