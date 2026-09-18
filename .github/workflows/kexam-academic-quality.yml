@@ -60,6 +60,11 @@ jobs:
               if(new Set(choices).size!==4)throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: มีตัวเลือกซ้ำ`);
               if(choices.some(x=>x.length<2))throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: ตัวเลือกสั้นผิดปกติ`);
               if(!Number.isInteger(r[3])||r[3]<0||r[3]>3)throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: คำตอบไม่ถูกต้อง`);
+              const lens=choices.map(x=>x.length),correctLen=lens[r[3]],other=lens.filter((_,ci)=>ci!==r[3]),maxOther=Math.max(...other),minOther=Math.min(...other);
+              if(correctLen-maxOther>=35&&correctLen>maxOther*2.4)throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: คำตอบถูกยาวเด่นกว่าตัวลวงผิดธรรมชาติ (${correctLen} vs max ${maxOther})`);
+              if(minOther-correctLen>=35&&correctLen*2.4<minOther)throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: คำตอบถูกสั้นเด่นกว่าตัวลวงผิดธรรมชาติ (${correctLen} vs min ${minOther})`);
+              const neg=(prompt.match(/ไม่|มิใช่|ยกเว้น/g)||[]).length;
+              if(neg>=3)throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: พบถ้อยคำปฏิเสธซ้อนมากเกินไป ควรแก้โจทย์ให้ชัดเจน`);
               if(exp.length<40)throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: คำอธิบายเพิ่มเติมสั้นเกินมาตรฐาน`);
               if(wrong.length<40)throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: เหตุผลตัวเลือกผิดสั้นเกินมาตรฐาน`);
               if(exp.length>420)throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: คำอธิบายยาวเกินมาตรฐานการอ่านทบทวน`);
@@ -71,7 +76,16 @@ jobs:
               prompts.push(prompt);explanations.push(exp);wrongReasons.push(wrong);choiceSetKeys.push(JSON.stringify([...choices].sort()));
               cats[cat]=(cats[cat]||0)+1;setCats[cat]=(setCats[cat]||0)+1;
             });
-            if(ans.some(n=>n!==25))throw new Error(`ชุด ${si+1}: ต้องกระจายคำตอบ ก/ข/ค/ง อย่างละ 25 ข้อ แต่ได้ ${ans.join('/')}`);
+            if(ans.some(n=>n<22||n>28))throw new Error(`ชุด ${si+1}: สัดส่วนคำตอบ ก/ข/ค/ง ต้องอยู่ช่วง 22–28 ข้อต่อตัวเลือก แต่ได้ ${ans.join('/')}`);
+            let maxRun=1,run=1,last=null;
+            for(const r of set){if(r[3]===last){run++;maxRun=Math.max(maxRun,run)}else{last=r[3];run=1}}
+            if(maxRun>4)throw new Error(`ชุด ${si+1}: พบคำตอบตัวเดียวติดกัน ${maxRun} ข้อ เกินมาตรฐานสูงสุด 4 ข้อ`);
+            for(let period=2;period<=6;period++){
+              let same=0,total=0;
+              for(let i=period;i<set.length;i++){total++;if(set[i][3]===set[i-period][3])same++}
+              const rate=total?same/total:0;
+              if(rate>=0.85)throw new Error(`ชุด ${si+1}: พบ pattern คำตอบซ้ำเชิงกล period=${period} rate=${(rate*100).toFixed(1)}%`);
+            }
             for(const [k,v] of Object.entries(perSet))if(setCats[k]!==v)throw new Error(`ชุด ${si+1}: หมวด ${k} ต้องมี ${v} ข้อ แต่พบ ${setCats[k]||0}`);
             console.log(`SET ${si+1}: answers=${ans.join('/')} categories=${JSON.stringify(setCats)}`);
           });
@@ -82,10 +96,10 @@ jobs:
           const normNoNum=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[0-9๐-๙]+/g,'#').replace(/[\\s\\p{P}\\p{S}]+/gu,'');
           const promptShapeCounts=new Map();let maxPromptShapeReuse=0;
           for(const p of prompts){const k=normNoNum(p),n=(promptShapeCounts.get(k)||0)+1;promptShapeCounts.set(k,n);if(n>maxPromptShapeReuse)maxPromptShapeReuse=n}
-          if(maxPromptShapeReuse>10)throw new Error(`พบโครงคำถามคำนวณซ้ำเกินมาตรฐานนักตรวจสอบภาษี: สูงสุด ${maxPromptShapeReuse} ข้อ`);
+          if(maxPromptShapeReuse>8)throw new Error(`พบโครงคำถามซ้ำเชิงรูปแบบเกินมาตรฐาน: สูงสุด ${maxPromptShapeReuse} ข้อ`);
           const choiceSetCounts=new Map();let maxChoiceSetReuse=0;
           for(const k of choiceSetKeys){const n=(choiceSetCounts.get(k)||0)+1;choiceSetCounts.set(k,n);if(n>maxChoiceSetReuse)maxChoiceSetReuse=n}
-          if(maxChoiceSetReuse>10)throw new Error(`พบชุดตัวเลือกซ้ำเกินมาตรฐานนักตรวจสอบภาษี: สูงสุด ${maxChoiceSetReuse} ข้อ`);
+          if(maxChoiceSetReuse>8)throw new Error(`พบชุดตัวเลือกซ้ำเกินมาตรฐาน: สูงสุด ${maxChoiceSetReuse} ข้อ`);
           const maxReuse=arr=>{
             const m=new Map();let mx=0;
             for(const s of arr){const k=norm(s);const n=(m.get(k)||0)+1;m.set(k,n);if(n>mx)mx=n}
@@ -103,7 +117,7 @@ jobs:
           console.log(`MAX EXACT CHOICE-SET REUSE ${maxChoiceSetReuse}`);
           console.log(`MAX NORMALIZED EXPLANATION REUSE ${maxExpReuse}; WRONG-REASON REUSE ${maxWrongReuse}`);
           console.log('PASS: นักวิชาการสรรพากรปฏิบัติการผ่านมาตรฐานโครงสร้างเดียวกับระบบนักตรวจสอบภาษีปฏิบัติการ');
-          console.log('10 ชุด x 100 ข้อ, ชุดละ 60/15/15/10 ตามหมวด, 4 ตัวเลือก, 1 คำตอบ, ก/ข/ค/ง = 25/25/25/25 ต่อชุด, ไม่มีคำถามซ้ำ, มีคำอธิบายและเหตุผลตัวเลือกผิดครบ');
+          console.log('10 ชุด x 100 ข้อ, ชุดละ 60/15/15/10 ตามหมวด, 4 ตัวเลือก, 1 คำตอบ, ก/ข/ค/ง สมดุลช่วง 22–28 ต่อชุด, ตรวจ answer-run/pattern, ตรวจตัวเลือกเด่น, ไม่มีคำถามซ้ำ, มีคำอธิบายและเหตุผลตัวเลือกผิดครบ');
           NODE
 
       - name: Verify public academic bank is readable
