@@ -67,12 +67,12 @@ daily as (
     interval '1 day'
   ) d(day)
   left join (
-    select date_trunc('day',created_at) day,
+    select date_trunc('day',created_at) as bucket_day,
            count(*) filter(where event_name='page_view') page_views,
            count(*) filter(where event_name='exam_open' and coalesce(metadata->>'show_result','false') not in ('true','1')) starts,
            count(*) filter(where event_name='exam_submit') submissions
     from base group by 1
-  ) x on x.day=d.day
+  ) x on x.bucket_day=d.day
 ),
 sources as (
   select coalesce(jsonb_agg(jsonb_build_object('name',name,'value',value) order by value desc),'[]'::jsonb) value
