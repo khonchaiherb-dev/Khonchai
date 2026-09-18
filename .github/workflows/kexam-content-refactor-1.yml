@@ -151,7 +151,7 @@ jobs:
             const p=get(x.r,1),key=shape(p);const a=shapeGroups.get(key)||[];a.push({...x,p});shapeGroups.set(key,a);
           }
           let changedPrompts=0,promptGroupsTouched=0;
-          for(const group of [...shapeGroups.values()].filter(g=>g.length>=8)){
+          for(const group of [...shapeGroups.values()].filter(g=>g.length>=7)){
             promptGroupsTouched++;
             group.slice(5).forEach((x,idx)=>{
               const prefix=wrappers[idx%wrappers.length];
