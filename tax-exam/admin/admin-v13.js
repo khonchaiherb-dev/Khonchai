@@ -67,7 +67,7 @@
   function list(rows=[],empty='ยังไม่มีข้อมูล'){
     if(!rows.length)return `<div class="empty">${empty}</div>`;
     const max=Math.max(...rows.map(x=>Number(x.value)||0),1);
-    return `<div class="list">${rows.slice(0,12).map(x=>`<div class="row"><div><div class="name">${String(x.name??'ไม่ระบุ')}</div><div class="meta"><span style="display:inline-block;width:${Math.max(6,Math.round((Number(x.value)||0)/max*100))}%;height:4px;border-radius:8px;background:linear-gradient(90deg,#2563eb,#38bdf8);vertical-align:middle"></span></div></div><div class="val">${fmt(x.value)}</div></div>`).join('')}</div>`
+    return `<div class="list">${rows.slice(0,12).map(x=>`<div class="row"><div><div class="name">${esc(x.name??'ไม่ระบุ')}</div><div class="meta"><span style="display:inline-block;width:${Math.max(6,Math.round((Number(x.value)||0)/max*100))}%;height:4px;border-radius:8px;background:linear-gradient(90deg,#2563eb,#38bdf8);vertical-align:middle"></span></div></div><div class="val">${fmt(x.value)}</div></div>`).join('')}</div>`
   }
   function reportList(rows=null){
     const src=Array.isArray(rows)?rows:localQuestionReports();if(!src.length)return '<div class="empty">ยังไม่มีรายการแจ้งปัญหาข้อสอบ</div>';
