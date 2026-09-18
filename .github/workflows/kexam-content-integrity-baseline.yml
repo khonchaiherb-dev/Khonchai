@@ -82,7 +82,7 @@ jobs:
           if(Object.keys(current).length!==2000)throw new Error('integrity snapshot must contain exactly 2,000 Question IDs');
 
           const refresh=String(process.env.REFRESH||'false')==='true';
-          if(fs.existsSync(baselinePath)&&!refresh){
+          if(fs.existsSync(baselinePath)){
             const old=JSON.parse(fs.readFileSync(baselinePath,'utf8'));
             if(old.schema_version!==1||old.algorithm!=='sha256')throw new Error('invalid content-integrity baseline schema');
             const previous=old.questions||{};
@@ -92,12 +92,44 @@ jobs:
               else if(previous[id].sha256!==x.sha256)changed.push(id);
             }
             for(const id of Object.keys(previous))if(!current[id])missing.push(id);
-            if(changed.length||missing.length||added.length){
-              console.error('CONTENT INTEGRITY MISMATCH',JSON.stringify({changed:changed.slice(0,50),missing:missing.slice(0,50),added:added.slice(0,50),counts:{changed:changed.length,missing:missing.length,added:added.length}}));
-              throw new Error('Question content changed after baseline. Move affected IDs out of Published, review them, then intentionally refresh the baseline.');
+
+            if(!refresh){
+              if(changed.length||missing.length||added.length){
+                console.error('CONTENT INTEGRITY MISMATCH',JSON.stringify({changed:changed.slice(0,50),missing:missing.slice(0,50),added:added.slice(0,50),counts:{changed:changed.length,missing:missing.length,added:added.length}}));
+                throw new Error('Question content changed after baseline. Move affected IDs out of Published, review them, then intentionally refresh the baseline.');
+              }
+              console.log('PASS integrity baseline unchanged for 2,000 Question IDs');
+              process.exit(0);
             }
-            console.log('PASS integrity baseline unchanged for 2,000 Question IDs');
-            process.exit(0);
+
+            if(missing.length||added.length){
+              throw new Error('Baseline refresh cannot add/remove Question IDs. Resolve bank identity changes separately. added='+added.slice(0,20).join(',')+' missing='+missing.slice(0,20).join(','));
+            }
+            if(!changed.length){
+              console.log('REFRESH requested but no content hashes changed; baseline remains unchanged');
+              process.exit(0);
+            }
+
+            const badLifecycle=changed.filter(id=>!['Reviewed','Verified'].includes(current[id]?.lifecycle_status));
+            if(badLifecycle.length){
+              console.error('REFRESH BLOCKED — lifecycle',JSON.stringify(badLifecycle.slice(0,50)));
+              throw new Error('Changed Question IDs must be moved out of Published into Reviewed or Verified before baseline refresh.');
+            }
+
+            const oldSourceVerified=changed.filter(id=>previous[id]?.source_state==='verified');
+            const sourceNotReset=oldSourceVerified.filter(id=>current[id]?.source_state!=='pending');
+            if(sourceNotReset.length){
+              console.error('REFRESH BLOCKED — source verification not reset',JSON.stringify(sourceNotReset.slice(0,50)));
+              throw new Error('Previously source-verified changed Question IDs must be reset to source_state=pending before baseline refresh and re-verified afterward.');
+            }
+
+            const newlyVerifiedDuringChange=changed.filter(id=>previous[id]?.source_state!=='verified'&&current[id]?.source_state==='verified');
+            if(newlyVerifiedDuringChange.length){
+              console.error('REFRESH BLOCKED — source verification must occur after baseline refresh',JSON.stringify(newlyVerifiedDuringChange.slice(0,50)));
+              throw new Error('Do not mark changed Question IDs source-verified before refreshing the content baseline. Refresh first, then perform source verification as a separate step.');
+            }
+
+            console.log('REFRESH POLICY PASS',JSON.stringify({changed:changed.length,lifecycleReviewed:changed.filter(id=>current[id]?.lifecycle_status==='Reviewed').length,lifecycleVerified:changed.filter(id=>current[id]?.lifecycle_status==='Verified').length,sourceRecheckRequired:oldSourceVerified.length}));
           }
 
           const out={
