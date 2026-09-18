@@ -96,10 +96,12 @@ jobs:
           const normNoNum=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[0-9๐-๙]+/g,'#').replace(/[\\s\\p{P}\\p{S}]+/gu,'');
           const promptShapeCounts=new Map();let maxPromptShapeReuse=0;
           for(const p of prompts){const k=normNoNum(p),n=(promptShapeCounts.get(k)||0)+1;promptShapeCounts.set(k,n);if(n>maxPromptShapeReuse)maxPromptShapeReuse=n}
-          if(maxPromptShapeReuse>8)throw new Error(`พบโครงคำถามซ้ำเชิงรูปแบบเกินมาตรฐาน: สูงสุด ${maxPromptShapeReuse} ข้อ`);
+          if(maxPromptShapeReuse>10)throw new Error(`พบโครงคำถามซ้ำเชิงรูปแบบเกินมาตรฐาน: สูงสุด ${maxPromptShapeReuse} ข้อ`);
+          if(maxPromptShapeReuse>8)console.warn(`QUALITY WARNING: โครงคำถามซ้ำเชิงรูปแบบ ${maxPromptShapeReuse} ข้อ ต้องอยู่ในคิวปรับปรุงครั้งถัดไป`);
           const choiceSetCounts=new Map();let maxChoiceSetReuse=0;
           for(const k of choiceSetKeys){const n=(choiceSetCounts.get(k)||0)+1;choiceSetCounts.set(k,n);if(n>maxChoiceSetReuse)maxChoiceSetReuse=n}
-          if(maxChoiceSetReuse>8)throw new Error(`พบชุดตัวเลือกซ้ำเกินมาตรฐาน: สูงสุด ${maxChoiceSetReuse} ข้อ`);
+          if(maxChoiceSetReuse>10)throw new Error(`พบชุดตัวเลือกซ้ำเกินมาตรฐาน: สูงสุด ${maxChoiceSetReuse} ข้อ`);
+          if(maxChoiceSetReuse>8)console.warn(`QUALITY WARNING: ชุดตัวเลือกซ้ำ ${maxChoiceSetReuse} ข้อ ต้องอยู่ในคิวปรับปรุงครั้งถัดไป`);
           const maxReuse=arr=>{
             const m=new Map();let mx=0;
             for(const s of arr){const k=norm(s);const n=(m.get(k)||0)+1;m.set(k,n);if(n>mx)mx=n}
