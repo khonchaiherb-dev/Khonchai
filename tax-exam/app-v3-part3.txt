@@ -4,6 +4,16 @@
 }
 function openExamNavigator(){modal(`<h3>เลือกข้อสอบ</h3><div class="legend"><span><i class="dot a"></i>ตอบแล้ว</span><span><i class="dot u"></i>ยังไม่ตอบ</span><span><i class="dot f"></i>ทบทวน</span></div><div class="qgrid qgrid-modal">${examNavButtons()}</div><div class="modal-actions"><button class="ghost-btn" id="navClose">ปิด</button></div>`,true);$('#navClose').onclick=()=>$('#modal').remove();document.querySelectorAll('#modal .qnum').forEach(b=>b.onclick=()=>{$('#modal').remove();go(+b.dataset.i)})}
 function confirmSubmit(){const total=examTotal();if(answeredCount()<total){toast(`กรุณาตอบให้ครบ ${total} ข้อก่อนส่ง`);const i=firstUnanswered();if(i>=0)go(i);return}persist();modal(`<h3>ยืนยันส่งคำตอบ</h3><p>คุณตอบครบ ${total} ข้อแล้ว หลังยืนยันระบบจะล็อกคำตอบครั้งนี้ คำนวณคะแนน และเปิดเฉลยให้ทบทวน</p><div class="modal-actions"><button class="ghost-btn" id="cancelSubmit">กลับไปตรวจ</button><button class="primary-btn" id="confirmSubmit">ยืนยันส่งคำตอบ</button></div>`);$('#cancelSubmit').onclick=()=>$('#modal').remove();$('#confirmSubmit').onclick=()=>{$('#modal').remove();submitExam()}}
+function itemReviewMetric(x){
+  const attempts=Number(x?.attempts)||0,correct=Number(x?.correct)||0,answer=Number(x?.answer),choices=Array.isArray(x?.choices)&&x.choices.length===4?x.choices.map(v=>Number(v)||0):[0,0,0,0];
+  const accuracy=attempts?Math.round(correct*1000/attempts)/10:0,unused=choices.reduce((n,v,i)=>n+(i!==answer&&v===0?1:0),0;
+  let score=0;const flags=[];
+  if(attempts>=3&&accuracy<35){score+=32;flags.push('อัตราตอบถูกต่ำ')}
+  if(attempts>=5&&accuracy>95){score+=18;flags.push('อัตราตอบถูกสูงมาก')}
+  if(unused){score+=Math.min(36,unused*12);flags.push(`ตัวลวงไม่ถูกเลือก ${unused}/3`)}
+  score+=Math.min(14,Math.max(0,attempts-2)*2);
+  return{accuracy,unused,reviewScore:Math.min(100,Math.round(score)),reviewFlags:flags};
+}
 function recordItemStats(){
   const g=loadGlobal();g.itemStats=g.itemStats&&typeof g.itemStats==='object'?g.itemStats:{};
   const now=Date.now();
@@ -14,13 +24,13 @@ function recordItemStats(){
     x.choices=Array.isArray(x.choices)&&x.choices.length===4?x.choices.map(v=>Number(v)||0):[0,0,0,0];
     if(Number.isInteger(selected)&&selected>=0&&selected<4)x.choices[selected]++;
     x.answer=q.answer;x.category=q.category||'';x.topic=q.topic||q.category||'';x.prompt=String(q.prompt||'').slice(0,240);x.lastSeen=now;
-    g.itemStats[q.id]=x;
+    Object.assign(x,itemReviewMetric(x));g.itemStats[q.id]=x;
   });
   saveGlobal(g);
 }
 function submitExam(){
   persist();stopTimer();let score=0;const wrongIds=[];bank.questions.forEach((q,i)=>{if(state.answers[i]===q.answer)score++;else if(q.id)wrongIds.push(q.id)});const total=examTotal();state.score=score;state.total=total;state.submitted=true;state.submittedAt=Date.now();state.lastIndex=0;putSetState(currentSet,state);
-  const cats=resultStats(),topics=resultTopicStats();const mode=isRandomSet(currentSet)?'random':isWrongSet(currentSet)?'wrong-practice':isWeakSet(currentSet)?'weak-practice':isTopicSet(currentSet)?'topic-practice':'fixed';
+  const cats=resultStats(),topics=resultTopicStats();const mode=isRandomSet(currentSet)?'random':isWrongSet(currentSet)?'wrong-practice':isWeakSet(currentSet)?'weak-practice':isTopicSet(currentSet)?'topic-practice':isRepeatSet(currentSet)?'repeat-practice':'fixed';
   appendHistory(currentSet,{score,total,wrongIds,mode,practiceCategory:state.practiceCategory||null,practiceTopic:state.practiceTopic||null,elapsed:Math.round(state.elapsed||0),submittedAt:state.submittedAt,category:Object.fromEntries(Object.entries(cats).map(([k,v])=>[k,{correct:v.correct,total:v.total}])),topic:Object.fromEntries(Object.entries(topics).map(([k,v])=>[k,{correct:v.correct,total:v.total}]))});
   recordItemStats();renderResult()
 }
