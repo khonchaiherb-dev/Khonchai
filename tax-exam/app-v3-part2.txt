@@ -1,5 +1,5 @@
-  $('#app').innerHTML=`${header(extra)}<main class="page"><section class="home-hero position-selected-hero"><div><div class="eyebrow">ตำแหน่งที่เลือก</div><h1>${esc(p.title)}<br>กรมสรรพากร</h1><p>${esc(p.description)}</p><div class="hero-chips"><span class="chip">10 ชุด × 100 ข้อ</span><span class="chip">ตอบครบก่อนส่ง</span><span class="chip">ดูเฉลยย้อนหลัง</span><span class="chip">บันทึกความคืบหน้าอัตโนมัติ</span></div></div><div class="hero-stat"><span>ทำเสร็จแล้ว</span><strong>${completed}<small>/10</small></strong><span>ชุดข้อสอบ</span></div></section><div class="section-title">เลือกชุดข้อสอบ</div><section class="sets">${cards}</section><div class="section-title practice-title">ฝึกแบบสุ่มจากคลัง</div><section class="random-practice-wrap">${randomHtml}</section><div class="section-title insight-title">วิเคราะห์ผลการทำข้อสอบ</div>${weaknessHtml}<div class="section-title insight-title">ฝึกตามผลการทำข้อสอบ</div>${personalPracticeHtml}</main>${footer()}`;
-  bindBrand();$('#changePosition').onclick=()=>{persist();renderPositionHome()};document.querySelectorAll('.set-card').forEach(el=>el.onclick=()=>openSet(+el.dataset.set));$('#randomPractice').onclick=()=>openSet(RANDOM_SET);$('#wrongPractice').onclick=()=>beginPractice(WRONG_SET,null,true,false);const weakBtn=$('#weakPractice');if(weakBtn&&weak.length)weakBtn.onclick=()=>beginPractice(WEAK_SET,weak[0].name,true,false);
+  $('#app').innerHTML=`${header(extra)}<main class="page"><section class="home-hero position-selected-hero"><div><div class="eyebrow">ตำแหน่งที่เลือก</div><h1>${esc(p.title)}<br>กรมสรรพากร</h1><p>${esc(p.description)}</p><div class="hero-chips"><span class="chip">10 ชุด × 100 ข้อ</span><span class="chip">ตอบครบก่อนส่ง</span><span class="chip">ดูเฉลยย้อนหลัง</span><span class="chip">บันทึกความคืบหน้าอัตโนมัติ</span></div></div><div class="hero-stat"><span>ทำเสร็จแล้ว</span><strong>${completed}<small>/10</small></strong><span>ชุดข้อสอบ</span></div></section><div class="section-title">เลือกชุดข้อสอบ</div><section class="sets">${cards}</section><div class="section-title practice-title">ฝึกแบบสุ่มจากคลัง</div><section class="random-practice-wrap">${randomHtml}</section><div class="section-title insight-title">วิเคราะห์ผลการทำข้อสอบ</div>${weaknessHtml}${topicInsightHtml}<div class="section-title insight-title">ฝึกตามผลการทำข้อสอบ</div>${personalPracticeHtml}</main>${footer()}`;
+  bindBrand();$('#changePosition').onclick=()=>{persist();renderPositionHome()};document.querySelectorAll('.set-card').forEach(el=>el.onclick=()=>openSet(+el.dataset.set));$('#randomPractice').onclick=()=>openSet(RANDOM_SET);$('#wrongPractice').onclick=()=>beginPractice(WRONG_SET,null,true,false);const weakBtn=$('#weakPractice');if(weakBtn&&weak.length)weakBtn.onclick=()=>beginPractice(WEAK_SET,weak[0].name,true,false);const topicBtn=$('#topicPractice');if(topicBtn&&weakTopic.length)topicBtn.onclick=()=>beginPractice(TOPIC_SET,weakTopic[0].name,true,false);
 }
 
 async function loadCompactBank(key=currentPosition){
@@ -70,7 +70,7 @@ async function loadRandomSet(savedIds=null){
 function questionFromId(c,id){const p=parseQuestionId(id);return p&&c.q?.[p.si]?.[p.qi]?decodeQuestion(c,c.q[p.si][p.qi],p.si,p.qi):null}
 function collectHistoryWrongIds(){
   const out=[];
-  [...Array(SETS).keys()].map(i=>i+1).concat([RANDOM_SET,WRONG_SET,WEAK_SET]).forEach(n=>getHistory(n).forEach(h=>{if(Array.isArray(h?.wrongIds))out.push(...h.wrongIds)}));
+  [...Array(SETS).keys()].map(i=>i+1).concat([RANDOM_SET,WRONG_SET,WEAK_SET,TOPIC_SET]).forEach(n=>getHistory(n).forEach(h=>{if(Array.isArray(h?.wrongIds))out.push(...h.wrongIds)}));
   return out;
 }
 async function collectWrongIds(c){
@@ -82,7 +82,7 @@ async function collectWrongIds(c){
   }
   const rs=getSetState(RANDOM_SET);
   if(rs?.submitted&&Array.isArray(rs.randomIds))rs.randomIds.forEach((raw,i)=>{const m=/^(\d+):(\d+)$/.exec(String(raw));if(!m)return;const si=+m[1],qi=+m[2],r=c.q?.[si]?.[qi];if(r&&rs.answers?.[i]!==r[3])ids.add(questionId(si,qi))});
-  for(const kind of [WRONG_SET,WEAK_SET]){
+  for(const kind of [WRONG_SET,WEAK_SET,TOPIC_SET]){
     const st=getSetState(kind);if(!st?.submitted||!Array.isArray(st.practiceIds))continue;
     st.practiceIds.forEach((id,i)=>{const q=questionFromId(c,id);if(q&&st.answers?.[i]!==q.answer)ids.add(q.id)});
   }
@@ -93,7 +93,12 @@ function buildWeakPlan(c,category,limit=50){
   if(!ids.length)throw new Error('ไม่พบข้อสอบในหมวดที่เลือก');
   return randomize(ids).slice(0,Math.min(limit,ids.length));
 }
-async function loadPracticeSet(kind,{category=null,savedIds=null}={}){
+function buildTopicPlan(c,topic,limit=40){
+  const ids=[];c.q.forEach((set,si)=>set.forEach((r,qi)=>{const cat=String(c.s[r[0]]||''),prompt=String(c.s[r[1]]||'');if(deriveTopic(cat,prompt)===String(topic))ids.push(questionId(si,qi))}));
+  if(!ids.length)throw new Error('ไม่พบข้อสอบในหัวข้อย่อยที่เลือก');
+  return randomize(ids).slice(0,Math.min(limit,ids.length));
+}
+async function loadPracticeSet(kind,{category=null,topic=null,savedIds=null}={}){
   const c=await loadCompactBank();let ids=Array.isArray(savedIds)?savedIds.map(String).filter(id=>questionFromId(c,id)):null;
   if(kind===WRONG_SET){
     if(!ids?.length){ids=await collectWrongIds(c);ids=randomize(ids).slice(0,Math.min(100,ids.length))}
@@ -105,19 +110,27 @@ async function loadPracticeSet(kind,{category=null,savedIds=null}={}){
     if(!ids?.length)ids=buildWeakPlan(c,category,50);
     return{set:WEAK_SET,title:`ฝึกหมวดที่ควรทบทวน · ${category}`,questions:ids.map(id=>questionFromId(c,id)),practiceIds:ids,practiceCategory:category};
   }
+  if(kind===TOPIC_SET){
+    if(!topic)throw new Error('ยังไม่มีข้อมูลหัวข้อย่อยที่ควรทบทวน');
+    if(!ids?.length)ids=buildTopicPlan(c,topic,40);
+    return{set:TOPIC_SET,title:`ฝึกหัวข้อย่อยที่ควรทบทวน · ${topic}`,questions:ids.map(id=>questionFromId(c,id)),practiceIds:ids,practiceTopic:topic};
+  }
   throw new Error('ไม่รู้จักโหมดฝึกนี้');
 }
-async function beginPractice(kind,category=null,reset=false,showResult=false){
+async function beginPractice(kind,focus=null,reset=false,showResult=false){
   try{
-    window.KEXAM_ANALYTICS?.track('exam_open',{position:currentPosition,set_no:null,exam_mode:kind===WRONG_SET?'wrong-practice':'weak-practice',reset:!!reset,show_result:!!showResult});
+    const mode=kind===WRONG_SET?'wrong-practice':kind===TOPIC_SET?'topic-practice':'weak-practice';
+    window.KEXAM_ANALYTICS?.track('exam_open',{position:currentPosition,set_no:null,exam_mode:mode,focus:focus||null,reset:!!reset,show_result:!!showResult});
     currentSet=kind;showLoading('กำลังเตรียมชุดฝึกเฉพาะบุคคล...');
     let st=getSetState(kind);
-    if(kind===WEAK_SET&&category&&st?.practiceCategory!==category)reset=true;
-    const useCategory=category||st?.practiceCategory||null;
+    if(kind===WEAK_SET&&focus&&st?.practiceCategory!==focus)reset=true;
+    if(kind===TOPIC_SET&&focus&&st?.practiceTopic!==focus)reset=true;
+    const useCategory=kind===WEAK_SET?(focus||st?.practiceCategory||null):null;
+    const useTopic=kind===TOPIC_SET?(focus||st?.practiceTopic||null):null;
     const saved=!reset&&Array.isArray(st?.practiceIds)?st.practiceIds:null;
-    bank=await loadPracticeSet(kind,{category:useCategory,savedIds:saved});
+    bank=await loadPracticeSet(kind,{category:useCategory,topic:useTopic,savedIds:saved});
     if(reset||!st||!saved){
-      st={answers:{},flags:{},startedAt:Date.now(),elapsed:0,submitted:false,score:null,lastIndex:0,total:bank.questions.length,practiceIds:bank.practiceIds,practiceCategory:bank.practiceCategory||null};
+      st={answers:{},flags:{},startedAt:Date.now(),elapsed:0,submitted:false,score:null,lastIndex:0,total:bank.questions.length,practiceIds:bank.practiceIds,practiceCategory:bank.practiceCategory||null,practiceTopic:bank.practiceTopic||null};
       putSetState(kind,st);
     }else if(!st.total){st.total=bank.questions.length;putSetState(kind,st)}
     state=st;currentIndex=Math.min(Math.max(0,bank.questions.length-1),state.lastIndex||0);
