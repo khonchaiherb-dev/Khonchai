@@ -1,0 +1,133 @@
+name: K-EXAM Content Integrity Baseline
+
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-content-integrity-baseline.yml'
+      - 'docs/KEXAM_QUESTION_LIFECYCLE.md'
+  workflow_dispatch:
+    inputs:
+      refresh:
+        description: 'Refresh baseline after an intentional reviewed content change'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 1
+
+      - name: Build or verify Question ID content fingerprints
+        shell: bash
+        env:
+          REFRESH: ${{ github.event_name == 'workflow_dispatch' && inputs.refresh && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs'),zlib=require('zlib'),crypto=require('crypto');
+          const baselinePath='tax-exam/question-content-integrity.json';
+          const configs={
+            'tax-auditor':{
+              prefix:'TA',
+              files:['bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt']
+            },
+            'revenue-academic':{
+              prefix:'RA',
+              files:['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt']
+            }
+          };
+          const manifest=JSON.parse(fs.readFileSync('tax-exam/question-publication-manifest.json','utf8'));
+          const canonical=(data,r)=>JSON.stringify({
+            category:String(data.s[r[0]]??''),
+            prompt:String(data.s[r[1]]??''),
+            choices:(r[2]||[]).map(i=>String(data.s[i]??'')),
+            answer:r[3],
+            explanation:String(data.s[r[4]]??''),
+            wrong_reasons:String(data.s[r[5]]??'')
+          });
+          const hash=s=>crypto.createHash('sha256').update(s,'utf8').digest('hex');
+          const current={};
+          const positionSummary={};
+          for(const [position,cfg] of Object.entries(configs)){
+            const b64=cfg.files.map(f=>fs.readFileSync('tax-exam/'+f,'utf8').trim()).join('').replace(/\s+/g,'');
+            const data=JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8'));
+            if(!Array.isArray(data.q)||data.q.length!==10||data.q.some(set=>set.length!==100))throw new Error(position+' bank must be 10 x 100');
+            const p=manifest.positions?.[position];if(!p)throw new Error('manifest missing '+position);
+            const statusById={};
+            for(const [status,field] of Object.entries({Draft:'draft_ids',Reviewed:'reviewed_ids',Verified:'verified_ids',Published:'published_ids',Retired:'retired_ids'})){
+              for(const id of p[field]||[])statusById[id]=status;
+            }
+            const sourceVerified=new Set(p.source_verified_ids||[]);
+            let count=0;
+            data.q.forEach((set,si)=>set.forEach((r,qi)=>{
+              const id=`${cfg.prefix}-S${String(si+1).padStart(2,'0')}-Q${String(qi+1).padStart(3,'0')}`;
+              current[id]={
+                sha256:hash(canonical(data,r)),
+                position,
+                lifecycle_status:statusById[id]||'UNKNOWN',
+                source_state:sourceVerified.has(id)?'verified':(manifest.source_overrides?.[id]?.source_state||manifest.defaults?.Published?.source_state||'pending')
+              };
+              count++;
+            }));
+            positionSummary[position]={questions:count};
+          }
+          if(Object.keys(current).length!==2000)throw new Error('integrity snapshot must contain exactly 2,000 Question IDs');
+
+          const refresh=String(process.env.REFRESH||'false')==='true';
+          if(fs.existsSync(baselinePath)&&!refresh){
+            const old=JSON.parse(fs.readFileSync(baselinePath,'utf8'));
+            if(old.schema_version!==1||old.algorithm!=='sha256')throw new Error('invalid content-integrity baseline schema');
+            const previous=old.questions||{};
+            const changed=[],missing=[],added=[];
+            for(const [id,x] of Object.entries(current)){
+              if(!previous[id])added.push(id);
+              else if(previous[id].sha256!==x.sha256)changed.push(id);
+            }
+            for(const id of Object.keys(previous))if(!current[id])missing.push(id);
+            if(changed.length||missing.length||added.length){
+              console.error('CONTENT INTEGRITY MISMATCH',JSON.stringify({changed:changed.slice(0,50),missing:missing.slice(0,50),added:added.slice(0,50),counts:{changed:changed.length,missing:missing.length,added:added.length}}));
+              throw new Error('Question content changed after baseline. Move affected IDs out of Published, review them, then intentionally refresh the baseline.');
+            }
+            console.log('PASS integrity baseline unchanged for 2,000 Question IDs');
+            process.exit(0);
+          }
+
+          const out={
+            schema_version:1,
+            algorithm:'sha256',
+            generated_at:new Date().toISOString(),
+            canonical_fields:['category','prompt','choices','answer','explanation','wrong_reasons'],
+            policy:{
+              note:'Fingerprint baseline for substantive question content. Refresh only after intentional review/QA of changed Question IDs.',
+              published_change_requires_review:true,
+              source_verified_change_requires_source_recheck:true
+            },
+            summary:positionSummary,
+            questions:current
+          };
+          fs.writeFileSync(baselinePath,JSON.stringify(out,null,2));
+          console.log((refresh?'REFRESHED':'INITIALIZED')+' content integrity baseline for '+Object.keys(current).length+' Question IDs');
+          NODE
+
+      - name: Publish baseline when created or intentionally refreshed
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tax-exam/question-content-integrity.json
+          if git diff --cached --quiet; then
+            echo "Integrity baseline unchanged"
+            exit 0
+          fi
+          git commit -m "Update question content integrity baseline"
+          git push origin HEAD:gh-pages
