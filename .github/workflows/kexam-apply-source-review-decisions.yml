@@ -237,6 +237,15 @@ jobs:
           }
           out.generated_at=today;
           fs.writeFileSync('/tmp/question-publication-manifest.json',JSON.stringify(out,null,2)+'\n');
+          fs.writeFileSync('/tmp/kexam-source-review-decisions-input.json',JSON.stringify(decisions,null,2)+'\n');
+          fs.writeFileSync('/tmp/kexam-source-review-apply-summary.json',JSON.stringify({
+            batch_id:String(decisions.batch_id||''),
+            batch_snapshot_sha256:String(decisions.batch_snapshot_sha256||''),
+            review_mode:String(decisions.review_mode||''),
+            records:decisions.records.length,
+            verified,needs_revision:needsRevision,retired,
+            applied_question_ids:decisions.records.map(r=>String(r.question_id||''))
+          },null,2)+'\n');
           console.log('SOURCE REVIEW DECISIONS',JSON.stringify({records:decisions.records.length,verified,needsRevision,retired}));
           NODE
 
@@ -252,9 +261,47 @@ jobs:
           git fetch origin gh-pages --depth=1
           git checkout -B gh-pages origin/gh-pages
           cp /tmp/question-publication-manifest.json tax-exam/question-publication-manifest.json
+          node <<'NODE'
+          const fs=require('fs');
+          const decisions=JSON.parse(fs.readFileSync('/tmp/kexam-source-review-decisions-input.json','utf8'));
+          const summary=JSON.parse(fs.readFileSync('/tmp/kexam-source-review-apply-summary.json','utf8'));
+          const batchId=String(decisions.batch_id||'').trim();
+          if(!batchId){
+            console.log('REGISTRY SKIP legacy source review decisions');
+            process.exit(0);
+          }
+          const path='tax-exam/source-review-batch-registry.json';
+          if(!fs.existsSync(path))throw new Error('batch-bound source review decisions require source-review-batch-registry.json');
+          const registry=JSON.parse(fs.readFileSync(path,'utf8'));
+          if(registry.schema_version!==1||!Array.isArray(registry.batches))throw new Error('invalid source review batch registry');
+          const entry=registry.batches.find(x=>x.batch_id===batchId);
+          if(!entry)throw new Error('source review batch not found in registry: '+batchId);
+          if(entry.batch_snapshot_sha256!==String(decisions.batch_snapshot_sha256||''))throw new Error('registry snapshot mismatch for '+batchId);
+          const ids=(decisions.records||[]).map(r=>String(r.question_id||'')).sort();
+          const registryIds=(entry.question_ids||[]).map(String).sort();
+          if(JSON.stringify(ids)!==JSON.stringify(registryIds))throw new Error('decision Question IDs do not match registered batch '+batchId);
+          const counts={verified:Number(summary.verified)||0,needs_revision:Number(summary.needs_revision)||0,retired:Number(summary.retired)||0};
+          if(counts.verified+counts.needs_revision+counts.retired!==Number(summary.records||0))throw new Error('decision count summary mismatch');
+          const appliedAt=new Date().toISOString();
+          if(entry.status==='applied'){
+            const sameCounts=JSON.stringify(entry.decision_counts||{})===JSON.stringify(counts);
+            if(!sameCounts)throw new Error('batch already applied with different decision counts: '+batchId);
+            console.log('REGISTRY APPLY IDEMPOTENT',batchId);
+          }else{
+            if(entry.status!=='generated')throw new Error('invalid batch registry status '+entry.status+' for '+batchId);
+            entry.status='applied';
+            entry.applied_at=appliedAt;
+            entry.decision_counts=counts;
+            entry.applied_question_ids=ids;
+            entry.applied_run_id=String(process.env.GITHUB_RUN_ID||'');
+            console.log('REGISTRY APPLIED',JSON.stringify({batchId,counts}));
+          }
+          registry.updated_at=appliedAt;
+          fs.writeFileSync(path,JSON.stringify(registry,null,2)+'\n');
+          NODE
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tax-exam/question-publication-manifest.json
+          git add tax-exam/question-publication-manifest.json tax-exam/source-review-batch-registry.json 2>/dev/null || git add tax-exam/question-publication-manifest.json
           if git diff --cached --quiet; then
             echo "Publication manifest unchanged"
           else
