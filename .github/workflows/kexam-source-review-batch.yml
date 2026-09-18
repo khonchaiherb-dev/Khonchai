@@ -9,6 +9,14 @@ on:
         description: 'จำนวนข้อในชุดตรวจ'
         required: false
         default: '50'
+      review_mode:
+        description: 'pending = ตรวจครั้งแรก, reverify = ทบทวน source-verified ที่ใกล้/เกินกำหนด'
+        required: false
+        type: choice
+        options:
+          - pending
+          - reverify
+        default: pending
 
 jobs:
   build:
@@ -24,16 +32,31 @@ jobs:
           set -euo pipefail
           git fetch origin gh-pages --depth=1
           SIZE="${{ github.event.inputs.batch_size || '50' }}"
+          MODE="${{ github.event.inputs.review_mode || 'pending' }}"
           if ! [[ "$SIZE" =~ ^[0-9]+$ ]] || [ "$SIZE" -lt 1 ] || [ "$SIZE" -gt 200 ]; then
             echo "batch_size must be 1..200" >&2
             exit 1
           fi
-          BATCH_SIZE="$SIZE" node <<'NODE'
+          if [ "$MODE" != "pending" ] && [ "$MODE" != "reverify" ]; then
+            echo "review_mode must be pending or reverify" >&2
+            exit 1
+          fi
+          BATCH_SIZE="$SIZE" REVIEW_MODE="$MODE" node <<'NODE'
           const cp=require('child_process'),zlib=require('zlib'),fs=require('fs');
           const show=p=>cp.execFileSync('git',['show',`origin/gh-pages:${p}`],{encoding:'utf8',maxBuffer:64*1024*1024});
-          const backlog=JSON.parse(show('tax-exam/source-verification-backlog.json'));
-          if(backlog.schema_version!==1||!Array.isArray(backlog.rows))throw new Error('source backlog invalid');
+          const mode=String(process.env.REVIEW_MODE||'pending');
           const size=Number(process.env.BATCH_SIZE||50);
+          const manifest=JSON.parse(show('tax-exam/question-publication-manifest.json'));
+          const integrity=JSON.parse(show('tax-exam/question-content-integrity.json'));
+          if(integrity.schema_version!==1||integrity.algorithm!=='sha256')throw new Error('content integrity baseline invalid');
+          let queue;
+          if(mode==='pending'){
+            queue=JSON.parse(show('tax-exam/source-verification-backlog.json'));
+            if(queue.schema_version!==1||!Array.isArray(queue.rows))throw new Error('source backlog invalid');
+          }else{
+            queue=JSON.parse(show('tax-exam/source-reverification-watchlist.json'));
+            if(queue.schema_version!==1||!Array.isArray(queue.rows))throw new Error('source re-verification watchlist invalid');
+          }
 
           const configs={
             'tax-auditor':{
@@ -53,13 +76,17 @@ jobs:
             banks[position]=data;
           }
 
-          const selected=backlog.rows.slice(0,size);
-          if(!selected.length)throw new Error('source backlog is empty');
+          const parseId=id=>{const m=/^(RA|TA)-S(\d{2})-Q(\d{3})$/.exec(String(id||''));if(!m)throw new Error('invalid Question ID '+id);return{set:Number(m[2]),question:Number(m[3])}};
+          const pendingRows=mode==='pending'
+            ? queue.rows
+            : queue.rows.filter(r=>r.status==='เกินกำหนด'||r.status==='ใกล้ครบกำหนด');
+          const selected=pendingRows.slice(0,size);
           const letters=['ก','ข','ค','ง'];
           const batch=selected.map((row,idx)=>{
             const data=banks[row.position];
             if(!data)throw new Error('unknown position '+row.position);
-            const si=Number(row.set)-1,qi=Number(row.question)-1,r=data.q?.[si]?.[qi];
+            const loc=mode==='pending'?{set:Number(row.set),question:Number(row.question)}:parseId(row.question_id);
+            const si=loc.set-1,qi=loc.question-1,r=data.q?.[si]?.[qi];
             if(!r)throw new Error('bank row missing '+row.question_id);
             const category=String(data.s[r[0]]||''),prompt=String(data.s[r[1]]||'');
             const choices=(r[2]||[]).map(i=>String(data.s[i]||''));
@@ -70,11 +97,16 @@ jobs:
               review_order:idx+1,
               question_id:row.question_id,
               position:row.position,
-              set:Number(row.set),
-              question:Number(row.question),
-              priority:row.priority,
-              priority_score:Number(row.priority_score)||0,
-              priority_reasons:Array.isArray(row.reasons)?row.reasons:[],
+              set:loc.set,
+              question:loc.question,
+              review_mode:mode,
+              priority:mode==='pending'?(row.priority||'ปกติ'):(row.status||'ยังสดใหม่'),
+              priority_score:mode==='pending'?(Number(row.priority_score)||0):(row.status==='เกินกำหนด'?100:row.status==='ใกล้ครบกำหนด'?70:0),
+              priority_reasons:mode==='pending'?(Array.isArray(row.reasons)?row.reasons:[]):[
+                'Source freshness: '+String(row.status||''),
+                'ตรวจล่าสุด '+String(row.checked_at||''),
+                'ครบกำหนด '+String(row.due_at||'')
+              ],
               category,
               topic:row.topic||category,
               prompt,
@@ -82,7 +114,17 @@ jobs:
               correct_answer:{index:answer,letter:letters[answer],text:answerText},
               explanation,
               wrong_reasons:wrongReasons,
-              current_source_state:row.source_state||'pending',
+              current_source_state:mode==='pending'?(row.source_state||'pending'):'verified',
+              current_content_sha256:integrity.questions?.[row.question_id]?.sha256||null,
+              current_source_verification:mode==='reverify'?(manifest.source_overrides?.[row.question_id]||null):null,
+              freshness:mode==='reverify'?{
+                status:row.status,
+                checked_at:row.checked_at,
+                due_at:row.due_at,
+                days_until_due:row.days_until_due,
+                review_interval_days:row.review_interval_days,
+                freshness_tier:row.freshness_tier
+              }:null,
               review_form:{
                 decision:'',
                 reviewed_at:'',
@@ -94,11 +136,14 @@ jobs:
             };
           });
 
+          if(mode==='pending'&&!batch.length)throw new Error('source verification backlog is empty');
           const out={
             schema_version:1,
             generated_at:new Date().toISOString(),
+            review_mode:mode,
             batch_size:batch.length,
-            selection_policy:'source-verification-backlog priority order',
+            selection_policy:mode==='pending'?'source-verification-backlog priority order':'source freshness overdue/due-soon order',
+            note:mode==='reverify'&&batch.length===0?'ยังไม่มี source-verified ที่ใกล้หรือเกินกำหนดทบทวน':null,
             warning:'ไฟล์นี้มีคำตอบและคำอธิบาย ใช้สำหรับการตรวจภายใน ไม่ควรเผยแพร่เป็นไฟล์สาธารณะ',
             questions:batch
           };
@@ -107,6 +152,7 @@ jobs:
           const decisionTemplate={
             schema_version:1,
             updated_at:new Date().toISOString().slice(0,10),
+            review_mode:mode,
             records:batch.map(q=>({
               question_id:q.question_id,
               decision:'',
@@ -118,18 +164,19 @@ jobs:
           fs.writeFileSync('/tmp/kexam-source-review-decisions-template.json',JSON.stringify(decisionTemplate,null,2)+'\n');
 
           const csvCell=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
-          const header=['review_order','question_id','position','priority','priority_score','category','topic','prompt','correct_letter','correct_answer','decision','reviewed_at','review_note','source_title','source_url','source_checked_at','source_section'];
+          const header=['review_order','question_id','position','review_mode','priority','priority_score','category','topic','freshness_status','checked_at','due_at','days_until_due','prompt','correct_letter','correct_answer','decision','reviewed_at','review_note','source_title','source_url','source_checked_at','source_section'];
           const lines=[header.join(',')];
           for(const q of batch){
             lines.push([
-              q.review_order,q.question_id,q.position,q.priority,q.priority_score,q.category,q.topic,q.prompt,
+              q.review_order,q.question_id,q.position,q.review_mode,q.priority,q.priority_score,q.category,q.topic,
+              q.freshness?.status||'',q.freshness?.checked_at||'',q.freshness?.due_at||'',q.freshness?.days_until_due??'',q.prompt,
               q.correct_answer.letter,q.correct_answer.text,'','','','','','',''
             ].map(csvCell).join(','));
           }
           fs.writeFileSync('/tmp/kexam-source-review-batch.csv','\ufeff'+lines.join('\r\n'));
 
           const counts=batch.reduce((m,q)=>{m[q.priority]=(m[q.priority]||0)+1;return m},{});
-          console.log('SOURCE REVIEW BATCH',JSON.stringify({size:batch.length,priority:counts,first:batch[0].question_id,last:batch.at(-1).question_id}));
+          console.log('SOURCE REVIEW BATCH',JSON.stringify({mode,size:batch.length,priority:counts,first:batch[0]?.question_id||null,last:batch.at(-1)?.question_id||null}));
           NODE
 
       - name: Upload private review artifact
