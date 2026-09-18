@@ -40,11 +40,11 @@
     );
     inject(
       "function renderResult(){\n  stopTimer();",
-      "function renderResult(){\n  try{if(state?.submitted&&state?.submittedAt){const wrongQuestions=bank?.questions?.map((q,i)=>state.answers?.[i]===q.answer?null:(q.id||q.number)).filter(Boolean)||[];window.KEXAM_ANALYTICS?.trackOnce('exam_submit',`${currentPosition}:${currentSet}:${state.submittedAt}`,{position:currentPosition,set_no:Number.isInteger(Number(currentSet))?Number(currentSet):null,exam_mode:isRandomSet(currentSet)?'random':isWrongSet(currentSet)?'wrong-practice':isWeakSet(currentSet)?'weak-practice':'fixed',score:Number(state.score)||0,total:Number(state.total)||bank?.questions?.length||100,elapsed_seconds:Math.round(state.elapsed||0),wrong_questions:wrongQuestions,category_result:resultStats()})}}catch(_){}\n  stopTimer();"
+      "function renderResult(){\n  try{if(state?.submitted&&state?.submittedAt){const wrongQuestions=bank?.questions?.map((q,i)=>state.answers?.[i]===q.answer?null:(q.id||q.number)).filter(Boolean)||[];window.KEXAM_ANALYTICS?.trackOnce('exam_submit',`${currentPosition}:${currentSet}:${state.submittedAt}`,{position:currentPosition,set_no:Number.isInteger(Number(currentSet))?Number(currentSet):null,exam_mode:isRandomSet(currentSet)?'random':isWrongSet(currentSet)?'wrong-practice':isWeakSet(currentSet)?'weak-practice':isTopicSet(currentSet)?'topic-practice':'fixed',score:Number(state.score)||0,total:Number(state.total)||bank?.questions?.length||100,elapsed_seconds:Math.round(state.elapsed||0),wrong_questions:wrongQuestions,category_result:resultStats()})}}catch(_){}\n  stopTimer();"
     );
     inject(
       "function openReview(wrongOnly=false,target=null){reviewWrongOnly=wrongOnly;",
-      "function openReview(wrongOnly=false,target=null){window.KEXAM_ANALYTICS?.track('review_open',{position:currentPosition,set_no:Number.isInteger(Number(currentSet))?Number(currentSet):null,exam_mode:isRandomSet(currentSet)?'random':isWrongSet(currentSet)?'wrong-practice':isWeakSet(currentSet)?'weak-practice':'fixed',wrong_only:!!wrongOnly});reviewWrongOnly=wrongOnly;"
+      "function openReview(wrongOnly=false,target=null){window.KEXAM_ANALYTICS?.track('review_open',{position:currentPosition,set_no:Number.isInteger(Number(currentSet))?Number(currentSet):null,exam_mode:isRandomSet(currentSet)?'random':isWrongSet(currentSet)?'wrong-practice':isWeakSet(currentSet)?'weak-practice':isTopicSet(currentSet)?'topic-practice':'fixed',wrong_only:!!wrongOnly});reviewWrongOnly=wrongOnly;"
     );
 
     code += "\n;init();";
