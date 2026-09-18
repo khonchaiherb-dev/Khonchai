@@ -85,8 +85,8 @@ jobs:
           const ed=dupStats(exps,'EXPLANATION');
           const wd=dupStats(wrongs,'WRONG_REASON');
           const cd=dupStats(choiceSets,'CHOICE_SET');
-          if(cd.length&&cd[0][1].length>10) throw new Error(`พบชุดตัวเลือกซ้ำมากเกินมาตรฐาน: สูงสุด ${cd[0][1].length} ข้อ`);
-          if(cd.length&&cd[0][1].length>8) console.warn(`QUALITY WARNING: พบชุดตัวเลือกซ้ำสูงสุด ${cd[0][1].length} ข้อ ต้องลดในการปรับปรุงคลังครั้งถัดไป`);
+          if(cd.length&&cd[0][1].length>6) throw new Error(`พบชุดตัวเลือกซ้ำมากเกินมาตรฐานใหม่: สูงสุด ${cd[0][1].length} ข้อ`);
+          if(cd.length&&cd[0][1].length>=5) console.warn(`QUALITY WATCH: พบชุดตัวเลือกซ้ำสูงสุด ${cd[0][1].length} ข้อ`);
           if(cd.length>120) console.warn(`QUALITY WARNING: พบกลุ่มชุดตัวเลือกที่ถูกใช้ซ้ำ ${cd.length} กลุ่ม ควรทยอยเพิ่มความหลากหลายของตัวลวง`);
           const genericExp=ed.filter(([,v])=>v.length>=4).length;
           const genericWrong=wd.filter(([,v])=>v.length>=4).length;
