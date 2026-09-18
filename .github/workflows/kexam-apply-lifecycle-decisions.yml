@@ -95,6 +95,19 @@ jobs:
             return score;
           };
           const SOURCE_GATE_THRESHOLD=70;
+          const validatePublishSourceGate=(id,p,o,baseline)=>{
+            const riskScore=Number(bankRisk.get(id)||0);
+            if(o?.source_state==='verified'&&(o.content_hash_algorithm!=='sha256'||o.content_sha256!==baseline.sha256)){
+              throw new Error('source verification hash is stale for '+id);
+            }
+            if(riskScore>=SOURCE_GATE_THRESHOLD){
+              const sourceVerified=(p.source_verified_ids||[]).includes(id)&&o?.source_state==='verified';
+              if(!sourceVerified)throw new Error('cannot publish high-risk item '+id+' (source risk '+riskScore+') before authoritative source verification');
+              if(!Array.isArray(o?.source_refs)||!o.source_refs.length)throw new Error('high-risk item '+id+' requires source_refs before publication');
+              if(o.content_hash_algorithm!=='sha256'||o.content_sha256!==baseline.sha256)throw new Error('high-risk source verification is not bound to current content for '+id);
+            }
+            return riskScore;
+          };
           const bankHash=new Map(),bankRisk=new Map();
           for(const [position,cfg] of Object.entries(configs)){
             const b64=cfg.files.map(f=>show('tax-exam/'+f).trim()).join('').replace(/\s+/g,'');
@@ -151,6 +164,20 @@ jobs:
             }
           };
 
+          {
+            const candidates=[...bankRisk.entries()].filter(([,score])=>score>=SOURCE_GATE_THRESHOLD).sort((a,b)=>b[1]-a[1]);
+            const sample=candidates.find(([id])=>{
+              const position=idToPosition.get(id),p=out.positions?.[position],o=out.source_overrides?.[id];
+              return idToStatus.get(id)==='Published'&&!(p?.source_verified_ids||[]).includes(id)&&o?.source_state!=='verified';
+            });
+            if(!sample)throw new Error('source-gate self-test needs at least one grandfathered high-risk pending Published item');
+            const [sampleId,sampleRisk]=sample,position=idToPosition.get(sampleId),p=out.positions[position],o=out.source_overrides?.[sampleId],baseline=integrity.questions?.[sampleId];
+            let blocked=false;
+            try{validatePublishSourceGate(sampleId,p,o,baseline)}catch(e){blocked=/before authoritative source verification/.test(String(e.message||e))}
+            if(!blocked)throw new Error('source-gate self-test failed to block high-risk pending item '+sampleId);
+            console.log('SOURCE GATE SELF-TEST PASS',JSON.stringify({sampleId,sampleRisk,threshold:SOURCE_GATE_THRESHOLD}));
+          }
+
           for(const rec of decisions.records){
             const decisionId=clean(rec?.decision_id,'decision_id','record',8);
             if(seen.has(decisionId))throw new Error('duplicate decision_id '+decisionId);seen.add(decisionId);
@@ -180,16 +207,8 @@ jobs:
             }
             if(to==='Published'){
               const o=out.source_overrides?.[id];
-              if(o?.source_state==='verified'&&(o.content_hash_algorithm!=='sha256'||o.content_sha256!==baseline.sha256)){
-                throw new Error(decisionId+' source verification hash is stale for '+id);
-              }
-              const riskScore=Number(bankRisk.get(id)||0);
-              if(riskScore>=SOURCE_GATE_THRESHOLD){
-                const sourceVerified=(p.source_verified_ids||[]).includes(id)&&o?.source_state==='verified';
-                if(!sourceVerified)throw new Error(decisionId+' cannot publish high-risk item '+id+' (source risk '+riskScore+') before authoritative source verification');
-                if(!Array.isArray(o?.source_refs)||!o.source_refs.length)throw new Error(decisionId+' high-risk item '+id+' requires source_refs before publication');
-                if(o.content_hash_algorithm!=='sha256'||o.content_sha256!==baseline.sha256)throw new Error(decisionId+' high-risk source verification is not bound to current content for '+id);
-              }
+              try{validatePublishSourceGate(id,p,o,baseline)}
+              catch(e){throw new Error(decisionId+' '+e.message)}
             }
 
             const sourceVerified=(p.source_verified_ids||[]).includes(id)||out.source_overrides?.[id]?.source_state==='verified';
