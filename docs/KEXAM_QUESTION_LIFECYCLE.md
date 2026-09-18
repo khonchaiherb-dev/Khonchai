@@ -59,6 +59,16 @@ Runtime ต้องโหลดเฉพาะ Question ID ที่อยู�
 
 ห้ามเปลี่ยนสถานะเป็น source verified เพื่อให้ตัวเลขดูดีโดยไม่มีหลักฐานอ้างอิงจริง
 
+## 8.1 Content Integrity Baseline
+ไฟล์ `tax-exam/question-content-integrity.json` เก็บ SHA-256 fingerprint ของสาระสำคัญราย Question ID ได้แก่ หมวด คำถาม ตัวเลือก คำตอบ เฉลย และเหตุผลตัวเลือกผิด
+
+กฎการ refresh baseline:
+- หาก hash ไม่เปลี่ยน ระบบต้องไม่สร้าง baseline ใหม่โดยไม่จำเป็น
+- Question ID ที่ hash เปลี่ยนต้องถูกย้ายออกจาก Published ไปเป็น Reviewed หรือ Verified ก่อน
+- หากข้อที่แก้เคยมี `source_state = verified` ต้องลดกลับเป็น `pending` ก่อน refresh และทำ Source Verification ใหม่หลังจากนั้น
+- ห้ามเพิ่มหรือลด Question ID ผ่านการ refresh baseline; การเปลี่ยน identity ของข้อสอบต้องจัดการเป็นกระบวนการแยกต่างหาก
+- การกด refresh เพียงอย่างเดียวไม่ถือเป็นการอนุมัติเนื้อหา และไม่สามารถข้าม Content Review หรือ Source Verification ได้
+
 ## 9. QA Gate
 Workflow `K-EXAM Publication Lifecycle Verify` ต้องตรวจอย่างน้อย
 - lifecycle ครบทุก Question ID ในคลัง
