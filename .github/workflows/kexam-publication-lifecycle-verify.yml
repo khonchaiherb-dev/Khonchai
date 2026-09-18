@@ -127,6 +127,9 @@ jobs:
           const admin=show('tax-exam/admin/admin-v13.js');
           for(const needle of ['loadPublicationManifest','isPublishedQuestionId','publicationInfo','question-publication-manifest.json'])if(!app.includes(needle))throw new Error('runtime publication gate missing '+needle);
           if(!sw.includes('question-publication-manifest.json'))throw new Error('service worker does not cache publication manifest');
+          if(!sw.includes('question-content-integrity.json'))throw new Error('service worker does not cache content integrity baseline');
           if(!admin.includes('publicationCoverageHtml'))throw new Error('admin publication coverage missing');
+          if(!admin.includes('contentIntegrityCoverageHtml'))throw new Error('admin content integrity coverage missing');
+          if(!admin.includes('question-content-integrity.json'))throw new Error('admin integrity baseline fetch missing');
           console.log('PASS publication lifecycle + content integrity',JSON.stringify(summaries));
           NODE
