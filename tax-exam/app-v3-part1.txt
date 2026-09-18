@@ -26,7 +26,7 @@ const POSITIONS={
 };
 
 let currentPosition=null,currentSet=1,currentIndex=0,state=null,bank=null;
-let bankPromises={},timerHandle=null,startTimestamp=null;
+let bankPromises={},timerHandle=null,startTimestamp=null,itemViewStartedAt=null;
 let reviewWrongOnly=false,reviewIndices=[],reviewPos=0;
 const $=s=>document.querySelector(s);
 const esc=(x='')=>String(x).replace(/[&<>'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
