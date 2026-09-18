@@ -48,6 +48,12 @@
     </section>
 
     <section class="panel section" style="margin-top:16px">
+      <div class="section-head"><div><h3>ประวัติชุดตรวจแหล่งอ้างอิง</h3><div class="section-sub">แสดงเฉพาะ metadata ที่ปลอดภัย: Batch ID, snapshot, จำนวน Question ID, สถานะ generated/applied และผลรวมการตัดสินใจ โดยไม่แสดงโจทย์ คำตอบ หรือแหล่งอ้างอิงภายในชุดตรวจ</div></div></div>
+      <div id="sourceBatchSummary"></div>
+      <div id="sourceBatchHistory" style="margin-top:12px"></div>
+    </section>
+
+    <section class="panel section" style="margin-top:16px">
       <div class="section-head"><div><h3>รอบทบทวนแหล่งอ้างอิง</h3><div class="section-sub">ติดตาม source-verified ที่ถึงรอบตรวจซ้ำตามความเสี่ยงของข้อมูล โดยสถานะเกินกำหนดเป็นเพียงคิวทบทวน ไม่ได้หมายความว่าข้อสอบผิด</div></div></div>
       <div class="top-actions" style="margin:8px 0 14px">
         <select class="btn" id="freshnessStatus" aria-label="สถานะรอบทบทวน"><option value="">ทุกสถานะ</option><option value="เกินกำหนด">เกินกำหนด</option><option value="ใกล้ครบกำหนด">ใกล้ครบกำหนด</option><option value="ยังสดใหม่">ยังสดใหม่</option></select>
@@ -108,6 +114,6 @@
     <div class="footer">K-EXAM · ติวสอบราชการ อาจารย์คิม · www.k-exam.com</div>
   </main>
   <script src="../analytics-config.js?v=25"></script>
-  <script src="admin-v13.js?v=28"></script>
+  <script src="admin-v13.js?v=29"></script>
 </body>
 </html>

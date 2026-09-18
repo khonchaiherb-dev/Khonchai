@@ -7,7 +7,7 @@
   const endpoint=()=>{const b=String(CFG.supabaseUrl||'').replace(/\/$/,'');return b&&CFG.dashboardFunction?`${b}/functions/v1/${CFG.dashboardFunction}`:''};
   const connected=()=>Boolean(endpoint()&&CFG.supabaseAnonKey);
   let days=30,qualityRowsCache=[];
-  let publicationCoverageCache=null,sourceBacklogCache=null,contentIntegrityCache=null,sourceFreshnessCache=null;
+  let publicationCoverageCache=null,sourceBacklogCache=null,contentIntegrityCache=null,sourceFreshnessCache=null,sourceBatchRegistryCache=null;
 
   function localEvents(){try{return JSON.parse(localStorage.getItem('kexam_analytics_local_v1')||'[]')||[]}catch{return[]}}
   function localQuestionReports(){
@@ -112,8 +112,31 @@
       const data=await r.json();sourceBacklogCache=data;return data;
     }catch{return{summary:{total_pending:0,urgent:0,high:0,normal:0,positions:{}},rows:[],error:true}}
   }
+  async function sourceReviewBatchRegistry(){
+    if(sourceBatchRegistryCache)return sourceBatchRegistryCache;
+    try{
+      const r=await fetch('../source-review-batch-registry.json',{cache:'no-store'});if(!r.ok)throw new Error('registry');
+      const data=await r.json();
+      if(Number(data?.schema_version)!==1||!Array.isArray(data?.batches))throw new Error('registry schema');
+      sourceBatchRegistryCache=data;return data;
+    }catch{return{schema_version:1,updated_at:null,batches:[],error:true}}
+  }
   function sourceBacklogSummaryHtml(summary={}){
     return `<div class="metrics"><div class="panel metric"><div class="label">รอตรวจทั้งหมด</div><strong>${fmt(summary.total_pending||0)}</strong><small>source_state = pending</small></div><div class="panel metric"><div class="label">เร่งด่วน</div><strong>${fmt(summary.urgent||0)}</strong><small>มาตรา/อัตรา/กำหนดเวลาหลายสัญญาณ</small></div><div class="panel metric"><div class="label">สูง</div><strong>${fmt(summary.high||0)}</strong><small>ควรตรวจเป็นลำดับต้น</small></div><div class="panel metric"><div class="label">ปกติ</div><strong>${fmt(summary.normal||0)}</strong><small>ตรวจตามลำดับ backlog</small></div></div>`;
+  }
+  function sourceBatchSummaryHtml(registry={}){
+    const rows=Array.isArray(registry.batches)?registry.batches:[],generated=rows.filter(x=>x.status==='generated').length,applied=rows.filter(x=>x.status==='applied').length,totalQuestions=rows.reduce((n,x)=>n+(Number(x.batch_size)||0),0);
+    return `<div class="metrics"><div class="panel metric"><div class="label">Batch ทั้งหมด</div><strong>${fmt(rows.length)}</strong><small>ประวัติชุดตรวจที่ลงทะเบียน</small></div><div class="panel metric"><div class="label">รอ Apply</div><strong>${fmt(generated)}</strong><small>status = generated</small></div><div class="panel metric"><div class="label">Apply แล้ว</div><strong>${fmt(applied)}</strong><small>status = applied</small></div><div class="panel metric"><div class="label">Question ID รวม</div><strong>${fmt(totalQuestions)}</strong><small>นับตาม batch history</small></div></div>`;
+  }
+  function sourceBatchHistoryHtml(registry={}){
+    const rows=Array.isArray(registry.batches)?registry.batches:[];if(!rows.length)return '<div class="empty">ยังไม่มี Source Review Batch Registry</div>';
+    return `<div class="list">${rows.slice(0,50).map(b=>{
+      const when=b.generated_at?new Intl.DateTimeFormat('th-TH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(b.generated_at)):'-';
+      const pos=Object.entries(b.selection_summary?.positions||{}).map(([k,v])=>`${k==='revenue-academic'?'นักวิชาการฯ':k==='tax-auditor'?'นักตรวจสอบฯ':k} ${fmt(v)}`).join(' · ');
+      const topics=Object.entries(b.selection_summary?.topics||{}).sort((a,c)=>Number(c[1])-Number(a[1])).slice(0,4).map(([k,v])=>`${k} ${fmt(v)}`).join(' · ');
+      const counts=b.decision_counts?Object.entries(b.decision_counts).map(([k,v])=>`${k} ${fmt(v)}`).join(' · '):'ยังไม่ Apply';
+      return `<div class="row"><div><div class="name">${esc(b.batch_id||'ไม่มี Batch ID')} · ${esc(b.status||'-')} · ${fmt(b.batch_size)} ข้อ</div><div class="meta">สร้าง ${esc(when)} · โหมด ${esc(b.review_mode||'-')}<br>ตำแหน่ง: ${esc(pos||'-')}${topics?`<br>หัวข้อ: ${esc(topics)}`:''}<br>ผลรวม: ${esc(counts)} · Snapshot ${esc(String(b.batch_snapshot_sha256||'').slice(0,16))}…</div></div><div class="val">${esc(b.status==='applied'?'Apply แล้ว':'รอตรวจ')}</div></div>`
+    }).join('')}</div>`;
   }
   function syncSourcePositionOptions(rows=[]){
     const el=$('#sourcePosition');if(!el)return;
@@ -304,11 +327,13 @@
   }
 
   async function load(){
-    const [pub,sourceBacklog,integrity,freshness]=await Promise.all([publicationCoverage(),sourceVerificationBacklog(),contentIntegrityCoverage(),sourceFreshnessWatchlist()]);
+    const [pub,sourceBacklog,integrity,freshness,batchRegistry]=await Promise.all([publicationCoverage(),sourceVerificationBacklog(),contentIntegrityCoverage(),sourceFreshnessWatchlist(),sourceReviewBatchRegistry()]);
     $('#publicationCoverage').innerHTML=publicationCoverageHtml(pub);
     if($('#lifecycleDecisions'))$('#lifecycleDecisions').innerHTML=lifecycleDecisionList(pub.decisionLog||[]);
     if($('#contentIntegrityCoverage'))$('#contentIntegrityCoverage').innerHTML=contentIntegrityCoverageHtml(integrity);
     if($('#sourceBacklogSummary'))$('#sourceBacklogSummary').innerHTML=sourceBacklogSummaryHtml(sourceBacklog.summary||{});
+    if($('#sourceBatchSummary'))$('#sourceBatchSummary').innerHTML=sourceBatchSummaryHtml(batchRegistry);
+    if($('#sourceBatchHistory'))$('#sourceBatchHistory').innerHTML=sourceBatchHistoryHtml(batchRegistry);
     syncSourcePositionOptions(sourceBacklog.rows||[]);
     refreshSourceBacklog();
     if($('#freshnessSummary'))$('#freshnessSummary').innerHTML=sourceFreshnessSummaryHtml(freshness.summary||{});
