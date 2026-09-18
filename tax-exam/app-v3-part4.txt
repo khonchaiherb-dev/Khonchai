@@ -20,9 +20,21 @@ function renderHistory(n){
   $('#app').innerHTML=`${header(`<span class="chip">${esc(p.short)}</span>`)}<main class="page"><div class="result-wrap"><section class="panel main-panel"><div class="history-head"><div><div class="eyebrow">${esc(p.title)}</div><h2>ประวัติการทำข้อสอบ · ${esc(setLabel(n))}</h2><p class="muted">เก็บประวัติสูงสุด 20 ครั้งในอุปกรณ์นี้</p></div><button class="ghost-btn" id="backSets">← กลับหน้าเลือกชุด</button></div><div class="history-list">${rows}</div></section></div></main>${footer()}`;bindBrand();$('#backSets').onclick=renderSetHome;
 }
 
+async function renderQuestionInspector(id){
+  try{
+    showLoading('กำลังเปิดข้อสอบสำหรับตรวจทาน...');
+    const c=await loadCompactBank(),q=questionFromId(c,id);if(!q)throw new Error('ไม่พบ Question ID นี้ในคลังตำแหน่งที่เลือก');
+    const g=loadGlobal(),st=g.itemStats?.[q.id]||null,metric=st?itemReviewMetric(st):null;
+    const choices=q.choices.map((x,i)=>`<div class="choice review-choice ${i===q.answer?'review-correct':''}"><span class="choice-letter">${LETTERS[i]}</span><div><div class="review-choice-line"><span>${esc(x)}</span>${i===q.answer?'<span class="answer-badge correct-badge">คำตอบที่ถูก</span>':''}</div></div></div>`).join('');
+    const statHtml=st?`<section class="panel inspector-stats"><h3>สถิติในอุปกรณ์นี้</h3><div class="result-grid"><div class="result-box"><span>ทำมาแล้ว</span><strong>${Number(st.attempts)||0}</strong><small>ครั้ง</small></div><div class="result-box"><span>ตอบถูก</span><strong>${metric?.accuracy??0}%</strong><small>อัตราตอบถูก</small></div><div class="result-box"><span>ตัวลวงไม่ถูกเลือก</span><strong>${metric?.unused??0}/3</strong><small>ตัวเลือก</small></div><div class="result-box"><span>ลำดับตรวจทาน</span><strong>${metric?.reviewScore??0}</strong><small>/100</small></div></div><p class="muted">${metric?.reviewFlags?.length?'เหตุผลที่ควรตรวจ: '+esc(metric.reviewFlags.join(' · ')):'ยังไม่พบสัญญาณผิดปกติจากข้อมูลในเครื่องนี้'}</p></section>`:''; 
+    $('#app').innerHTML=`${header(`<span class="chip">${esc(position().short)}</span><span class="chip">${esc(q.id)}</span>`)}<main class="page"><div class="result-wrap"><section class="panel main-panel"><div class="history-head"><div><div class="eyebrow">QUESTION INSPECTOR</div><h2>ตรวจทานข้อ ${esc(q.id)}</h2><p class="muted">${esc(q.category)} · ${esc(q.topic||q.category)}</p></div><button class="ghost-btn" id="backInspector">← กลับ</button></div><article class="question-card review-card"><div class="question">${esc(q.prompt)}</div><div class="choices">${choices}</div><div class="explain-grid"><div class="explain-block"><h4>คำอธิบาย</h4><div>${esc(q.explanation)}</div></div><div class="explain-block"><h4>เหตุผลตัวเลือกผิด</h4><div>${esc(q.wrongReasons)}</div></div></div></article>${statHtml}</section></div></main>${footer()}`;
+    bindBrand();$('#backInspector').onclick=()=>history.length>1?history.back():renderSetHome();
+  }catch(e){showError(e)}
+}
+
 function init(){
-  const qp=(()=>{try{return new URL(location.href).searchParams.get('position')}catch{return null}})();
-  if(qp&&POSITIONS[qp]){currentPosition=qp;renderSetHome()}else renderPositionHome();
+  const params=(()=>{try{return new URL(location.href).searchParams}catch{return new URLSearchParams()}})(),qp=params.get('position'),qid=params.get('question');
+  if(qp&&POSITIONS[qp]){currentPosition=qp;if(qid){renderQuestionInspector(qid)}else renderSetHome()}else renderPositionHome();
   if(sourceParam()){try{sessionStorage.setItem('kexam_source',sourceParam())}catch{}}
   window.addEventListener('online',()=>toast('เชื่อมต่ออินเทอร์เน็ตแล้ว'));window.addEventListener('offline',()=>toast('ขณะนี้ออฟไลน์ ความคืบหน้ายังบันทึกในเครื่อง'));
 }
