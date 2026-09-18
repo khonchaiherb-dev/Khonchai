@@ -1026,7 +1026,10 @@
         "TA-S10-Q100"
       ],
       "source_verified_ids": [],
-      "retired_ids": []
+      "retired_ids": [],
+      "draft_ids": [],
+      "reviewed_ids": [],
+      "verified_ids": []
     },
     "revenue-academic": {
       "published_ids": [
@@ -2032,7 +2035,10 @@
         "RA-S10-Q100"
       ],
       "source_verified_ids": [],
-      "retired_ids": []
+      "retired_ids": [],
+      "draft_ids": [],
+      "reviewed_ids": [],
+      "verified_ids": []
     }
   },
   "source_overrides": {}
