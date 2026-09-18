@@ -97,6 +97,10 @@ jobs:
           grep -q 'sourceReviewBatchRegistry' /tmp/admin.js
           grep -q 'sourceBatchSummaryHtml' /tmp/admin.js
           grep -q 'sourceBatchHistoryHtml' /tmp/admin.js
+          grep -q 'buildSourceReservationMap' /tmp/admin.js
+          grep -q 'batchEffectiveStatus' /tmp/admin.js
+          grep -q 'sourceReservationMap' /tmp/admin.js
+          grep -q 'reservation_batch_id' /tmp/admin.js
           grep -q 'source-review-batch-registry.json' /tmp/admin.js
           grep -q 'question-content-integrity.json' /tmp/admin.js
           grep -q 'text/csv' /tmp/admin.js
@@ -162,6 +166,11 @@ jobs:
             if(!idRe.test(String(b.batch_id||''))||seen.has(b.batch_id))throw new Error('invalid/duplicate batch_id '+b.batch_id);seen.add(b.batch_id);
             if(!hashRe.test(String(b.batch_snapshot_sha256||'')))throw new Error('invalid batch snapshot '+b.batch_id);
             if(!['generated','applied'].includes(String(b.status||'')))throw new Error('invalid batch status '+b.batch_id);
+            if(b.status==='generated'&&b.reservation_expires_at&&!Number.isFinite(Date.parse(String(b.reservation_expires_at))))throw new Error('invalid reservation expiry '+b.batch_id);
+            if(b.reservation_released_at){
+              if(!Number.isFinite(Date.parse(String(b.reservation_released_at))))throw new Error('invalid reservation release time '+b.batch_id);
+              if(!String(b.reservation_release_reason||'').trim())throw new Error('released reservation missing reason '+b.batch_id);
+            }
             if(!Array.isArray(b.question_ids)||b.question_ids.length!==Number(b.batch_size||0)||new Set(b.question_ids).size!==b.question_ids.length||b.question_ids.some(id=>!qidRe.test(String(id))))throw new Error('invalid registry Question IDs '+b.batch_id);
             const raw=JSON.stringify(b);for(const k of forbidden)if(raw.includes('"'+k+'"'))throw new Error('registry leaks '+k);
           }
@@ -212,7 +221,7 @@ jobs:
           node --check /tmp/live/base64-fix.js
           node --check /tmp/live/analytics-v13.js
           node --check /tmp/live/admin-v13.js
-          grep -q 'admin-v13.js?v=29' /tmp/live/index.html
+          grep -q 'admin-v13.js?v=30' /tmp/live/index.html
           grep -q 'difficulty_index' /tmp/live/admin-v13.js
           grep -q 'discrimination' /tmp/live/admin-v13.js
           grep -q 'distractor_efficiency' /tmp/live/admin-v13.js
@@ -234,6 +243,10 @@ jobs:
           grep -q 'sourceReviewBatchRegistry' /tmp/live/admin-v13.js
           grep -q 'sourceBatchSummaryHtml' /tmp/live/admin-v13.js
           grep -q 'sourceBatchHistoryHtml' /tmp/live/admin-v13.js
+          grep -q 'buildSourceReservationMap' /tmp/live/admin-v13.js
+          grep -q 'batchEffectiveStatus' /tmp/live/admin-v13.js
+          grep -q 'sourceReservationMap' /tmp/live/admin-v13.js
+          grep -q 'reservation_batch_id' /tmp/live/admin-v13.js
           grep -q 'question-content-integrity.json' /tmp/live/admin-v13.js
           grep -q 'text/csv' /tmp/live/admin-v13.js
           grep -q 'K-EXAM Analytics' /tmp/live/index.html || true
