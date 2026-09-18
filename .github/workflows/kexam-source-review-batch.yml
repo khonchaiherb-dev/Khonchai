@@ -311,6 +311,21 @@ jobs:
           if(!Array.isArray(batch.questions)||batch.questions.length!==Number(batch.batch_size||0))throw new Error('batch question count mismatch');
           const questionIds=batch.questions.map(q=>String(q.question_id||''));
           if(new Set(questionIds).size!==questionIds.length||questionIds.some(id=>!qidRe.test(id)))throw new Error('invalid/duplicate registry Question IDs');
+          let liveRegistry={schema_version:1,batches:[]};
+          try{
+            const raw=require('child_process').execFileSync('git',['show','origin/gh-pages:tax-exam/source-review-batch-registry.json'],{encoding:'utf8',maxBuffer:8*1024*1024});
+            liveRegistry=JSON.parse(raw);
+          }catch{}
+          const now=Date.now(),activeReserved=new Set();
+          for(const b of liveRegistry.batches||[]){
+            if(b.status!=='generated'||b.review_mode!==batch.review_mode)continue;
+            const expires=Date.parse(String(b.reservation_expires_at||''))||((Date.parse(String(b.generated_at||''))||0)+30*86400000);
+            if(expires<=now)continue;
+            for(const id of b.question_ids||[])activeReserved.add(String(id));
+          }
+          const overlap=questionIds.filter(id=>activeReserved.has(id));
+          if(overlap.length)throw new Error('new source review batch overlaps active reservation: '+overlap.slice(0,20).join(','));
+          console.log('RESERVATION OVERLAP PASS',JSON.stringify({active_reserved:activeReserved.size,new_batch:questionIds.length,overlap:overlap.length}));
           const entry={
             batch_id:batch.batch_id,
             batch_snapshot_sha256:batch.batch_snapshot_sha256,
