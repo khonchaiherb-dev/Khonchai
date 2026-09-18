@@ -91,7 +91,7 @@ async function beginPractice(kind,category=null,reset=false,showResult=false){
     state=st;currentIndex=Math.min(Math.max(0,bank.questions.length-1),state.lastIndex||0);
     if(showResult||state.submitted){renderResult();return}
     startTimestamp=Date.now();renderExam();
-  }catch(e){showError(e)}
+  }catch(e){if(kind===WRONG_SET&&/ยังไม่พบข้อที่เคยตอบผิด/.test(String(e?.message||e))){renderSetHome();toast('ยังไม่มีข้อผิดที่บันทึกไว้ กรุณาส่งข้อสอบอย่างน้อย 1 ชุดก่อน')}else showError(e)}
 }
 
 function openSet(n){
