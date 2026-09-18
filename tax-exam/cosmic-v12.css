@@ -309,3 +309,20 @@ button:disabled{opacity:.45!important;filter:saturate(.45)!important;box-shadow:
 .random-side small{color:#94a3b8}
 @media(max-width:820px){.random-practice-card{grid-template-columns:auto 1fr;padding:21px}.random-side{grid-column:1/-1;width:100%;min-width:0;align-items:flex-start;padding-top:12px;border-top:1px solid rgba(148,163,184,.15)}}
 @media(max-width:520px){.random-orbit{width:48px;height:48px;border-radius:15px}.random-practice-card{gap:14px;padding:18px}.random-practice-card h3{font-size:1.08rem}.random-practice-card p{font-size:.88rem}}
+
+/* NOVA v14 — performance insight */
+.insight-title{margin-top:30px!important}
+.weakness-card{margin-bottom:8px;padding:23px 25px;border-radius:22px;background:rgba(255,255,255,.96);border:1px solid #dbe4ef;box-shadow:0 15px 36px rgba(15,23,42,.08)}
+.weakness-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:17px}
+.weakness-card h3{margin:4px 0 5px;color:#0f2c50;font-size:1.2rem}
+.weakness-card p{margin:0;color:#64748b;line-height:1.65}
+.weakness-badge{white-space:nowrap;padding:7px 10px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:.78rem;font-weight:900}
+.weakness-list{display:grid;gap:11px}
+.weakness-row{display:grid;grid-template-columns:36px 1fr;gap:11px;align-items:center;padding:11px 13px;border-radius:15px;background:#f8fafc;border:1px solid #e2e8f0}
+.weakness-rank{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:#eef2ff;color:#4338ca;font-weight:900}
+.weakness-label{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:7px}
+.weakness-label strong{color:#1e293b}.weakness-label span{color:#475569;font-size:.82rem;font-weight:800;white-space:nowrap}
+.weakness-bar{height:7px;border-radius:999px;background:#e2e8f0;overflow:hidden}
+.weakness-bar span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#f59e0b,#0ea5e9,#2563eb)}
+.weakness-empty{background:linear-gradient(135deg,#fff,#f8fbff)}
+@media(max-width:620px){.weakness-head{display:block}.weakness-badge{display:inline-block;margin-top:12px}.weakness-label{display:block}.weakness-label span{display:block;margin-top:3px}.weakness-card{padding:18px}}
