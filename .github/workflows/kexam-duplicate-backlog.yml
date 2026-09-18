@@ -1,0 +1,43 @@
+name: K-EXAM Duplicate Backlog Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-duplicate-backlog.yml'
+  workflow_dispatch:
+
+jobs:
+  backlog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build duplicate backlog with stable Question IDs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages --depth=1
+          node <<'NODE'
+          const cp=require('child_process'),zlib=require('zlib');
+          const files=['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'];
+          const show=f=>cp.execFileSync('git',['show',`origin/gh-pages:tax-exam/${f}`],{encoding:'utf8',maxBuffer:8*1024*1024}).trim();
+          const d=JSON.parse(zlib.gunzipSync(Buffer.from(files.map(show).join('').replace(/\s+/g,''),'base64')).toString('utf8'));
+          const get=(r,i)=>String(d.s[r[i]]??'').trim();
+          const qid=(si,qi)=>`RA-S${String(si+1).padStart(2,'0')}-Q${String(qi+1).padStart(3,'0')}`;
+          const norm=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu,'');
+          const shape=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[0-9๐-๙]+/g,'#').replace(/[\s\p{P}\p{S}]+/gu,'');
+          const choiceGroups=new Map(),shapeGroups=new Map();
+          d.q.forEach((set,si)=>set.forEach((r,qi)=>{
+            const id=qid(si,qi),prompt=get(r,1),choices=(r[2]||[]).map(x=>String(d.s[x]??'').trim());
+            const ck=choices.map(norm).sort().join('|'),sk=shape(prompt);
+            const c=choiceGroups.get(ck)||{ids:[],choices,prompt};c.ids.push(id);choiceGroups.set(ck,c);
+            const p=shapeGroups.get(sk)||{ids:[],prompt};p.ids.push(id);shapeGroups.set(sk,p);
+          }));
+          const cg=[...choiceGroups.values()].filter(x=>x.ids.length>=8).sort((a,b)=>b.ids.length-a.ids.length);
+          const sg=[...shapeGroups.values()].filter(x=>x.ids.length>=8).sort((a,b)=>b.ids.length-a.ids.length);
+          console.log('=== CHOICE-SET BACKLOG >= 8 USES ===');
+          console.log('groups',cg.length);
+          cg.forEach((g,i)=>console.log(JSON.stringify({rank:i+1,reuse:g.ids.length,ids:g.ids,choices:g.choices,prompt:g.prompt})));
+          console.log('=== PROMPT-SHAPE BACKLOG >= 8 USES ===');
+          console.log('groups',sg.length);
+          sg.forEach((g,i)=>console.log(JSON.stringify({rank:i+1,reuse:g.ids.length,ids:g.ids,prompt:g.prompt})));
+          console.log('BACKLOG SUMMARY',JSON.stringify({choice_groups_ge8:cg.length,prompt_shape_groups_ge8:sg.length,max_choice_reuse:cg[0]?.ids.length||1,max_prompt_shape_reuse:sg[0]?.ids.length||1}));
+          NODE
