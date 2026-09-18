@@ -62,6 +62,14 @@ function positionProgress(key){
   currentPosition=old;
   return{completed,started,best:best.length?Math.max(...best):null};
 }
+function weaknessSummary(){
+  const attempts=[];
+  [...Array(SETS).keys()].map(i=>i+1).concat(RANDOM_SET).forEach(n=>getHistory(n).forEach(x=>{if(x?.category)attempts.push(x)}));
+  attempts.sort((a,b)=>(Number(b.submittedAt)||0)-(Number(a.submittedAt)||0));
+  const recent=attempts.slice(0,10),m={};
+  recent.forEach(x=>Object.entries(x.category||{}).forEach(([cat,v])=>{const total=Number(v?.total)||0,correct=Number(v?.correct)||0;if(!total)return;m[cat]??={total:0,correct:0};m[cat].total+=total;m[cat].correct+=Math.max(0,Math.min(correct,total))}));
+  return Object.entries(m).map(([name,v])=>({name,...v,percent:pct(v.correct,v.total)})).sort((a,b)=>a.percent-b.percent||b.total-a.total);
+}
 function renderPositionHome(){
   stopTimer();persist();state=null;bank=null;currentPosition=null;setUrlPosition(null);
   let cards='';
@@ -84,4 +92,6 @@ function renderSetHome(){
   const randomScore=randomSt?.submitted?`${randomSt.score}/100`:(randomAnswered?`ทำแล้ว ${randomAnswered} ข้อ`:'ยังไม่ได้เริ่ม');
   const randomAction=randomSt?.submitted?'ดูผล / สุ่มชุดใหม่':randomAnswered?'ทำต่อ':'เริ่มสุ่มข้อสอบ';
   const randomHtml=`<button class="random-practice-card" id="randomPractice"><div class="random-orbit" aria-hidden="true">✦</div><div><div class="eyebrow">NOVA RANDOM PRACTICE</div><h3>สุ่มจำลองสอบ 100 ข้อจากคลัง 1,000 ข้อ</h3><p>ระบบสุ่มข้อใหม่โดยรักษาสัดส่วนหมวดเนื้อหาของคลังตำแหน่งนี้ เหมาะสำหรับจำลองสอบโดยไม่จำลำดับชุดเดิม</p><div class="random-tags"><span>ไม่ซ้ำในรอบเดียว</span><span>บันทึกความคืบหน้า</span><span>ตรวจคะแนนและเฉลยครบ</span></div></div><div class="random-side"><strong>${randomScore}</strong><span>${randomAction} →</span>${randomBest!==null?`<small>คะแนนสูงสุด ${randomBest}/100</small>`:''}</div></button>`;
+  const weak=weaknessSummary();
+  const weaknessHtml=weak.length?`<section class="weakness-card"><div class="weakness-head"><div><div class="eyebrow">PERFORMANCE INSIGHT</div><h3>จุดที่ควรทบทวนจากผลล่าสุด</h3><p>วิเคราะห์จากการส่งข้อสอบล่าสุดสูงสุด 10 ครั้งในอุปกรณ์นี้ เรียงจากหมวดที่มีร้อยละคำตอบถูกต่ำกว่า</p></div><span class="weakness-badge">${weak.length} หมวด</span></div><div class="weakness-list">${weak.slice(0,4).map((x,i)=>`<div class="weakness-row"><div class="weakness-rank">${i+1}</div><div class="weakness-main"><div class="weakness-label"><strong>${esc(x.name)}</strong><span>${x.correct}/${x.total} · ${x.percent}%</span></div><div class="weakness-bar"><span style="width:${x.percent}%"></span></div></div></div>`).join('')}</div></section>`:`<section class="weakness-card weakness-empty"><div><div class="eyebrow">PERFORMANCE INSIGHT</div><h3>ระบบวิเคราะห์จุดที่ควรทบทวนพร้อมใช้งาน</h3><p>เมื่อส่งข้อสอบอย่างน้อย 1 ครั้ง ระบบจะสรุปผลรายหมวดและเรียงหัวข้อที่ควรกลับไปทบทวนให้โดยอัตโนมัติ</p></div></section>`;
   const extra=`<button class="ghost-btn compact-btn" id="changePosition">← เปลี่ยนตำแหน่ง</button>`;
