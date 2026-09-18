@@ -80,7 +80,65 @@ jobs:
           const pendingRows=mode==='pending'
             ? queue.rows
             : queue.rows.filter(r=>r.status==='เกินกำหนด'||r.status==='ใกล้ครบกำหนด');
-          const selected=pendingRows.slice(0,size);
+
+          const allocate=(groups,target)=>{
+            const entries=Object.entries(groups).map(([key,rows])=>({key,rows,size:rows.length,raw:0,quota:0}));
+            const total=entries.reduce((n,x)=>n+x.size,0);if(!total||target<=0)return new Map();
+            for(const x of entries){x.raw=x.size/total*target;x.quota=Math.floor(x.raw)}
+            if(target>=entries.length)for(const x of entries)if(x.size>0&&x.quota===0)x.quota=1;
+            let used=entries.reduce((n,x)=>n+x.quota,0);
+            if(used>target){
+              entries.sort((a,b)=>(a.raw-a.quota)-(b.raw-b.quota)||a.size-b.size);
+              for(const x of entries){while(used>target&&x.quota>0&&(target<entries.length||x.quota>1)){x.quota--;used--}}
+            }else if(used<target){
+              entries.sort((a,b)=>(b.raw-b.quota)-(a.raw-a.quota)||b.size-a.size||a.key.localeCompare(b.key,'th'));
+              let guard=0;
+              while(used<target&&guard++<10000){
+                let advanced=false;
+                for(const x of entries){if(used>=target)break;if(x.quota<x.size){x.quota++;used++;advanced=true}}
+                if(!advanced)break;
+              }
+            }
+            return new Map(entries.map(x=>[x.key,Math.min(x.quota,x.size)]));
+          };
+          const stratifyTier=(rows,target)=>{
+            if(rows.length<=target)return [...rows];
+            const byPos={};for(const r of rows)(byPos[r.position]??=[]).push(r);
+            const posQuota=allocate(byPos,target),out=[];
+            for(const [position,pRows] of Object.entries(byPos)){
+              const pq=posQuota.get(position)||0;if(!pq)continue;
+              const byTopic={};for(const r of pRows)(byTopic[r.topic||r.category||'อื่น ๆ']??=[]).push(r);
+              const topicQuota=allocate(byTopic,pq);
+              for(const [topic,tRows] of Object.entries(byTopic)){
+                const tq=topicQuota.get(topic)||0;
+                out.push(...tRows.slice(0,tq));
+              }
+              if(out.filter(x=>x.position===position).length<pq){
+                const used=new Set(out.map(x=>x.question_id));
+                out.push(...pRows.filter(x=>!used.has(x.question_id)).slice(0,pq-out.filter(x=>x.position===position).length));
+              }
+            }
+            if(out.length<target){
+              const used=new Set(out.map(x=>x.question_id));
+              out.push(...rows.filter(x=>!used.has(x.question_id)).slice(0,target-out.length));
+            }
+            return out.slice(0,target);
+          };
+          const selectBalanced=(rows,target)=>{
+            if(rows.length<=target)return [...rows];
+            const tiers=new Map();
+            for(const r of rows){
+              const score=mode==='pending'?Number(r.priority_score)||0:(r.status==='เกินกำหนด'?100:r.status==='ใกล้ครบกำหนด'?70:0);
+              (tiers.get(score)??tiers.set(score,[]).get(score)).push(r);
+            }
+            const out=[];
+            for(const score of [...tiers.keys()].sort((a,b)=>b-a)){
+              const tier=tiers.get(score),left=target-out.length;if(left<=0)break;
+              out.push(...stratifyTier(tier,Math.min(left,tier.length)));
+            }
+            return out.slice(0,target);
+          };
+          const selected=selectBalanced(pendingRows,size);
           const letters=['ก','ข','ค','ง'];
           const batch=selected.map((row,idx)=>{
             const data=banks[row.position];
@@ -137,12 +195,15 @@ jobs:
           });
 
           if(mode==='pending'&&!batch.length)throw new Error('source verification backlog is empty');
+          const selectionPositions=batch.reduce((m,q)=>{m[q.position]=(m[q.position]||0)+1;return m},{});
+          const selectionTopics=batch.reduce((m,q)=>{m[q.topic]=(m[q.topic]||0)+1;return m},{});
           const out={
             schema_version:1,
             generated_at:new Date().toISOString(),
             review_mode:mode,
             batch_size:batch.length,
-            selection_policy:mode==='pending'?'source-verification-backlog priority order':'source freshness overdue/due-soon order',
+            selection_policy:mode==='pending'?'priority score first, then stratified by position and topic':'freshness priority first, then stratified by position and topic',
+            selection_summary:{positions:selectionPositions,topics:selectionTopics},
             note:mode==='reverify'&&batch.length===0?'ยังไม่มี source-verified ที่ใกล้หรือเกินกำหนดทบทวน':null,
             warning:'ไฟล์นี้มีคำตอบและคำอธิบาย ใช้สำหรับการตรวจภายใน ไม่ควรเผยแพร่เป็นไฟล์สาธารณะ',
             questions:batch
@@ -177,7 +238,17 @@ jobs:
           fs.writeFileSync('/tmp/kexam-source-review-batch.csv','\ufeff'+lines.join('\r\n'));
 
           const counts=batch.reduce((m,q)=>{m[q.priority]=(m[q.priority]||0)+1;return m},{});
-          console.log('SOURCE REVIEW BATCH',JSON.stringify({mode,size:batch.length,priority:counts,first:batch[0]?.question_id||null,last:batch.at(-1)?.question_id||null}));
+          const positions=selectionPositions,topics=selectionTopics;
+          if(mode==='pending'&&batch.length>=10){
+            const availableUrgent=pendingRows.filter(r=>r.priority==='เร่งด่วน');
+            const availablePositions=new Set(availableUrgent.map(r=>r.position));
+            if(availablePositions.size>=2&&Object.keys(positions).length<2)throw new Error('stratified batch lost a position despite urgent backlog coverage');
+            const availableTopics=new Set(availableUrgent.map(r=>r.topic||r.category||'อื่น ๆ'));
+            if(availableTopics.size>=3&&Object.keys(topics).length<3)throw new Error('stratified batch should cover at least 3 urgent topics');
+            const maxTopic=Math.max(...Object.values(topics));
+            if(Object.keys(topics).length>=3&&maxTopic>Math.ceil(batch.length*0.60))throw new Error('stratified batch is too concentrated in one topic: '+maxTopic+'/'+batch.length);
+          }
+          console.log('SOURCE REVIEW BATCH',JSON.stringify({mode,size:batch.length,priority:counts,positions,topics,first:batch[0]?.question_id||null,last:batch.at(-1)?.question_id||null}));
           NODE
 
       - name: Upload private review artifact
