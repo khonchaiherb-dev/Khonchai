@@ -1,0 +1,114 @@
+name: K-EXAM Supabase Verify
+on:
+  push:
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/kexam-supabase-verify.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kexam
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d kexam"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Check Edge Functions
+        run: |
+          set -euo pipefail
+          deno check supabase/functions/kexam-ingest/index.ts
+          deno check supabase/functions/kexam-dashboard/index.ts
+
+      - name: Apply migrations to clean PostgreSQL
+        run: |
+          set -euo pipefail
+          psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 <<'SQL'
+          do $$ begin
+            if not exists (select 1 from pg_roles where rolname='anon') then create role anon noinherit; end if;
+            if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated noinherit; end if;
+            if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role noinherit; end if;
+          end $$;
+          SQL
+          psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 -f supabase/migrations/20260918_kexam_analytics.sql
+          psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 -f supabase/migrations/20260918_kexam_item_analytics_v2.sql
+
+      - name: Verify centralized item analytics
+        run: |
+          set -euo pipefail
+          psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 <<'SQL'
+          insert into public.kexam_events(
+            id,anonymous_hash,session_hash,event_name,position_key,set_no,score,elapsed_seconds,source,device_type,app_version,page_path,metadata,client_time
+          ) values
+          (
+            '00000000-0000-4000-8000-000000000001','user-a','session-a','exam_submit','revenue-academic',1,20,300,'direct','desktop','18','/tax-exam/',
+            '{"total":20,"exam_mode":"fixed","wrong_questions":["RA-S01-Q002"],"item_responses":["RA-S01-Q001|0|0","RA-S01-Q002|1|2"],"topic_result":{"ภาษีมูลค่าเพิ่ม (VAT)":{"correct":1,"total":2}}}'::jsonb,
+            now()
+          ),
+          (
+            '00000000-0000-4000-8000-000000000002','user-b','session-b','exam_submit','revenue-academic',2,50,600,'direct','mobile','18','/tax-exam/',
+            '{"total":100,"exam_mode":"random","wrong_questions":[],"item_responses":["RA-S01-Q001|0|0","RA-S01-Q002|2|2"],"topic_result":{"ภาษีมูลค่าเพิ่ม (VAT)":{"correct":2,"total":2}}}'::jsonb,
+            now()
+          ),
+          (
+            '00000000-0000-4000-8000-000000000003','user-c','session-c','exam_submit','revenue-academic',null,10,120,'direct','desktop','18','/tax-exam/',
+            '{"total":20,"exam_mode":"topic-practice","wrong_questions":{},"item_responses":"malformed","topic_result":[]}'::jsonb,
+            now()
+          ),
+          (
+            '00000000-0000-4000-8000-000000000004','user-a','session-r','question_report','revenue-academic',1,null,null,'direct','desktop','18','/tax-exam/',
+            '{"question_id":"RA-S01-Q002","report_type":"โจทย์หรือถ้อยคำกำกวม","category":"หลักภาษีอากรและประมวลรัษฎากร","topic":"ภาษีมูลค่าเพิ่ม (VAT)","prompt":"ตัวอย่างโจทย์สำหรับทดสอบระบบ"}'::jsonb,
+            now()
+          );
+
+          do $$
+          declare
+            j jsonb;
+            avg_score numeric;
+          begin
+            j:=public.kexam_dashboard_snapshot(30);
+
+            if jsonb_array_length(j->'item_stats') < 2 then
+              raise exception 'item_stats missing: %',j->'item_stats';
+            end if;
+            if not (j->'item_stats' @> '[{"question_id":"RA-S01-Q001"}]'::jsonb) then
+              raise exception 'RA-S01-Q001 missing from item_stats';
+            end if;
+            if not (j->'question_reports' @> '[{"question_id":"RA-S01-Q002"}]'::jsonb) then
+              raise exception 'question report missing';
+            end if;
+            if jsonb_array_length(j->'topic_stats') < 1 then
+              raise exception 'topic_stats missing';
+            end if;
+            if not (j->'modes' @> '[{"name":"topic-practice"}]'::jsonb) then
+              raise exception 'topic-practice missing from modes';
+            end if;
+            if not (j->'top_wrong' @> '[{"name":"RA-S01-Q002"}]'::jsonb) then
+              raise exception 'Question ID missing from top_wrong';
+            end if;
+
+            avg_score:=(j->'summary'->>'avg_score')::numeric;
+            if avg_score <> 66.7 then
+              raise exception 'dynamic-total avg_score expected 66.7, got %',avg_score;
+            end if;
+          end $$;
+
+          select jsonb_pretty(public.kexam_dashboard_snapshot(30));
+          SQL
