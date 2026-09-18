@@ -67,7 +67,35 @@ jobs:
             wrong_reasons:String(data.s[r[5]]??'')
           });
           const sha256=x=>crypto.createHash('sha256').update(x,'utf8').digest('hex');
-          const bankHash=new Map();
+          const deriveTopic=(category,prompt)=>{
+            const x=(String(category||'')+' '+String(prompt||'')).toLowerCase();
+            const rules=[
+              ['ภาษีมูลค่าเพิ่ม (VAT)',/ภาษีมูลค่าเพิ่ม|\bvat\b|ภาษีซื้อ|ภาษีขาย|จดทะเบียน.*มูลค่าเพิ่ม/i],
+              ['ภาษีธุรกิจเฉพาะ (SBT)',/ภาษีธุรกิจเฉพาะ|\bsbt\b/i],
+              ['อากรแสตมป์',/อากรแสตมป์|ตราสาร|แสตมป์บริบูรณ์/i],
+              ['ภาษีหัก ณ ที่จ่าย',/หัก\s*ณ\s*ที่จ่าย|withholding/i],
+              ['ภาษีเงินได้บุคคลธรรมดา',/ภาษีเงินได้บุคคลธรรมดา|เงินได้พึงประเมิน|มาตรา\s*40|ค่าลดหย่อน|เงินได้สุทธิ/i],
+              ['ภาษีเงินได้นิติบุคคล',/ภาษีเงินได้นิติบุคคล|กำไรสุทธิ|ขาดทุนสุทธิ|รอบระยะเวลาบัญชี/i],
+              ['การประเมิน อุทธรณ์ และการบังคับทางภาษี',/เจ้าพนักงานประเมิน|หมายเรียก|การประเมิน|อุทธรณ์|เบี้ยปรับ|เงินเพิ่ม|ยึด|อายัด/i]
+            ];
+            for(const [name,re] of rules)if(re.test(x))return name;
+            return String(category||'อื่น ๆ');
+          };
+          const sourceRisk=(category,prompt,topic)=>{
+            let score=0;const x=String(category||'')+' '+String(prompt||'');
+            if(/มาตรา\s*\d+|พ\.ร\.บ\.|พระราชบัญญัติ|พระราชกฤษฎีกา|กฎกระทรวง|ประกาศ|คำสั่ง/i.test(x))score+=35;
+            if(/อัตรา|ร้อยละ|เปอร์เซ็นต์|%|บาท|รายรับ|รายได้|ฐานภาษี|เกณฑ์/i.test(x))score+=30;
+            if(/ภายใน\s*\d+|\d+\s*(วัน|เดือน|ปี)|กำหนดเวลา|ระยะเวลา|นับแต่|นับจาก/i.test(x))score+=25;
+            if(/เบี้ยปรับ|เงินเพิ่ม|โทษ|ยกเว้น|จดทะเบียน|หัก\s*ณ\s*ที่จ่าย|อุทธรณ์|คืนภาษี/i.test(x))score+=20;
+            if(/กรมสรรพากร|อธิบดี|รัฐมนตรี|คณะกรรมการ|เจ้าพนักงาน/i.test(x))score+=10;
+            if(/[0-9๐-๙]/.test(String(prompt||'')))score+=10;
+            if(/หลักภาษีอากร|ประมวลรัษฎากร|ข้อมูลข่าวสาร|PDPA/i.test(String(category||'')))score+=15;
+            if(/ปัจจุบัน|ล่าสุด|ในปี|พ\.ศ\.|พ.ศ.|สถานการณ์|แนวโน้ม/i.test(x))score+=20;
+            if(/ภาษีมูลค่าเพิ่ม|ภาษีเงินได้|ภาษีธุรกิจเฉพาะ|อากรแสตมป์|หัก\s*ณ\s*ที่จ่าย/i.test(String(topic||'')))score+=10;
+            return score;
+          };
+          const SOURCE_GATE_THRESHOLD=70;
+          const bankHash=new Map(),bankRisk=new Map();
           for(const [position,cfg] of Object.entries(configs)){
             const b64=cfg.files.map(f=>show('tax-exam/'+f).trim()).join('').replace(/\s+/g,'');
             const d=JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8'));
@@ -75,6 +103,8 @@ jobs:
             d.q.forEach((set,si)=>set.forEach((r,qi)=>{
               const id=`${cfg.prefix}-S${String(si+1).padStart(2,'0')}-Q${String(qi+1).padStart(3,'0')}`;
               bankHash.set(id,sha256(canonical(d,r)));
+              const category=String(d.s[r[0]]??''),prompt=String(d.s[r[1]]??''),topic=deriveTopic(category,prompt);
+              bankRisk.set(id,sourceRisk(category,prompt,topic));
             }));
           }
 
@@ -153,6 +183,13 @@ jobs:
               if(o?.source_state==='verified'&&(o.content_hash_algorithm!=='sha256'||o.content_sha256!==baseline.sha256)){
                 throw new Error(decisionId+' source verification hash is stale for '+id);
               }
+              const riskScore=Number(bankRisk.get(id)||0);
+              if(riskScore>=SOURCE_GATE_THRESHOLD){
+                const sourceVerified=(p.source_verified_ids||[]).includes(id)&&o?.source_state==='verified';
+                if(!sourceVerified)throw new Error(decisionId+' cannot publish high-risk item '+id+' (source risk '+riskScore+') before authoritative source verification');
+                if(!Array.isArray(o?.source_refs)||!o.source_refs.length)throw new Error(decisionId+' high-risk item '+id+' requires source_refs before publication');
+                if(o.content_hash_algorithm!=='sha256'||o.content_sha256!==baseline.sha256)throw new Error(decisionId+' high-risk source verification is not bound to current content for '+id);
+              }
             }
 
             const sourceVerified=(p.source_verified_ids||[]).includes(id)||out.source_overrides?.[id]?.source_state==='verified';
@@ -178,6 +215,8 @@ jobs:
               reason,
               reset_source_verification:Boolean(rec.reset_source_verification),
               content_sha256:baseline.sha256,
+              source_risk_score:Number(bankRisk.get(id)||0),
+              source_gate_threshold:SOURCE_GATE_THRESHOLD,
               applied_at:new Date().toISOString()
             };
             out.lifecycle_decision_log.push(logEntry);appliedById.set(decisionId,logEntry);newRecords.push(logEntry);
