@@ -336,3 +336,7 @@ button:disabled{opacity:.45!important;filter:saturate(.45)!important;box-shadow:
 .report-row{display:flex;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--line,#e5e7eb)}
 .report-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}
 @media(max-width:760px){.personal-practice-card{align-items:stretch;flex-direction:column}.personal-practice-actions{justify-content:stretch}.personal-practice-actions button{width:100%}.report-options{grid-template-columns:1fr}}
+
+/* NOVA subtopic insight */
+.topic-result-title{margin-top:26px}
+.topic-insight-card{margin-top:14px}
