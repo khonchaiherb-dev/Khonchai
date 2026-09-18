@@ -24,7 +24,8 @@
           if(!attempts)continue;
           const accuracy=Math.round(correct/attempts*100),unused=choices.reduce((n,v,i)=>n+(i!==answer&&v===0?1:0),0);
           const risk=(attempts>=3?(accuracy<35?4:accuracy>95?1:0):0)+(unused>=2?3:unused)+(attempts>=5?1:0);
-          out.push({id,position,attempts,correct,accuracy,unused,risk,choices,answer,category:String(x?.category||''),topic:String(x?.topic||''),prompt:String(x?.prompt||''),lastSeen:Number(x?.lastSeen)||0});
+          const timeSamples=Number(x?.timeSamples)||0,avgTime=timeSamples?Math.round((Number(x?.timeTotal)||0)/timeSamples*10)/10:null;
+          out.push({id,position,attempts,correct,accuracy,unused,risk,choices,answer,avg_time_seconds:avgTime,category:String(x?.category||''),topic:String(x?.topic||''),prompt:String(x?.prompt||''),lastSeen:Number(x?.lastSeen)||0});
         }
       }catch{}
     }
@@ -131,11 +132,20 @@
       const pos=r.position==='revenue-academic'?'นักวิชาการสรรพากรฯ':r.position==='tax-auditor'?'นักตรวจสอบภาษีฯ':r.position||'-',choices=Array.isArray(r.choices)?r.choices.join('/'):'–';
       const diff=r.difficulty_index==null?null:Number(r.difficulty_index),disc=r.discrimination==null?null:Number(r.discrimination),de=r.distractor_efficiency==null?null:Number(r.distractor_efficiency);
       const status=String(r.quality_status||'').trim()||(attempts>=3&&(accuracy<35||accuracy>95||unused>=2)?'ควรตรวจ':'ติดตาม');
-      const statBits=[`ถูก ${accuracy}%`,diff==null?null:`p=${diff.toFixed(3)}`,disc==null?null:`D=${disc.toFixed(1)}`,de==null?null:`DE=${de.toFixed(1)}%`].filter(Boolean).join(' · ');
+      const avgTime=r.avg_time_seconds==null?null:Number(r.avg_time_seconds),medianTime=r.median_time_seconds==null?null:Number(r.median_time_seconds);
+      const statBits=[`ถูก ${accuracy}%`,diff==null?null:`p=${diff.toFixed(3)}`,disc==null?null:`D=${disc.toFixed(1)}`,de==null?null:`DE=${de.toFixed(1)}%`,avgTime==null?null:`เวลาเฉลี่ย ${Math.round(avgTime)} วิ.`,medianTime==null?null:`มัธยฐาน ${Math.round(medianTime)} วิ.`].filter(Boolean).join(' · ');
       const basis=String(r.psychometric_basis||'').trim()==='first-response-per-user'?'ฐานคำนวณ: คำตอบครั้งแรกต่อผู้ใช้':'';
       return `<div class="row"><div><div class="name">${esc(id)} · ${esc(statBits)} · ทำ ${fmt(attempts)} ครั้ง${users?` / ${fmt(users)} ผู้ใช้`:''}</div><div class="meta">${esc(pos)}${r.topic||r.category?` · ${esc(r.topic||r.category)}`:''} · เลือก ก/ข/ค/ง = ${esc(choices)} · ตัวลวงไม่เคยถูกเลือก ${unused}/3${r.avg_rest_correct!=null||r.avg_rest_incorrect!=null?`<br>คะแนนข้ออื่นเฉลี่ย: กลุ่มตอบถูก ${esc(String(r.avg_rest_correct??'–'))}% · กลุ่มตอบผิด ${esc(String(r.avg_rest_incorrect??'–'))}%`:''}${basis?`<br>${esc(basis)}`:''}${r.prompt?`<br>${esc(String(r.prompt).slice(0,170))}`:''}</div></div><div class="val">${esc(status)}</div></div>`
     }).join('')}</div>`;
   }
+  function localSlowItems(){
+    return localItemStats().filter(r=>Number.isFinite(Number(r.avg_time_seconds))&&Number(r.avg_time_seconds)>0).sort((a,b)=>Number(b.avg_time_seconds)-Number(a.avg_time_seconds)).slice(0,30);
+  }
+  function slowItemsList(rows=null){
+    const src=Array.isArray(rows)?rows:localSlowItems();if(!src.length)return '<div class="empty">ยังไม่มีข้อมูลเวลาเพียงพอสำหรับจัดอันดับรายข้อ</div>';
+    return `<div class="list">${src.slice(0,40).map(r=>{const id=r.question_id||r.id||'ไม่มีรหัส',avg=Number(r.avg_time_seconds)||0,med=r.median_time_seconds==null?null:Number(r.median_time_seconds),samples=Number(r.time_samples)||Number(r.attempts)||0,users=Number(r.users)||0,accuracy=Number(r.accuracy),disc=r.discrimination==null?null:Number(r.discrimination),pos=r.position==='revenue-academic'?'นักวิชาการสรรพากรฯ':r.position==='tax-auditor'?'นักตรวจสอบภาษีฯ':r.position||'-';const bits=[`เฉลี่ย ${Math.round(avg)} วิ.`,med==null?null:`มัธยฐาน ${Math.round(med)} วิ.`,Number.isFinite(accuracy)?`ถูก ${accuracy}%`:null,disc==null?null:`D=${disc.toFixed(1)}`].filter(Boolean).join(' · ');return `<div class="row"><div><div class="name">${esc(id)} · ${esc(bits)}</div><div class="meta">${esc(pos)} · ตัวอย่างเวลา ${fmt(samples)}${users?` · ${fmt(users)} ผู้ใช้`:''}</div></div><div class="val">${med==null?Math.round(avg):Math.round(med)} วิ.</div></div>`}).join('')}</div>`;
+  }
+
   function topicStatsList(rows=[]){
     if(!rows.length)return '<div class="empty">ยังไม่มีข้อมูลหัวข้อย่อย</div>';
     return `<div class="list">${rows.slice(0,15).map(r=>{const pos=r.position==='revenue-academic'?'นักวิชาการสรรพากรฯ':r.position==='tax-auditor'?'นักตรวจสอบภาษีฯ':r.position||'-';return `<div class="row"><div><div class="name">${esc(r.name||'ไม่ระบุ')}</div><div class="meta">${esc(pos)} · ถูก ${fmt(r.correct)}/${fmt(r.total)}</div></div><div class="val">${pct(r.accuracy)}</div></div>`}).join('')}</div>`;
@@ -170,6 +180,7 @@
     syncQualityPositionOptions(qualityRowsCache);
     $('#qualitySummary').innerHTML=qualitySummaryHtml(remote?(data.quality_summary||{}):{},qualityRowsCache);
     refreshQualityQueue();
+    $('#slowItems').innerHTML=slowItemsList(remote?(data.slow_items||[]):null);
     $('#itemStats').innerHTML=itemStatsList(remote?(data.item_stats||[]):null);
     $('#questionReports').innerHTML=reportList(remote?(data.question_reports||[]):null);
     $('#dataMode').textContent=remote?'ฐานข้อมูลส่วนกลาง':'ข้อมูลเฉพาะเบราว์เซอร์เครื่องนี้';

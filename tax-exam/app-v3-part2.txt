@@ -135,7 +135,7 @@ async function beginPractice(kind,focus=null,reset=false,showResult=false){
     }else if(!st.total){st.total=bank.questions.length;putSetState(kind,st)}
     state=st;currentIndex=Math.min(Math.max(0,bank.questions.length-1),state.lastIndex||0);
     if(showResult||state.submitted){renderResult();return}
-    startTimestamp=Date.now();renderExam();
+    startTimestamp=Date.now();itemViewStartedAt=Date.now();renderExam();
   }catch(e){if(kind===WRONG_SET&&/ยังไม่พบข้อที่เคยตอบผิด/.test(String(e?.message||e))){renderSetHome();toast('ยังไม่มีข้อผิดที่บันทึกไว้ กรุณาส่งข้อสอบอย่างน้อย 1 ชุดก่อน')}else showError(e)}
 }
 
@@ -162,20 +162,30 @@ async function beginExam(n,reset=false,showResult=false){
       bank=await loadSet(n);
       if(reset||!st){st={answers:{},flags:{},startedAt:Date.now(),elapsed:0,submitted:false,score:null,lastIndex:0,total:bank.questions.length};putSetState(n,st)}else if(!st.total){st.total=bank.questions.length;putSetState(n,st)}
     }
-    state=st;currentIndex=Math.min(Math.max(0,bank.questions.length-1),state.lastIndex||0);if(showResult||state.submitted){renderResult();return}startTimestamp=Date.now();renderExam()
+    state=st;currentIndex=Math.min(Math.max(0,bank.questions.length-1),state.lastIndex||0);if(showResult||state.submitted){renderResult();return}startTimestamp=Date.now();itemViewStartedAt=Date.now();renderExam()
   }catch(e){showError(e)}
 }
 function stopTimer(){if(timerHandle){clearInterval(timerHandle);timerHandle=null}}
 function startTimer(){stopTimer();timerHandle=setInterval(()=>{if(!state||state.submitted)return;const sec=(state.elapsed||0)+(Date.now()-startTimestamp)/1000;document.querySelectorAll('[data-time]').forEach(x=>x.textContent=fmtTime(sec))},1000)}
-function persist(){if(!state||state.submitted||!currentPosition)return;if(startTimestamp){state.elapsed=(state.elapsed||0)+(Date.now()-startTimestamp)/1000;startTimestamp=Date.now()}state.lastIndex=currentIndex;putSetState(currentSet,state)}
+function commitItemTime(){
+  if(!state||state.submitted||!bank||itemViewStartedAt==null)return;
+  const now=Date.now(),delta=Math.max(0,(now-itemViewStartedAt)/1000);
+  if(currentIndex>=0&&currentIndex<examTotal()&&delta>0){
+    state.itemElapsed=state.itemElapsed&&typeof state.itemElapsed==='object'?state.itemElapsed:{};
+    state.itemElapsed[currentIndex]=(Number(state.itemElapsed[currentIndex])||0)+Math.min(delta,1800);
+  }
+  itemViewStartedAt=now;
+}
+function persist(){if(!state||state.submitted||!currentPosition)return;commitItemTime();if(startTimestamp){state.elapsed=(state.elapsed||0)+(Date.now()-startTimestamp)/1000;startTimestamp=Date.now()}state.lastIndex=currentIndex;putSetState(currentSet,state)}
 window.addEventListener('beforeunload',persist);
+document.addEventListener('visibilitychange',()=>{if(document.hidden){persist();stopTimer();itemViewStartedAt=null;startTimestamp=null}else if(state&&!state.submitted&&bank){startTimestamp=Date.now();itemViewStartedAt=Date.now();startTimer()}});
 function examTotal(){return Math.max(0,Number(bank?.questions?.length)||Number(state?.total)||0)}
 function answeredCount(){return Object.keys(state?.answers||{}).length}
 function flagCount(){return Object.values(state?.flags||{}).filter(Boolean).length}
 function categoryProgress(){const m={};bank.questions.forEach((q,i)=>{m[q.category]??={total:0,answered:0};m[q.category].total++;if(state.answers[i]!==undefined)m[q.category].answered++});return m}
 function examNavButtons(){let nav='';for(let i=0;i<examTotal();i++){const cls=['qnum'];if(state.answers[i]!==undefined)cls.push('answered');if(state.flags[i])cls.push('flagged');if(i===currentIndex)cls.push('current');nav+=`<button class="${cls.join(' ')}" data-i="${i}" aria-label="ข้อ ${i+1}">${i+1}</button>`}return nav}
 function firstUnanswered(){for(let i=0;i<examTotal();i++)if(state.answers[i]===undefined)return i;return -1}
-function go(i){if(i<0||i>=examTotal())return;persist();currentIndex=i;state.lastIndex=i;putSetState(currentSet,state);renderExam();scrollTo({top:0,behavior:'smooth'})}
+function go(i){if(i<0||i>=examTotal())return;persist();currentIndex=i;itemViewStartedAt=Date.now();state.lastIndex=i;putSetState(currentSet,state);renderExam();scrollTo({top:0,behavior:'smooth'})}
 function select(i){state.answers[currentIndex]=i;putSetState(currentSet,state);renderExam()}
 function clearAnswer(){delete state.answers[currentIndex];putSetState(currentSet,state);renderExam()}
 function toggleFlag(){state.flags[currentIndex]=!state.flags[currentIndex];if(!state.flags[currentIndex])delete state.flags[currentIndex];putSetState(currentSet,state);renderExam()}
