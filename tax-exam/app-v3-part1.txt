@@ -1,5 +1,6 @@
 const LETTERS=['ก','ข','ค','ง'];
 const SETS=10;
+const RANDOM_SET='random';
 const POSITIONS={
   'tax-auditor':{
     key:'tax-auditor',
@@ -15,7 +16,7 @@ const POSITIONS={
     title:'นักวิชาการสรรพากรปฏิบัติการ',
     short:'นักวิชาการสรรพากรฯ',
     storageKey:'kexam_revenue_academic_v1',
-    bankFiles:['ra-bank-01.txt','ra-bank-02.txt','ra-bank-03.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'],
+    bankFiles:['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'],
     description:'หลักภาษีอากรและประมวลรัษฎากร · กรมสรรพากร · เศรษฐกิจ สังคม เทคโนโลยี · พ.ร.บ.ข้อมูลข่าวสาร/PDPA',
     badge:'คลังใหม่ 1,000 ข้อ'
   }
@@ -29,6 +30,8 @@ const esc=(x='')=>String(x).replace(/[&<>'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':
 const pct=(a,b)=>b?Math.round((a/b)*100):0;
 const position=()=>POSITIONS[currentPosition]||null;
 const storageKey=()=>position()?.storageKey||'kexam_tax_v2';
+const isRandomSet=n=>String(n)===RANDOM_SET;
+const setLabel=n=>isRandomSet(n)?'สุ่มจำลองสอบ 100 ข้อ':`ชุดที่ ${n}`;
 
 function loadGlobal(){try{return JSON.parse(localStorage.getItem(storageKey())||'{}')}catch{return {}}}
 function saveGlobal(g){localStorage.setItem(storageKey(),JSON.stringify(g))}
@@ -77,4 +80,8 @@ function renderSetHome(){
     const right=st?.submitted?'ดูผล / ทำใหม่':answered?'ทำต่อ':'เริ่มทำข้อสอบ';
     cards+=`<button class="set-card" data-set="${s}"><div class="n">ชุดที่ ${s}</div><div class="meta">ข้อ ${(s-1)*100+1}–${s*100} · 100 ข้อ</div><div class="set-progress"><span style="width:${st?.submitted?100:answered}%"></span></div><div class="set-score"><span>${score}</span><span>${right}</span></div>${best!==null?`<div class="best-score">คะแนนสูงสุด ${best}/100</div>`:''}</button>`;
   }
+  const randomSt=g['set'+RANDOM_SET],randomAnswered=randomSt?Object.keys(randomSt.answers||{}).length:0,randomBest=bestScore(RANDOM_SET);
+  const randomScore=randomSt?.submitted?`${randomSt.score}/100`:(randomAnswered?`ทำแล้ว ${randomAnswered} ข้อ`:'ยังไม่ได้เริ่ม');
+  const randomAction=randomSt?.submitted?'ดูผล / สุ่มชุดใหม่':randomAnswered?'ทำต่อ':'เริ่มสุ่มข้อสอบ';
+  const randomHtml=`<button class="random-practice-card" id="randomPractice"><div class="random-orbit" aria-hidden="true">✦</div><div><div class="eyebrow">NOVA RANDOM PRACTICE</div><h3>สุ่มจำลองสอบ 100 ข้อจากคลัง 1,000 ข้อ</h3><p>ระบบสุ่มข้อใหม่โดยรักษาสัดส่วนหมวดเนื้อหาของคลังตำแหน่งนี้ เหมาะสำหรับจำลองสอบโดยไม่จำลำดับชุดเดิม</p><div class="random-tags"><span>ไม่ซ้ำในรอบเดียว</span><span>บันทึกความคืบหน้า</span><span>ตรวจคะแนนและเฉลยครบ</span></div></div><div class="random-side"><strong>${randomScore}</strong><span>${randomAction} →</span>${randomBest!==null?`<small>คะแนนสูงสุด ${randomBest}/100</small>`:''}</div></button>`;
   const extra=`<button class="ghost-btn compact-btn" id="changePosition">← เปลี่ยนตำแหน่ง</button>`;
