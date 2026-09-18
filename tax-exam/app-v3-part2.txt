@@ -78,6 +78,7 @@ async function loadPracticeSet(kind,{category=null,savedIds=null}={}){
 }
 async function beginPractice(kind,category=null,reset=false,showResult=false){
   try{
+    window.KEXAM_ANALYTICS?.track('exam_open',{position:currentPosition,set_no:null,exam_mode:kind===WRONG_SET?'wrong-practice':'weak-practice',reset:!!reset,show_result:!!showResult});
     currentSet=kind;showLoading('กำลังเตรียมชุดฝึกเฉพาะบุคคล...');
     let st=getSetState(kind);
     if(kind===WEAK_SET&&category&&st?.practiceCategory!==category)reset=true;
