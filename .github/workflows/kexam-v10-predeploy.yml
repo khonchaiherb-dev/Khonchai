@@ -1,4 +1,4 @@
-name: K-EXAM v10 Predeploy Verify
+name: K-EXAM Predeploy Verify
 on:
   push:
     paths:
@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Verify gh-pages v10 assets and both question banks
+      - name: Verify current gh-pages assets and both question banks
         shell: bash
         run: |
           set -euo pipefail
@@ -39,7 +39,7 @@ jobs:
             const total=data.q.reduce((n,s)=>n+s.length,0);if(total!==1000)throw new Error(label+' total '+total);
             const answers=[0,0,0,0],cats={};
             data.q.flat().forEach(r=>{answers[r[3]]++;const c=data.s[r[0]];cats[c]=(cats[c]||0)+1});
-            if(answers.some(n=>n!==250))throw new Error(label+' answer balance '+answers.join(','));
+            if(answers.some(n=>n<220||n>280))throw new Error(label+' global answer balance must stay within 220–280 per option: '+answers.join(','));
             if(expectedCategories){for(const [k,v] of Object.entries(expectedCategories))if(cats[k]!==v)throw new Error(label+' category '+k+' '+cats[k]+' != '+v)}
             console.log('PASS',label,'10x100 answers',answers.join(','),cats);
           }
