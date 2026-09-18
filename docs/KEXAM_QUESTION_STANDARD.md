@@ -33,7 +33,9 @@
 - ทุกข้อมีคำอธิบายคำตอบที่ถูกและเหตุผลตัวเลือกผิด
 - เฉลยต้องสัมพันธ์กับโจทย์และตัวเลือกจริง ไม่ใช้ข้อความสำเร็จรูปซ้ำจำนวนมาก
 - ก่อนเผยแพร่ต้องผ่าน Blueprint, Content Accuracy, Question Quality, Distractor Quality, Duplicate/Pattern และ Deployment checks
-- สถานะที่แนะนำ: Draft → Reviewed → Verified → Published → Retired
+- ใช้ lifecycle บังคับ: Draft → Reviewed → Verified → Published → Retired ตาม `docs/KEXAM_QUESTION_LIFECYCLE.md`
+- เฉพาะ Question ID ที่อยู่สถานะ Published และผ่าน QA state จึงอนุญาตให้ Runtime โหลดได้
+- แยก QA Verification ออกจาก Source Verification อย่างชัดเจน; Published ไม่ได้หมายความว่ามีแหล่งอ้างอิงทางการรายข้อครบแล้ว
 
 ## Post-exam QA
 เมื่อมีข้อมูลผู้ใช้จริง ให้ติดตามร้อยละตอบถูก ตัวเลือกที่แทบไม่มีผู้เลือก เวลาเฉลี่ยต่อข้อ และข้อที่มีสถิติผิดปกติ เพื่อนำกลับเข้าคิวตรวจทาน
