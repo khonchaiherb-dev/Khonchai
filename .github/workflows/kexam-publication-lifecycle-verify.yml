@@ -101,6 +101,8 @@ jobs:
               if(status!=='Verified'&&status!=='Published')throw new Error('source_verified ID must be Verified or Published: '+id);
               const o=manifest.source_overrides?.[id];
               if(!o||o.source_state!=='verified'||!Array.isArray(o.source_refs)||!o.source_refs.length)throw new Error('source_verified ID needs verified source_overrides with source_refs: '+id);
+              if(o.content_hash_algorithm!=='sha256'||!String(o.content_sha256||'').match(/^[a-f0-9]{64}$/))throw new Error('source_verified ID needs SHA-256 content binding: '+id);
+              if(o.content_sha256!==integrity.questions?.[id]?.sha256)throw new Error('source_verified content hash does not match current baseline: '+id);
             }
             summaries[position]={
               Draft:p.draft_ids.length,Reviewed:p.reviewed_ids.length,Verified:p.verified_ids.length,
@@ -114,6 +116,7 @@ jobs:
             if(!allowedSource.has(o.source_state))throw new Error('invalid source_state for '+id);
             if(o.source_state==='verified'){
               if(!Array.isArray(o.source_refs)||!o.source_refs.length)throw new Error('verified source needs source_refs for '+id);
+              if(o.content_hash_algorithm!=='sha256'||o.content_sha256!==integrity.questions?.[id]?.sha256)throw new Error('verified source content binding invalid for '+id);
               for(const ref of o.source_refs){
                 if(!ref||typeof ref!=='object'||!String(ref.title||'').trim()||!String(ref.url||'').trim()||!/^\d{4}-\d{2}-\d{2}$/.test(String(ref.checked_at||''))){
                   throw new Error('source_ref must include title, url, checked_at YYYY-MM-DD for '+id);
