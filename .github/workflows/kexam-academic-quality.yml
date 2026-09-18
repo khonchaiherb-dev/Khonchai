@@ -77,6 +77,10 @@ jobs:
           if(new Set(prompts).size!==1000)throw new Error('พบคำถามซ้ำแบบข้อความตรงกัน');
           const norm=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[\\s\\p{P}\\p{S}]+/gu,'');
           if(new Set(prompts.map(norm)).size!==1000)throw new Error('พบคำถามซ้ำหลังปรับรูปแบบตัวอักษร/วรรคตอน');
+          const normNoNum=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[0-9๐-๙]+/g,'#').replace(/[\\s\\p{P}\\p{S}]+/gu,'');
+          const promptShapeCounts=new Map();let maxPromptShapeReuse=0;
+          for(const p of prompts){const k=normNoNum(p),n=(promptShapeCounts.get(k)||0)+1;promptShapeCounts.set(k,n);if(n>maxPromptShapeReuse)maxPromptShapeReuse=n}
+          if(maxPromptShapeReuse>10)throw new Error(`พบโครงคำถามคำนวณซ้ำเกินมาตรฐานนักตรวจสอบภาษี: สูงสุด ${maxPromptShapeReuse} ข้อ`);
           const maxReuse=arr=>{
             const m=new Map();let mx=0;
             for(const s of arr){const k=norm(s);const n=(m.get(k)||0)+1;m.set(k,n);if(n>mx)mx=n}
@@ -90,6 +94,7 @@ jobs:
           console.log('CATEGORY COUNTS',JSON.stringify(cats));
           console.log(`UNIQUE EXPLANATIONS ${new Set(explanations).size}/1000`);
           console.log(`UNIQUE WRONG-REASONS ${new Set(wrongReasons).size}/1000`);
+          console.log(`MAX NORMALIZED PROMPT-SHAPE REUSE ${maxPromptShapeReuse}`);
           console.log(`MAX NORMALIZED EXPLANATION REUSE ${maxExpReuse}; WRONG-REASON REUSE ${maxWrongReuse}`);
           console.log('PASS: นักวิชาการสรรพากรปฏิบัติการผ่านมาตรฐานโครงสร้างเดียวกับระบบนักตรวจสอบภาษีปฏิบัติการ');
           console.log('10 ชุด x 100 ข้อ, ชุดละ 60/15/15/10 ตามหมวด, 4 ตัวเลือก, 1 คำตอบ, ก/ข/ค/ง = 25/25/25/25 ต่อชุด, ไม่มีคำถามซ้ำ, มีคำอธิบายและเหตุผลตัวเลือกผิดครบ');
