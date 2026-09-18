@@ -30,6 +30,15 @@
     }
     return out.sort((a,b)=>b.risk-a.risk||b.attempts-a.attempts||a.accuracy-b.accuracy||a.id.localeCompare(b.id)).slice(0,40);
   }
+  function localQualityQueue(){
+    const reportCounts={};for(const r of localQuestionReports()){const id=r.questionId||r.question_id||'';if(id)reportCounts[id]=(reportCounts[id]||0)+1}
+    return localItemStats().map(r=>{
+      const id=r.id||r.question_id||'',attempts=Number(r.attempts)||0,accuracy=Number(r.accuracy)||0,unused=Number(r.unused??r.unused_distractors)||0,reports=reportCounts[id]||0;
+      const riskScore=(accuracy<20||accuracy>95?25:0)+(unused>=2?20:unused===1?10:0)+Math.min(reports*15,45)+(attempts>=20?10:0);
+      return {...r,question_id:id,reports,risk_score:riskScore,priority:riskScore>=60?'เร่งด่วน':riskScore>=35?'ควรตรวจ':'เฝ้าดู'};
+    }).filter(r=>r.risk_score>0).sort((a,b)=>b.risk_score-a.risk_score||b.reports-a.reports||b.attempts-a.attempts).slice(0,40);
+  }
+
   function localSnapshot(){
     const ev=localEvents(),now=Date.now(),today=new Date().toISOString().slice(0,10),isToday=e=>String(e.client_time||'').slice(0,10)===today;
     const pv=ev.filter(e=>e.event_name==='page_view');
@@ -69,6 +78,23 @@
     const max=Math.max(...rows.map(x=>Number(x.value)||0),1);
     return `<div class="list">${rows.slice(0,12).map(x=>`<div class="row"><div><div class="name">${esc(x.name??'ไม่ระบุ')}</div><div class="meta"><span style="display:inline-block;width:${Math.max(6,Math.round((Number(x.value)||0)/max*100))}%;height:4px;border-radius:8px;background:linear-gradient(90deg,#2563eb,#38bdf8);vertical-align:middle"></span></div></div><div class="val">${fmt(x.value)}</div></div>`).join('')}</div>`
   }
+  function qualitySummaryHtml(summary={},rows=[]){
+    const urgent=Number(summary.urgent??rows.filter(x=>String(x.priority)==='เร่งด่วน').length)||0;
+    const review=Number(summary.review??rows.filter(x=>String(x.priority)==='ควรตรวจ').length)||0;
+    const watch=Number(summary.watch??rows.filter(x=>String(x.priority)==='เฝ้าดู').length)||0;
+    const total=Number(summary.total_flagged??(urgent+review+watch))||0;
+    return `<div class="metrics"><div class="panel metric"><div class="label">ควรตรวจทั้งหมด</div><strong>${fmt(total)}</strong><small>Question ID ที่มีสัญญาณผิดปกติ</small></div><div class="panel metric"><div class="label">เร่งด่วน</div><strong>${fmt(urgent)}</strong><small>D ติดลบ/หลายสัญญาณร่วมกัน</small></div><div class="panel metric"><div class="label">ควรตรวจ</div><strong>${fmt(review)}</strong><small>ความเสี่ยงระดับกลาง</small></div><div class="panel metric"><div class="label">เฝ้าดู</div><strong>${fmt(watch)}</strong><small>ยังไม่ถึงระดับเร่งแก้</small></div></div>`;
+  }
+  function qualityQueueList(rows=[]){
+    if(!rows.length)return '<div class="empty">ยังไม่มีข้อที่เข้าเกณฑ์คิวตรวจคุณภาพ</div>';
+    return `<div class="list">${rows.slice(0,60).map(r=>{
+      const id=r.question_id||r.id||'ไม่มีรหัส',score=Number(r.risk_score)||0,users=Number(r.users)||0,attempts=Number(r.attempts)||0,reports=Number(r.reports)||0,unused=Number(r.unused_distractors??r.unused)||0;
+      const accuracy=Number(r.accuracy),disc=r.discrimination==null?null:Number(r.discrimination),pos=r.position==='revenue-academic'?'นักวิชาการสรรพากรฯ':r.position==='tax-auditor'?'นักตรวจสอบภาษีฯ':r.position||'-';
+      const signals=[Number.isFinite(accuracy)?`ถูก ${accuracy}%`:null,disc==null?null:`D=${disc.toFixed(1)}`,`ตัวลวงไม่ทำงาน ${unused}/3`,reports?`รายงาน ${reports}`:null].filter(Boolean).join(' · ');
+      return `<div class="row"><div><div class="name">${esc(id)} · ${esc(r.priority||'เฝ้าดู')} · Risk ${fmt(score)}</div><div class="meta">${esc(pos)} · ${esc(signals)} · ทำ ${fmt(attempts)} ครั้ง${users?` / ${fmt(users)} ผู้ใช้`:''}</div></div><div class="val">${esc(r.priority||'เฝ้าดู')}</div></div>`;
+    }).join('')}</div>`;
+  }
+
   function reportList(rows=null){
     const src=Array.isArray(rows)?rows:localQuestionReports();if(!src.length)return '<div class="empty">ยังไม่มีรายการแจ้งปัญหาข้อสอบ</div>';
     return `<div class="list">${src.slice(0,50).map(r=>{const ts=r.last_reported_at||r.reportedAt,when=ts?new Intl.DateTimeFormat('th-TH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(ts)):'-';const pos=r.position==='revenue-academic'?'นักวิชาการสรรพากรฯ':r.position==='tax-auditor'?'นักตรวจสอบภาษีฯ':r.position||'-';const id=r.question_id||r.questionId||'ไม่มีรหัส',type=r.type||'อื่น ๆ',count=Number(r.reports)||1;return `<div class="row"><div><div class="name">${esc(id)} · ${esc(type)}</div><div class="meta">${esc(pos)} · ${esc(r.topic||r.category||'ไม่ระบุ')} · ${esc(when)}<br>${esc(String(r.prompt||'').slice(0,160))}</div></div><div class="val">${count>1?`${fmt(count)} รายงาน`:'ตรวจ'}</div></div>`}).join('')}</div>`;
@@ -114,6 +140,9 @@
     $('#modes').innerHTML=list((data.modes||[]).map(x=>({...x,name:x.name==='fixed'?'ชุดปกติ':x.name==='random'?'สุ่มจำลองสอบ':x.name==='wrong-practice'?'ฝึกข้อที่เคยผิด':x.name==='weak-practice'?'ฝึกหมวดอ่อน':x.name==='topic-practice'?'ฝึกหัวข้อย่อยอ่อน':x.name})),'ยังไม่มีข้อมูลโหมดฝึก');
     $('#topicStats').innerHTML=topicStatsList(data.topic_stats||[]);
     $('#wrong').innerHTML=list(data.top_wrong||[],'ระบบจะเริ่มแสดงเมื่อมีการส่งข้อสอบ');
+    const qualityRows=remote?(data.quality_queue||[]):localQualityQueue();
+    $('#qualitySummary').innerHTML=qualitySummaryHtml(remote?(data.quality_summary||{}):{},qualityRows);
+    $('#qualityQueue').innerHTML=qualityQueueList(qualityRows);
     $('#itemStats').innerHTML=itemStatsList(remote?(data.item_stats||[]):null);
     $('#questionReports').innerHTML=reportList(remote?(data.question_reports||[]):null);
     $('#dataMode').textContent=remote?'ฐานข้อมูลส่วนกลาง':'ข้อมูลเฉพาะเบราว์เซอร์เครื่องนี้';
