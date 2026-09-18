@@ -7,7 +7,7 @@
   const endpoint=()=>{const b=String(CFG.supabaseUrl||'').replace(/\/$/,'');return b&&CFG.dashboardFunction?`${b}/functions/v1/${CFG.dashboardFunction}`:''};
   const connected=()=>Boolean(endpoint()&&CFG.supabaseAnonKey);
   let days=30,qualityRowsCache=[];
-  let publicationCoverageCache=null,sourceBacklogCache=null;
+  let publicationCoverageCache=null,sourceBacklogCache=null,contentIntegrityCache=null;
 
   function localEvents(){try{return JSON.parse(localStorage.getItem('kexam_analytics_local_v1')||'[]')||[]}catch{return[]}}
   function localQuestionReports(){
@@ -78,6 +78,23 @@
       return publicationCoverageCache;
     }catch{return{published:0,retired:0,qaVerified:0,sourceVerified:0,pending:0,generatedAt:null,error:true}}
   }
+  async function contentIntegrityCoverage(){
+    if(contentIntegrityCache)return contentIntegrityCache;
+    try{
+      const r=await fetch('../question-content-integrity.json',{cache:'no-store'});if(!r.ok)throw new Error('integrity');
+      const x=await r.json(),ids=Object.keys(x?.questions||{}),byPosition={};
+      for(const q of Object.values(x?.questions||{})){const p=String(q?.position||'unknown');byPosition[p]=(byPosition[p]||0)+1}
+      contentIntegrityCache={
+        total:ids.length,
+        algorithm:String(x?.algorithm||''),
+        schema:Number(x?.schema_version)||0,
+        fields:Array.isArray(x?.canonical_fields)?x.canonical_fields:[],
+        generatedAt:x?.generated_at||null,
+        byPosition
+      };
+      return contentIntegrityCache;
+    }catch{return{total:0,algorithm:'',schema:0,fields:[],generatedAt:null,byPosition:{},error:true}}
+  }
   async function sourceVerificationBacklog(){
     if(sourceBacklogCache)return sourceBacklogCache;
     try{
@@ -113,6 +130,13 @@
   function publicationCoverageHtml(x){
     if(x?.error)return '<div class="empty">ไม่สามารถโหลด Publication Manifest ได้</div>';
     return `<div class="metrics"><div class="panel metric"><div class="label">Published</div><strong>${fmt(x.published)}</strong><small>ข้อที่อนุญาตให้ขึ้นเว็บ</small></div><div class="panel metric"><div class="label">ผ่าน QA ระบบ</div><strong>${fmt(x.qaVerified)}</strong><small>โครงสร้าง/คุณภาพตาม Gate ปัจจุบัน</small></div><div class="panel metric"><div class="label">ยืนยันแหล่งทางการแล้ว</div><strong>${fmt(x.sourceVerified)}</strong><small>ข้อที่ผูก source reference แล้ว</small></div><div class="panel metric"><div class="label">รอตรวจแหล่งทางการ</div><strong>${fmt(x.pending)}</strong><small>backlog สำหรับ Content Verification</small></div><div class="panel metric"><div class="label">Retired</div><strong>${fmt(x.retired)}</strong><small>ข้อที่ถูกพัก/เลิกเผยแพร่</small></div></div>`;
+  }
+
+  function contentIntegrityCoverageHtml(x){
+    if(x?.error)return '<div class="empty">ไม่สามารถโหลด Content Integrity Baseline ได้</div>';
+    const when=x.generatedAt?new Intl.DateTimeFormat('th-TH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(x.generatedAt)):'–';
+    const ta=Number(x.byPosition?.['tax-auditor'])||0,ra=Number(x.byPosition?.['revenue-academic'])||0;
+    return `<div class="metrics"><div class="panel metric"><div class="label">Content Fingerprint</div><strong>${fmt(x.total)}</strong><small>Question ID ที่มี SHA-256 baseline</small></div><div class="panel metric"><div class="label">นักตรวจสอบภาษีฯ</div><strong>${fmt(ta)}</strong><small>fingerprint ครบตามตำแหน่ง</small></div><div class="panel metric"><div class="label">นักวิชาการสรรพากรฯ</div><strong>${fmt(ra)}</strong><small>fingerprint ครบตามตำแหน่ง</small></div><div class="panel metric"><div class="label">Algorithm</div><strong>${esc(String(x.algorithm||'–').toUpperCase())}</strong><small>Schema ${fmt(x.schema)} · ${esc(x.fields.join(', '))}</small></div><div class="panel metric"><div class="label">Baseline ล่าสุด</div><strong>${esc(when)}</strong><small>แก้สาระแล้ว hash เปลี่ยน → Gate ไม่ผ่าน</small></div></div>`;
   }
 
   async function remoteSnapshot(key){
@@ -240,8 +264,9 @@
   }
 
   async function load(){
-    const [pub,sourceBacklog]=await Promise.all([publicationCoverage(),sourceVerificationBacklog()]);
+    const [pub,sourceBacklog,integrity]=await Promise.all([publicationCoverage(),sourceVerificationBacklog(),contentIntegrityCoverage()]);
     $('#publicationCoverage').innerHTML=publicationCoverageHtml(pub);
+    if($('#contentIntegrityCoverage'))$('#contentIntegrityCoverage').innerHTML=contentIntegrityCoverageHtml(integrity);
     if($('#sourceBacklogSummary'))$('#sourceBacklogSummary').innerHTML=sourceBacklogSummaryHtml(sourceBacklog.summary||{});
     syncSourcePositionOptions(sourceBacklog.rows||[]);
     refreshSourceBacklog();
