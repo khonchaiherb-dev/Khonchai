@@ -15,6 +15,21 @@
     }
     return out.sort((a,b)=>(Number(b.reportedAt)||0)-(Number(a.reportedAt)||0)).slice(0,50);
   }
+  function localItemStats(){
+    const out=[];for(const [storageKey,position] of [['kexam_tax_v2','tax-auditor'],['kexam_revenue_academic_v1','revenue-academic']]){
+      try{
+        const g=JSON.parse(localStorage.getItem(storageKey)||'{}'),stats=g.itemStats&&typeof g.itemStats==='object'?g.itemStats:{};
+        for(const [id,x] of Object.entries(stats)){
+          const attempts=Number(x?.attempts)||0,correct=Number(x?.correct)||0,choices=Array.isArray(x?.choices)?x.choices.map(v=>Number(v)||0):[0,0,0,0],answer=Number(x?.answer);
+          if(!attempts)continue;
+          const accuracy=Math.round(correct/attempts*100),unused=choices.reduce((n,v,i)=>n+(i!==answer&&v===0?1:0),0);
+          const risk=(attempts>=3?(accuracy<35?4:accuracy>95?1:0):0)+(unused>=2?3:unused)+(attempts>=5?1:0);
+          out.push({id,position,attempts,correct,accuracy,unused,risk,choices,answer,category:String(x?.category||''),topic:String(x?.topic||''),prompt:String(x?.prompt||''),lastSeen:Number(x?.lastSeen)||0});
+        }
+      }catch{}
+    }
+    return out.sort((a,b)=>b.risk-a.risk||b.attempts-a.attempts||a.accuracy-b.accuracy||a.id.localeCompare(b.id)).slice(0,40);
+  }
   function localSnapshot(){
     const ev=localEvents(),now=Date.now(),today=new Date().toISOString().slice(0,10),isToday=e=>String(e.client_time||'').slice(0,10)===today;
     const pv=ev.filter(e=>e.event_name==='page_view');
@@ -49,6 +64,10 @@
     const rows=localQuestionReports();if(!rows.length)return '<div class="empty">ยังไม่มีรายการแจ้งปัญหาข้อสอบในอุปกรณ์นี้</div>';
     return `<div class="list">${rows.map(r=>{const when=r.reportedAt?new Intl.DateTimeFormat('th-TH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(r.reportedAt)):'-';const pos=r.position==='revenue-academic'?'นักวิชาการสรรพากรฯ':r.position==='tax-auditor'?'นักตรวจสอบภาษีฯ':r.position||'-';return `<div class="row"><div><div class="name">${esc(r.questionId||'ไม่มีรหัส')} · ${esc(r.type||'อื่น ๆ')}</div><div class="meta">${esc(pos)} · ${esc(r.category||'ไม่ระบุ')} · ${esc(when)}<br>${esc(String(r.prompt||'').slice(0,160))}</div></div><div class="val">ตรวจ</div></div>`}).join('')}</div>`;
   }
+  function itemStatsList(){
+    const rows=localItemStats();if(!rows.length)return '<div class="empty">ยังไม่มีสถิติรายข้อ กรุณาทำและส่งข้อสอบอย่างน้อย 1 ครั้ง</div>';
+    return `<div class="list">${rows.map(r=>{const pos=r.position==='revenue-academic'?'นักวิชาการสรรพากรฯ':'นักตรวจสอบภาษีฯ';const flag=r.attempts>=3&&(r.accuracy<35||r.accuracy>95||r.unused>=2)?'ควรตรวจ':'ติดตาม';return `<div class="row"><div><div class="name">${esc(r.id)} · ${r.accuracy}% ถูก · ทำ ${fmt(r.attempts)} ครั้ง</div><div class="meta">${esc(pos)} · ${esc(r.topic||r.category||'ไม่ระบุ')} · ตัวลวงที่ยังไม่เคยเลือก ${r.unused}/3<br>${esc(r.prompt.slice(0,170))}</div></div><div class="val">${flag}</div></div>`}).join('')}</div>`;
+  }
 
   function chart(rows=[]){
     if(!rows.length)return '<div class="empty">ยังไม่มีข้อมูลรายวัน</div>';
@@ -72,6 +91,7 @@
     $('#positions').innerHTML=list((data.positions||[]).map(x=>({...x,name:x.name==='tax-auditor'?'นักตรวจสอบภาษีปฏิบัติการ':x.name==='revenue-academic'?'นักวิชาการสรรพากรปฏิบัติการ':x.name})),'ยังไม่มีข้อมูลตำแหน่ง');
     $('#sets').innerHTML=list((data.sets||[]).map(x=>({...x,name:`ชุดที่ ${x.name}`})),'ยังไม่มีข้อมูลชุดข้อสอบ');
     $('#wrong').innerHTML=list(data.top_wrong||[],'ระบบจะเริ่มแสดงเมื่อมีการส่งข้อสอบ');
+    $('#itemStats').innerHTML=itemStatsList();
     $('#questionReports').innerHTML=reportList();
     $('#dataMode').textContent=remote?'ฐานข้อมูลส่วนกลาง':'ข้อมูลเฉพาะเบราว์เซอร์เครื่องนี้';
     $('#dataMode').className=`notice ${remote?'ok':''}`;
