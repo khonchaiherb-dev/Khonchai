@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-18T11:06:22.244Z",
+  "generated_at": "2026-09-18T11:09:03.512Z",
   "policy": {
     "note": "Backlog only. Items remain governed by Publication Lifecycle and Content Integrity. Do not rewrite Published content directly.",
     "remediation_rule": "Use batch review; preserve Question ID; update bank+integrity+lifecycle atomically after QA."
   },
   "summary": {
     "total_questions": 1000,
-    "flagged_questions": 973,
-    "exact_duplicate_questions": 759,
-    "unique_exact_prompts": 380,
-    "urgent": 736,
+    "flagged_questions": 963,
+    "exact_duplicate_questions": 749,
+    "unique_exact_prompts": 389,
+    "urgent": 726,
     "high": 100,
     "normal": 137,
     "source_verified_flagged": 10,
@@ -640,33 +640,6 @@
         "wrong_reason": 1
       },
       "prompt": "พาณิชย์อิเล็กทรอนิกส์และการชำระเงินดิจิทัลช่วยงานภาษีอย่างไร"
-    },
-    {
-      "question_id": "TA-S01-Q057",
-      "position": "tax-auditor",
-      "set": 1,
-      "question": 57,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "ccb470baca9880a2f834459ef1fc09dd2b105d509af919d8b4a32fc5901948c5",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 1
-      },
-      "prompt": "ค่าใช้จ่ายในเดือนสุดท้ายของรอบระยะเวลาบัญชีสูงผิดปกติ และมีเพียงใบสำคัญจ่ายภายในเป็นหลักฐาน ควรตรวจสอบอย่างไร"
     },
     {
       "question_id": "TA-S01-Q058",
@@ -1423,33 +1396,6 @@
         "wrong_reason": 1
       },
       "prompt": "การวิเคราะห์ความเสี่ยงจากข้อมูลหลายแหล่งมีประโยชน์ใด"
-    },
-    {
-      "question_id": "TA-S02-Q013",
-      "position": "tax-auditor",
-      "set": 2,
-      "question": 13,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "e9282a2473a0a07eb94d6050e8578ba60149421203297caabd8f245386a384f7",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 1
-      },
-      "prompt": "ค่าใช้จ่ายในเดือนสุดท้ายของรอบระยะเวลาบัญชีสูงผิดปกติ และมีเพียงใบสำคัญจ่ายภายในเป็นหลักฐาน ควรตรวจสอบอย่างไร"
     },
     {
       "question_id": "TA-S02-Q018",
@@ -2964,33 +2910,6 @@
       "prompt": "หลักการเก็บข้อมูลส่วนบุคคลที่เหมาะสมคืออะไร"
     },
     {
-      "question_id": "TA-S03-Q035",
-      "position": "tax-auditor",
-      "set": 3,
-      "question": 35,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "866ef87946437473f5f4607e6f0a37c112b8e2905755acd64b9963936bde3284",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 2
-      },
-      "prompt": "ค่าใช้จ่ายในเดือนสุดท้ายของรอบระยะเวลาบัญชีสูงผิดปกติ และมีเพียงใบสำคัญจ่ายภายในเป็นหลักฐาน ควรตรวจสอบอย่างไร"
-    },
-    {
       "question_id": "TA-S03-Q043",
       "position": "tax-auditor",
       "set": 3,
@@ -3745,33 +3664,6 @@
         "wrong_reason": 1
       },
       "prompt": "เมื่อพบเหตุการละเมิดข้อมูลส่วนบุคคล ควรดำเนินการเบื้องต้นอย่างไร"
-    },
-    {
-      "question_id": "TA-S04-Q002",
-      "position": "tax-auditor",
-      "set": 4,
-      "question": 2,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "016b4c1e993e56e52aebbe401d5211e857046d5b0d85e98b203f29851524536b",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 2
-      },
-      "prompt": "ค่าใช้จ่ายในเดือนสุดท้ายของรอบระยะเวลาบัญชีสูงผิดปกติ และมีเพียงใบสำคัญจ่ายภายในเป็นหลักฐาน ควรตรวจสอบอย่างไร"
     },
     {
       "question_id": "TA-S04-Q003",
@@ -5853,33 +5745,6 @@
       "prompt": "ระบบชำระเงินดิจิทัลเพิ่มขึ้นมีความหมายต่อการตรวจธุรกรรมอย่างไร"
     },
     {
-      "question_id": "TA-S05-Q070",
-      "position": "tax-auditor",
-      "set": 5,
-      "question": 70,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "866ef87946437473f5f4607e6f0a37c112b8e2905755acd64b9963936bde3284",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 2
-      },
-      "prompt": "ค่าใช้จ่ายในเดือนสุดท้ายของรอบระยะเวลาบัญชีสูงผิดปกติ และมีเพียงใบสำคัญจ่ายภายในเป็นหลักฐาน ควรตรวจสอบอย่างไร"
-    },
-    {
       "question_id": "TA-S05-Q071",
       "position": "tax-auditor",
       "set": 5,
@@ -7365,33 +7230,6 @@
       "prompt": "ซื้อสินค้าจากบุคคลเกี่ยวข้องในราคาสูงกว่าตลาดมากโดยไม่มีเหตุผลทางธุรกิจ ควรสนใจประเด็นใด"
     },
     {
-      "question_id": "TA-S06-Q093",
-      "position": "tax-auditor",
-      "set": 6,
-      "question": 93,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "799b9e254a2440dc2420f0628ad134a8928d33029c42427df02002c6f0a96fd0",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 1
-      },
-      "prompt": "ค่าใช้จ่ายในเดือนสุดท้ายของรอบระยะเวลาบัญชีสูงผิดปกติ และมีเพียงใบสำคัญจ่ายภายในเป็นหลักฐาน ควรตรวจสอบอย่างไร"
-    },
-    {
       "question_id": "TA-S06-Q097",
       "position": "tax-auditor",
       "set": 6,
@@ -8011,33 +7849,6 @@
         "wrong_reason": 1
       },
       "prompt": "บริษัทบันทึกค่าปรับจากการฝ่าฝืนกฎหมายเป็นค่าใช้จ่ายบริหาร ทางภาษีควรทำอย่างไร"
-    },
-    {
-      "question_id": "TA-S07-Q053",
-      "position": "tax-auditor",
-      "set": 7,
-      "question": 53,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "3599aca443a8e693c32c0299f1beb5994d60f4fe26dcb28758a0bdd421462b9a",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 1
-      },
-      "prompt": "ค่าใช้จ่ายในเดือนสุดท้ายของรอบระยะเวลาบัญชีสูงผิดปกติ และมีเพียงใบสำคัญจ่ายภายในเป็นหลักฐาน ควรตรวจสอบอย่างไร"
     },
     {
       "question_id": "TA-S07-Q054",
@@ -8875,33 +8686,6 @@
         "wrong_reason": 1
       },
       "prompt": "นโยบายธรรมาภิบาลข้อมูลของกรมสรรพากร พ.ศ. 2568 มีวัตถุประสงค์หลักใด"
-    },
-    {
-      "question_id": "TA-S08-Q012",
-      "position": "tax-auditor",
-      "set": 8,
-      "question": 12,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "2347ed709c2a780daf03e40257f09e81326c29596daa28289abcfe289b895799",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 1
-      },
-      "prompt": "ค่าใช้จ่ายในเดือนสุดท้ายของรอบระยะเวลาบัญชีสูงผิดปกติ และมีเพียงใบสำคัญจ่ายภายในเป็นหลักฐาน ควรตรวจสอบอย่างไร"
     },
     {
       "question_id": "TA-S08-Q014",
@@ -10578,33 +10362,6 @@
       "prompt": "ค่าใช้จ่ายส่วนตัวกรรมการที่ไม่เกี่ยวกับกิจการควรทำอย่างไรในการคำนวณกำไรสุทธิทางภาษี"
     },
     {
-      "question_id": "TA-S09-Q053",
-      "position": "tax-auditor",
-      "set": 9,
-      "question": 53,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "016b4c1e993e56e52aebbe401d5211e857046d5b0d85e98b203f29851524536b",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 2
-      },
-      "prompt": "ค่าใช้จ่ายในเดือนสุดท้ายของรอบระยะเวลาบัญชีสูงผิดปกติ และมีเพียงใบสำคัญจ่ายภายในเป็นหลักฐาน ควรตรวจสอบอย่างไร"
-    },
-    {
       "question_id": "TA-S09-Q055",
       "position": "tax-auditor",
       "set": 9,
@@ -11575,33 +11332,6 @@
         "wrong_reason": 2
       },
       "prompt": "ภาษีซื้อจากรายจ่ายรับรองที่เข้าลักษณะภาษีซื้อต้องห้าม ควรทำอย่างไร"
-    },
-    {
-      "question_id": "TA-S10-Q039",
-      "position": "tax-auditor",
-      "set": 10,
-      "question": 39,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "7f893a290459b817d616b8b637501a72c7518d0325166ebc3fb76102a0d320dd",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 1
-      },
-      "prompt": "ค่าใช้จ่ายในเดือนสุดท้ายของรอบระยะเวลาบัญชีสูงผิดปกติ และมีเพียงใบสำคัญจ่ายภายในเป็นหลักฐาน ควรตรวจสอบอย่างไร"
     },
     {
       "question_id": "TA-S10-Q042",
