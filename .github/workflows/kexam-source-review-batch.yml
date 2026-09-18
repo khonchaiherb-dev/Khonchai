@@ -155,6 +155,7 @@ jobs:
             review_mode:mode,
             records:batch.map(q=>({
               question_id:q.question_id,
+              reviewed_content_sha256:q.current_content_sha256,
               decision:'',
               reviewed_at:'',
               review_note:'',
@@ -164,13 +165,13 @@ jobs:
           fs.writeFileSync('/tmp/kexam-source-review-decisions-template.json',JSON.stringify(decisionTemplate,null,2)+'\n');
 
           const csvCell=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
-          const header=['review_order','question_id','position','review_mode','priority','priority_score','category','topic','freshness_status','checked_at','due_at','days_until_due','prompt','correct_letter','correct_answer','decision','reviewed_at','review_note','source_title','source_url','source_checked_at','source_section'];
+          const header=['review_order','question_id','position','review_mode','priority','priority_score','category','topic','current_content_sha256','freshness_status','checked_at','due_at','days_until_due','prompt','correct_letter','correct_answer','reviewed_content_sha256','decision','reviewed_at','review_note','source_title','source_url','source_checked_at','source_section'];
           const lines=[header.join(',')];
           for(const q of batch){
             lines.push([
-              q.review_order,q.question_id,q.position,q.review_mode,q.priority,q.priority_score,q.category,q.topic,
+              q.review_order,q.question_id,q.position,q.review_mode,q.priority,q.priority_score,q.category,q.topic,q.current_content_sha256,
               q.freshness?.status||'',q.freshness?.checked_at||'',q.freshness?.due_at||'',q.freshness?.days_until_due??'',q.prompt,
-              q.correct_answer.letter,q.correct_answer.text,'','','','','','',''
+              q.correct_answer.letter,q.correct_answer.text,q.current_content_sha256,'','','','','','',''
             ].map(csvCell).join(','));
           }
           fs.writeFileSync('/tmp/kexam-source-review-batch.csv','\ufeff'+lines.join('\r\n'));
