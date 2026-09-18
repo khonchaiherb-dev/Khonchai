@@ -1,6 +1,7 @@
 (()=>{
   const CFG=window.KEXAM_ANALYTICS_CONFIG||{};
   const $=s=>document.querySelector(s);
+  const esc=(x='')=>String(x).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const fmt=n=>Number.isFinite(Number(n))?new Intl.NumberFormat('th-TH').format(Number(n)):'–';
   const pct=n=>Number.isFinite(Number(n))?`${Math.round(Number(n)*10)/10}%`:'–';
   const endpoint=()=>{const b=String(CFG.supabaseUrl||'').replace(/\/$/,'');return b&&CFG.dashboardFunction?`${b}/functions/v1/${CFG.dashboardFunction}`:''};
@@ -8,6 +9,12 @@
   let days=30;
 
   function localEvents(){try{return JSON.parse(localStorage.getItem('kexam_analytics_local_v1')||'[]')||[]}catch{return[]}}
+  function localQuestionReports(){
+    const out=[];for(const [storageKey,position] of [['kexam_tax_v2','tax-auditor'],['kexam_revenue_academic_v1','revenue-academic']]){
+      try{const g=JSON.parse(localStorage.getItem(storageKey)||'{}');for(const r of (Array.isArray(g.questionReports)?g.questionReports:[]))out.push({...r,position:r.position||position})}catch{}
+    }
+    return out.sort((a,b)=>(Number(b.reportedAt)||0)-(Number(a.reportedAt)||0)).slice(0,50);
+  }
   function localSnapshot(){
     const ev=localEvents(),now=Date.now(),today=new Date().toISOString().slice(0,10),isToday=e=>String(e.client_time||'').slice(0,10)===today;
     const pv=ev.filter(e=>e.event_name==='page_view');
@@ -38,6 +45,11 @@
     const max=Math.max(...rows.map(x=>Number(x.value)||0),1);
     return `<div class="list">${rows.slice(0,12).map(x=>`<div class="row"><div><div class="name">${String(x.name??'ไม่ระบุ')}</div><div class="meta"><span style="display:inline-block;width:${Math.max(6,Math.round((Number(x.value)||0)/max*100))}%;height:4px;border-radius:8px;background:linear-gradient(90deg,#2563eb,#38bdf8);vertical-align:middle"></span></div></div><div class="val">${fmt(x.value)}</div></div>`).join('')}</div>`
   }
+  function reportList(){
+    const rows=localQuestionReports();if(!rows.length)return '<div class="empty">ยังไม่มีรายการแจ้งปัญหาข้อสอบในอุปกรณ์นี้</div>';
+    return `<div class="list">${rows.map(r=>{const when=r.reportedAt?new Intl.DateTimeFormat('th-TH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(r.reportedAt)):'-';const pos=r.position==='revenue-academic'?'นักวิชาการสรรพากรฯ':r.position==='tax-auditor'?'นักตรวจสอบภาษีฯ':r.position||'-';return `<div class="row"><div><div class="name">${esc(r.questionId||'ไม่มีรหัส')} · ${esc(r.type||'อื่น ๆ')}</div><div class="meta">${esc(pos)} · ${esc(r.category||'ไม่ระบุ')} · ${esc(when)}<br>${esc(String(r.prompt||'').slice(0,160))}</div></div><div class="val">ตรวจ</div></div>`}).join('')}</div>`;
+  }
+
   function chart(rows=[]){
     if(!rows.length)return '<div class="empty">ยังไม่มีข้อมูลรายวัน</div>';
     const max=Math.max(...rows.map(x=>Math.max(Number(x.page_views)||0,Number(x.starts)||0,Number(x.submissions)||0)),1);
@@ -60,6 +72,7 @@
     $('#positions').innerHTML=list((data.positions||[]).map(x=>({...x,name:x.name==='tax-auditor'?'นักตรวจสอบภาษีปฏิบัติการ':x.name==='revenue-academic'?'นักวิชาการสรรพากรปฏิบัติการ':x.name})),'ยังไม่มีข้อมูลตำแหน่ง');
     $('#sets').innerHTML=list((data.sets||[]).map(x=>({...x,name:`ชุดที่ ${x.name}`})),'ยังไม่มีข้อมูลชุดข้อสอบ');
     $('#wrong').innerHTML=list(data.top_wrong||[],'ระบบจะเริ่มแสดงเมื่อมีการส่งข้อสอบ');
+    $('#questionReports').innerHTML=reportList();
     $('#dataMode').textContent=remote?'ฐานข้อมูลส่วนกลาง':'ข้อมูลเฉพาะเบราว์เซอร์เครื่องนี้';
     $('#dataMode').className=`notice ${remote?'ok':''}`;
     $('#lastUpdate').textContent=new Intl.DateTimeFormat('th-TH',{dateStyle:'medium',timeStyle:'medium'}).format(new Date());
