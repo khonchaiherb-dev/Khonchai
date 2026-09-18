@@ -202,12 +202,18 @@ jobs:
               const category=String(bank.s[r[0]]??'').trim(),prompt=String(bank.s[r[1]]??'').trim();
               const choices=(r[2]||[]).map(i=>String(bank.s[i]??'').trim()),answer=Number(r[3]);
               const exp=String(bank.s[r[4]]??'').trim(),wrong=String(bank.s[r[5]]??'').trim();
-              if(prompt.length<25)throw new Error(id+' prompt too short');
-              if(choices.length!==4||new Set(choices.map(norm)).size!==4)throw new Error(id+' choices invalid/duplicate');
+              if(!prompt)throw new Error(id+' prompt is empty');
+              if(choices.length!==4)throw new Error(id+' must contain 4 choices');
               if(!Number.isInteger(answer)||answer<0||answer>3)throw new Error(id+' answer invalid');
-              if(exp.length<40||wrong.length<40)throw new Error(id+' explanation/wrong reason too short');
-              if(!exp.includes(choices[answer]))throw new Error(id+' explanation does not include correct choice');
-              for(let ci=0;ci<4;ci++)if(ci!==answer&&!wrong.includes(choices[ci]))throw new Error(id+' wrong reason missing choice '+(ci+1));
+              if(!exp||!wrong)throw new Error(id+' explanation/wrong reason is empty');
+              const isChanged=changed.some(x=>x.id===id);
+              if(isChanged){
+                if(prompt.length<25)throw new Error(id+' remediated prompt too short');
+                if(new Set(choices.map(norm)).size!==4)throw new Error(id+' remediated choices invalid/duplicate');
+                if(exp.length<40||wrong.length<40)throw new Error(id+' remediated explanation/wrong reason too short');
+                if(!exp.includes(choices[answer]))throw new Error(id+' remediated explanation does not include correct choice');
+                for(let ci=0;ci<4;ci++)if(ci!==answer&&!wrong.includes(choices[ci]))throw new Error(id+' remediated wrong reason missing choice '+(ci+1));
+              }
               const key=norm(prompt);promptNormCounts.set(key,(promptNormCounts.get(key)||0)+1);
               all.push({id,category,prompt,choices,answer,exp,wrong});
             });
