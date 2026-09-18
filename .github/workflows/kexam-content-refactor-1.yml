@@ -55,38 +55,45 @@ jobs:
           d.q.forEach((set,si)=>set.forEach((r,qi)=>items.push({r,si,qi,id:qid(si,qi)})));
 
           // 1) Diversify repeated Section 40 distractor sets by changing the actual wrong alternatives,
-          // while preserving the correct answer text, answer index, explanation and legal proposition.
+          // while preserving each question's own correct answer text and answer index.
+          const choiceKey=choices=>choices.map(norm).sort().join('|');
           const choiceGroups=new Map();
+          const usedChoiceKeys=new Set();
           for(const x of items){
             const choices=(x.r[2]||[]).map(i=>String(d.s[i]??'').trim());
-            const key=choices.map(norm).sort().join('|');
+            const key=choiceKey(choices);usedChoiceKeys.add(key);
             const a=choiceGroups.get(key)||[];a.push({...x,choices});choiceGroups.set(key,a);
           }
           let changedChoices=0,choiceGroupsTouched=0;
           for(const group of [...choiceGroups.values()].filter(g=>g.length>=8)){
-            const probe=group[0],correct=probe.choices[probe.r[3]],m=/มาตรา\s*40\((\d)\)/.exec(correct);
-            if(!m)continue;
-            const correctSection=Number(m[1]);if(!canonical[correctSection])continue;
+            const section40Group=group.every(x=>x.choices.every(c=>/มาตรา\s*40\((\d)\)/.test(c)));
+            if(!section40Group)continue;
             choiceGroupsTouched++;
-            const wrongSections=Object.keys(canonical).map(Number).filter(n=>n!==correctSection);
             group.slice(5).forEach((x,idx)=>{
               const oldChoices=(x.r[2]||[]).map(i=>String(d.s[i]??'').trim());
-              const selected=[];
-              for(let k=0;k<3;k++)selected.push(wrongSections[(idx*3+k+choiceGroupsTouched)%wrongSections.length]);
-              if(new Set(selected).size!==3)throw new Error('ไม่สามารถสร้างตัวลวง 3 ตัวที่ไม่ซ้ำกันได้ '+x.id);
-              const newChoices=[...oldChoices];let wi=0;
-              for(let ci=0;ci<4;ci++){
-                if(ci===x.r[3])continue;
-                newChoices[ci]=canonical[selected[wi++]];
+              const correctText=oldChoices[x.r[3]],cm=/มาตรา\s*40\((\d)\)/.exec(correctText);
+              if(!cm)throw new Error('อ่านมาตราคำตอบที่ถูกไม่ได้ '+x.id);
+              const correctSection=Number(cm[1]);
+              const wrongSections=Object.keys(canonical).map(Number).filter(n=>n!==correctSection);
+              const combos=[];
+              for(let a=0;a<wrongSections.length;a++)for(let b=a+1;b<wrongSections.length;b++)for(let c=b+1;c<wrongSections.length;c++)combos.push([wrongSections[a],wrongSections[b],wrongSections[c]]);
+              const offset=(idx+correctSection+choiceGroupsTouched)%combos.length;
+              let selected=null,newChoices=null,newKey=null;
+              for(let step=0;step<combos.length;step++){
+                const combo=combos[(offset+step)%combos.length];
+                const candidate=[...oldChoices];let wi=0;
+                for(let ci=0;ci<4;ci++){if(ci===x.r[3])continue;candidate[ci]=canonical[combo[wi++]]}
+                const key=choiceKey(candidate);
+                if(new Set(candidate.map(norm)).size===4&&!usedChoiceKeys.has(key)){selected=combo;newChoices=candidate;newKey=key;break}
               }
-              if(new Set(newChoices.map(norm)).size!==4)throw new Error('ตัวเลือกใหม่ซ้ำกัน '+x.id);
-              const correctText=newChoices[x.r[3]];
+              if(!newChoices)throw new Error('ไม่พบชุดตัวลวงใหม่ที่ไม่ซ้ำสำหรับ '+x.id);
+              usedChoiceKeys.add(newKey);
               const wrongParts=[];
               for(let ci=0;ci<4;ci++){
                 if(ci===x.r[3])continue;
                 const wm=/มาตรา\s*40\((\d)\)/.exec(newChoices[ci]),section=wm?Number(wm[1]):null;
                 const basis=section&&canonical[section]?canonical[section]:newChoices[ci];
-                wrongParts.push(`${newChoices[ci]} ไม่ถูกต้อง เพราะตัวเลือกนี้เป็นลักษณะของ ${basis} ขณะที่ข้อเท็จจริงในโจทย์เข้าลักษณะ ${correctText}`);
+                wrongParts.push(`${newChoices[ci]} ไม่ถูกต้อง เพราะเป็นเงินได้คนละประเภท โดยตัวเลือกนี้อธิบาย ${basis} ขณะที่ข้อเท็จจริงในโจทย์เข้าลักษณะ ${correctText}`);
               }
               const wrong=wrongParts.join(' · ');
               const newIdx=[];for(const text of newChoices){d.s.push(text);newIdx.push(d.s.length-1)}x.r[2]=newIdx;
@@ -129,7 +136,12 @@ jobs:
           if(new Set(prompts.map(norm)).size!==1000)throw new Error('พบ normalized prompt ซ้ำ');
           const maxReuse=arr=>{const m=new Map();let mx=0;for(const k of arr){const n=(m.get(k)||0)+1;m.set(k,n);mx=Math.max(mx,n)}return mx};
           const maxChoiceReuse=maxReuse(choiceKeys),maxShapeReuse=maxReuse(prompts.map(shape));
-          if(maxChoiceReuse>6)throw new Error('ชุดตัวเลือกยังซ้ำเกินเป้าหมายรอบนี้: '+maxChoiceReuse);
+          if(maxChoiceReuse>6){
+            const m=new Map();choiceKeys.forEach((k,i)=>{const a=m.get(k)||[];a.push(i);m.set(k,a)});
+            const top=[...m.entries()].filter(([,v])=>v.length>1).sort((a,b)=>b[1].length-a[1].length).slice(0,5);
+            console.log('TOP CHOICE REUSE AFTER',JSON.stringify(top.map(([k,v])=>({reuse:v.length,questions:v.map(i=>qid(Math.floor(i/100),i%100)),key:k.slice(0,300)}))));
+            throw new Error('ชุดตัวเลือกยังซ้ำเกินเป้าหมายรอบนี้: '+maxChoiceReuse);
+          }
           if(maxShapeReuse>6)throw new Error('โครงคำถามยังซ้ำเกินเป้าหมายรอบนี้: '+maxShapeReuse);
           console.log('choice_groups_touched',choiceGroupsTouched,'questions_with_new_distractors',changedChoices);
           console.log('prompt_groups_touched',promptGroupsTouched,'questions_with_context_refactor',changedPrompts);
