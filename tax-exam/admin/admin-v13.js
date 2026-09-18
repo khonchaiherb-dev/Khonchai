@@ -7,7 +7,7 @@
   const endpoint=()=>{const b=String(CFG.supabaseUrl||'').replace(/\/$/,'');return b&&CFG.dashboardFunction?`${b}/functions/v1/${CFG.dashboardFunction}`:''};
   const connected=()=>Boolean(endpoint()&&CFG.supabaseAnonKey);
   let days=30,qualityRowsCache=[];
-  let publicationCoverageCache=null;
+  let publicationCoverageCache=null,sourceBacklogCache=null;
 
   function localEvents(){try{return JSON.parse(localStorage.getItem('kexam_analytics_local_v1')||'[]')||[]}catch{return[]}}
   function localQuestionReports(){
@@ -78,6 +78,38 @@
       return publicationCoverageCache;
     }catch{return{published:0,retired:0,qaVerified:0,sourceVerified:0,pending:0,generatedAt:null,error:true}}
   }
+  async function sourceVerificationBacklog(){
+    if(sourceBacklogCache)return sourceBacklogCache;
+    try{
+      const r=await fetch('../source-verification-backlog.json',{cache:'no-store'});if(!r.ok)throw new Error('backlog');
+      const data=await r.json();sourceBacklogCache=data;return data;
+    }catch{return{summary:{total_pending:0,urgent:0,high:0,normal:0,positions:{}},rows:[],error:true}}
+  }
+  function sourceBacklogSummaryHtml(summary={}){
+    return `<div class="metrics"><div class="panel metric"><div class="label">รอตรวจทั้งหมด</div><strong>${fmt(summary.total_pending||0)}</strong><small>source_state = pending</small></div><div class="panel metric"><div class="label">เร่งด่วน</div><strong>${fmt(summary.urgent||0)}</strong><small>มาตรา/อัตรา/กำหนดเวลาหลายสัญญาณ</small></div><div class="panel metric"><div class="label">สูง</div><strong>${fmt(summary.high||0)}</strong><small>ควรตรวจเป็นลำดับต้น</small></div><div class="panel metric"><div class="label">ปกติ</div><strong>${fmt(summary.normal||0)}</strong><small>ตรวจตามลำดับ backlog</small></div></div>`;
+  }
+  function syncSourcePositionOptions(rows=[]){
+    const el=$('#sourcePosition');if(!el)return;
+    const keep=el.value,values=[...new Set(rows.map(r=>String(r.position||'')).filter(Boolean))].sort();
+    el.innerHTML='<option value="">ทุกตำแหน่ง</option>'+values.map(v=>`<option value="${esc(v)}">${v==='revenue-academic'?'นักวิชาการสรรพากรปฏิบัติการ':v==='tax-auditor'?'นักตรวจสอบภาษีปฏิบัติการ':esc(v)}</option>`).join('');
+    if(values.includes(keep))el.value=keep;
+  }
+  function filteredSourceRows(){
+    const data=sourceBacklogCache||{rows:[]},pri=$('#sourcePriority')?.value||'',pos=$('#sourcePosition')?.value||'',q=String($('#sourceSearch')?.value||'').trim().toLowerCase();
+    return (data.rows||[]).filter(r=>(!pri||r.priority===pri)&&(!pos||r.position===pos)&&(!q||[r.question_id,r.category,r.topic,r.prompt].some(v=>String(v||'').toLowerCase().includes(q))));
+  }
+  function sourceBacklogList(rows=[]){
+    if(!rows.length)return '<div class="empty">ไม่พบรายการตามตัวกรอง</div>';
+    return `<div class="list">${rows.slice(0,100).map(r=>{const pos=r.position==='revenue-academic'?'นักวิชาการสรรพากรฯ':r.position==='tax-auditor'?'นักตรวจสอบภาษีฯ':r.position||'-';const reasons=Array.isArray(r.reasons)?r.reasons.join(' · '):'';return `<div class="row"><div><div class="name">${esc(r.question_id||'ไม่มีรหัส')} · ${esc(r.priority||'ปกติ')} · Priority ${fmt(r.priority_score||0)}</div><div class="meta">${esc(pos)} · ชุด ${fmt(r.set)} ข้อ ${fmt(r.question)} · ${esc(r.topic||r.category||'ไม่ระบุ')}${reasons?`<br>เหตุผลจัดคิว: ${esc(reasons)}`:''}${r.prompt?`<br>${esc(String(r.prompt).slice(0,190))}`:''}</div></div><div class="val">${esc(r.priority||'ปกติ')}</div></div>`}).join('')}</div>`;
+  }
+  function refreshSourceBacklog(){if($('#sourceBacklog'))$('#sourceBacklog').innerHTML=sourceBacklogList(filteredSourceRows())}
+  function exportSourceBacklogCsv(){
+    const rows=filteredSourceRows();if(!rows.length)return;
+    const header=['question_id','position','set','question','priority','priority_score','category','topic','reasons','prompt','source_state'];
+    const lines=[header.join(',')];for(const r of rows)lines.push([r.question_id,r.position,r.set,r.question,r.priority,r.priority_score,r.category,r.topic,(r.reasons||[]).join(' | '),r.prompt,r.source_state].map(csvCell).join(','));
+    const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`kexam-source-verification-backlog-${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0);
+  }
+
   function publicationCoverageHtml(x){
     if(x?.error)return '<div class="empty">ไม่สามารถโหลด Publication Manifest ได้</div>';
     return `<div class="metrics"><div class="panel metric"><div class="label">Published</div><strong>${fmt(x.published)}</strong><small>ข้อที่อนุญาตให้ขึ้นเว็บ</small></div><div class="panel metric"><div class="label">ผ่าน QA ระบบ</div><strong>${fmt(x.qaVerified)}</strong><small>โครงสร้าง/คุณภาพตาม Gate ปัจจุบัน</small></div><div class="panel metric"><div class="label">ยืนยันแหล่งทางการแล้ว</div><strong>${fmt(x.sourceVerified)}</strong><small>ข้อที่ผูก source reference แล้ว</small></div><div class="panel metric"><div class="label">รอตรวจแหล่งทางการ</div><strong>${fmt(x.pending)}</strong><small>backlog สำหรับ Content Verification</small></div><div class="panel metric"><div class="label">Retired</div><strong>${fmt(x.retired)}</strong><small>ข้อที่ถูกพัก/เลิกเผยแพร่</small></div></div>`;
@@ -208,7 +240,11 @@
   }
 
   async function load(){
-    const pub=await publicationCoverage();$('#publicationCoverage').innerHTML=publicationCoverageHtml(pub);
+    const [pub,sourceBacklog]=await Promise.all([publicationCoverage(),sourceVerificationBacklog()]);
+    $('#publicationCoverage').innerHTML=publicationCoverageHtml(pub);
+    if($('#sourceBacklogSummary'))$('#sourceBacklogSummary').innerHTML=sourceBacklogSummaryHtml(sourceBacklog.summary||{});
+    syncSourcePositionOptions(sourceBacklog.rows||[]);
+    refreshSourceBacklog();
     $('#refresh').disabled=true;
     try{
       if(!connected()){
@@ -230,6 +266,10 @@
     }finally{$('#refresh').disabled=false}
   }
 
+  $('#sourcePriority').onchange=refreshSourceBacklog;
+  $('#sourcePosition').onchange=refreshSourceBacklog;
+  $('#sourceSearch').oninput=refreshSourceBacklog;
+  $('#exportSourceBacklog').onclick=exportSourceBacklogCsv;
   $('#qualityPriority').onchange=refreshQualityQueue;
   $('#qualityPosition').onchange=refreshQualityQueue;
   $('#exportQuality').onclick=exportQualityCsv;
