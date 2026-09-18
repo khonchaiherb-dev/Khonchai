@@ -1,0 +1,125 @@
+name: K-EXAM Source Verification Backlog
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-source-verification-backlog.yml'
+      - 'docs/KEXAM_QUESTION_LIFECYCLE.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 1
+
+      - name: Build source verification backlog
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs'),zlib=require('zlib');
+          const manifest=JSON.parse(fs.readFileSync('tax-exam/question-publication-manifest.json','utf8'));
+          const configs={
+            'tax-auditor':{
+              prefix:'TA',
+              files:['bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt']
+            },
+            'revenue-academic':{
+              prefix:'RA',
+              files:['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt']
+            }
+          };
+          const deriveTopic=(category,prompt)=>{
+            const x=(String(category||'')+' '+String(prompt||'')).toLowerCase();
+            const rules=[
+              ['ภาษีมูลค่าเพิ่ม (VAT)',/ภาษีมูลค่าเพิ่ม|\bvat\b|ภาษีซื้อ|ภาษีขาย|จดทะเบียน.*มูลค่าเพิ่ม/i],
+              ['ภาษีธุรกิจเฉพาะ (SBT)',/ภาษีธุรกิจเฉพาะ|\bsbt\b/i],
+              ['อากรแสตมป์',/อากรแสตมป์|ตราสาร|แสตมป์บริบูรณ์/i],
+              ['ภาษีหัก ณ ที่จ่าย',/หัก\s*ณ\s*ที่จ่าย|withholding/i],
+              ['ภาษีเงินได้บุคคลธรรมดา',/ภาษีเงินได้บุคคลธรรมดา|เงินได้พึงประเมิน|มาตรา\s*40|ค่าลดหย่อน|เงินได้สุทธิ/i],
+              ['ภาษีเงินได้นิติบุคคล',/ภาษีเงินได้นิติบุคคล|กำไรสุทธิ|ขาดทุนสุทธิ|รอบระยะเวลาบัญชี/i],
+              ['การประเมิน อุทธรณ์ และการบังคับทางภาษี',/เจ้าพนักงานประเมิน|หมายเรียก|การประเมิน|อุทธรณ์|เบี้ยปรับ|เงินเพิ่ม|ยึด|อายัด/i],
+              ['ข้อมูลส่วนบุคคล (PDPA)',/pdpa|ข้อมูลส่วนบุคคล|ผู้ควบคุมข้อมูล|ผู้ประมวลผลข้อมูล/i],
+              ['ข้อมูลข่าวสารของราชการ',/ข้อมูลข่าวสาร|เปิดเผยข้อมูล|คณะกรรมการข้อมูลข่าวสาร/i],
+              ['กรมสรรพากรและการบริการผู้เสียภาษี',/กรมสรรพากร|e-filing|e-payment|ผู้เสียภาษี/i],
+              ['เศรษฐกิจ',/gdp|เงินเฟ้อ|ดอกเบี้ย|เศรษฐกิจ|การคลัง|การเงิน|การส่งออก|อัตราแลกเปลี่ยน/i],
+              ['เทคโนโลยีและดิจิทัล',/เทคโนโลยี|ดิจิทัล|ปัญญาประดิษฐ์|\bai\b|cyber|cloud|blockchain|big data/i]
+            ];
+            for(const [name,re] of rules)if(re.test(x))return name;
+            return String(category||'อื่น ๆ');
+          };
+          const rank=(category,prompt,topic)=>{
+            let score=0;const reasons=[];const t=String(prompt||''),c=String(category||''),x=c+' '+t;
+            const add=(n,reason)=>{score+=n;reasons.push(reason)};
+            if(/มาตรา\s*\d+|พ\.ร\.บ\.|พระราชบัญญัติ|พระราชกฤษฎีกา|กฎกระทรวง|ประกาศ|คำสั่ง/i.test(x))add(35,'อ้างกฎหมาย/มาตรา/ประกาศ');
+            if(/อัตรา|ร้อยละ|เปอร์เซ็นต์|%|บาท|รายรับ|รายได้|ฐานภาษี|เกณฑ์/i.test(x))add(30,'มีอัตรา/จำนวนเงิน/เกณฑ์');
+            if(/ภายใน\s*\d+|\d+\s*(วัน|เดือน|ปี)|กำหนดเวลา|ระยะเวลา|นับแต่|นับจาก/i.test(x))add(25,'มีกำหนดเวลา');
+            if(/เบี้ยปรับ|เงินเพิ่ม|โทษ|ยกเว้น|จดทะเบียน|หัก\s*ณ\s*ที่จ่าย|อุทธรณ์|คืนภาษี/i.test(x))add(20,'มีเงื่อนไขสิทธิ/หน้าที่/โทษ');
+            if(/กรมสรรพากร|อธิบดี|รัฐมนตรี|คณะกรรมการ|เจ้าพนักงาน/i.test(x))add(10,'อำนาจหน้าที่/หน่วยงาน');
+            if(/[0-9๐-๙]/.test(t))add(10,'มีตัวเลขในโจทย์');
+            if(/หลักภาษีอากร|ประมวลรัษฎากร|ข้อมูลข่าวสาร|PDPA/i.test(c))add(15,'หมวดกฎหมาย/ภาษี');
+            if(/ปัจจุบัน|ล่าสุด|ในปี|พ\.ศ\.|พ.ศ.|สถานการณ์|แนวโน้ม/i.test(x))add(20,'ข้อมูลอาจเปลี่ยนตามเวลา');
+            if(/ภาษีมูลค่าเพิ่ม|ภาษีเงินได้|ภาษีธุรกิจเฉพาะ|อากรแสตมป์|หัก\s*ณ\s*ที่จ่าย/i.test(topic))add(10,'หัวข้อภาษีที่ต้องตรวจฐานกฎหมาย');
+            return{score,priority:score>=70?'เร่งด่วน':score>=40?'สูง':'ปกติ',reasons:[...new Set(reasons)]};
+          };
+
+          const rows=[];const summary={total_pending:0,urgent:0,high:0,normal:0,positions:{}};
+          for(const [position,cfg] of Object.entries(configs)){
+            const p=manifest.positions?.[position];if(!p)throw new Error('missing manifest position '+position);
+            const published=new Set(p.published_ids||[]);
+            const verified=new Set(p.source_verified_ids||[]);
+            const data=JSON.parse(zlib.gunzipSync(Buffer.from(cfg.files.map(f=>fs.readFileSync('tax-exam/'+f,'utf8').trim()).join('').replace(/\s+/g,''),'base64')).toString('utf8'));
+            if(data.q.length!==10||data.q.some(s=>s.length!==100))throw new Error(position+' bank is not 10 x 100');
+            let positionPending=0;
+            data.q.forEach((set,si)=>set.forEach((r,qi)=>{
+              const id=`${cfg.prefix}-S${String(si+1).padStart(2,'0')}-Q${String(qi+1).padStart(3,'0')}`;
+              if(!published.has(id)||verified.has(id))return;
+              const override=manifest.source_overrides?.[id];
+              if(override?.source_state==='verified'||override?.source_state==='not-applicable')return;
+              const category=String(data.s[r[0]]||''),prompt=String(data.s[r[1]]||''),topic=deriveTopic(category,prompt),rr=rank(category,prompt,topic);
+              rows.push({
+                question_id:id,position,set:si+1,question:qi+1,category,topic,
+                priority:rr.priority,priority_score:rr.score,reasons:rr.reasons,prompt,
+                source_state:override?.source_state||manifest.defaults?.Published?.source_state||'pending'
+              });
+              positionPending++;
+            }));
+            summary.positions[position]={pending:positionPending};
+          }
+          rows.sort((a,b)=>b.priority_score-a.priority_score||a.position.localeCompare(b.position)||a.question_id.localeCompare(b.question_id));
+          summary.total_pending=rows.length;
+          summary.urgent=rows.filter(x=>x.priority==='เร่งด่วน').length;
+          summary.high=rows.filter(x=>x.priority==='สูง').length;
+          summary.normal=rows.filter(x=>x.priority==='ปกติ').length;
+          const output={
+            schema_version:1,
+            generated_at:new Date().toISOString(),
+            note:'รายการนี้เป็นคิวสำหรับตรวจแหล่งอ้างอิง ไม่ได้หมายความว่าข้อใดผิดหรือถูก และไม่ใช่สถานะ source verified',
+            summary,
+            rows
+          };
+          fs.writeFileSync('tax-exam/source-verification-backlog.json',JSON.stringify(output,null,2));
+          console.log('SOURCE BACKLOG',JSON.stringify(summary));
+          if(rows.length>0&&rows[0].priority_score<=0)throw new Error('backlog ranking failed');
+          NODE
+
+      - name: Publish backlog to gh-pages
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tax-exam/source-verification-backlog.json
+          if git diff --cached --quiet; then
+            echo "Source verification backlog unchanged"
+            exit 0
+          fi
+          git commit -m "Update source verification backlog"
+          git push origin HEAD:gh-pages
