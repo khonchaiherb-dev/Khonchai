@@ -7,6 +7,7 @@
   const endpoint=()=>{const b=String(CFG.supabaseUrl||'').replace(/\/$/,'');return b&&CFG.dashboardFunction?`${b}/functions/v1/${CFG.dashboardFunction}`:''};
   const connected=()=>Boolean(endpoint()&&CFG.supabaseAnonKey);
   let days=30,qualityRowsCache=[];
+  let publicationCoverageCache=null;
 
   function localEvents(){try{return JSON.parse(localStorage.getItem('kexam_analytics_local_v1')||'[]')||[]}catch{return[]}}
   function localQuestionReports(){
@@ -64,6 +65,22 @@
         return Object.values(m).map(x=>({...x,accuracy:x.total?Math.round(x.correct*1000/x.total)/10:0})).sort((a,b)=>a.accuracy-b.accuracy||b.total-a.total);
       })()
     };
+  }
+
+  async function publicationCoverage(){
+    if(publicationCoverageCache)return publicationCoverageCache;
+    try{
+      const r=await fetch('../question-publication-manifest.json',{cache:'no-store'});if(!r.ok)throw new Error('manifest');
+      const m=await r.json(),positions=m?.positions||{};let published=0,retired=0,sourceVerified=0;
+      for(const p of Object.values(positions)){published+=(p?.published_ids||[]).length;retired+=(p?.retired_ids||[]).length;sourceVerified+=(p?.source_verified_ids||[]).length}
+      const qaVerified=published,pending=Math.max(0,published-sourceVerified);
+      publicationCoverageCache={published,retired,qaVerified,sourceVerified,pending,generatedAt:m?.generated_at||null};
+      return publicationCoverageCache;
+    }catch{return{published:0,retired:0,qaVerified:0,sourceVerified:0,pending:0,generatedAt:null,error:true}}
+  }
+  function publicationCoverageHtml(x){
+    if(x?.error)return '<div class="empty">ไม่สามารถโหลด Publication Manifest ได้</div>';
+    return `<div class="metrics"><div class="panel metric"><div class="label">Published</div><strong>${fmt(x.published)}</strong><small>ข้อที่อนุญาตให้ขึ้นเว็บ</small></div><div class="panel metric"><div class="label">ผ่าน QA ระบบ</div><strong>${fmt(x.qaVerified)}</strong><small>โครงสร้าง/คุณภาพตาม Gate ปัจจุบัน</small></div><div class="panel metric"><div class="label">ยืนยันแหล่งทางการแล้ว</div><strong>${fmt(x.sourceVerified)}</strong><small>ข้อที่ผูก source reference แล้ว</small></div><div class="panel metric"><div class="label">รอตรวจแหล่งทางการ</div><strong>${fmt(x.pending)}</strong><small>backlog สำหรับ Content Verification</small></div><div class="panel metric"><div class="label">Retired</div><strong>${fmt(x.retired)}</strong><small>ข้อที่ถูกพัก/เลิกเผยแพร่</small></div></div>`;
   }
 
   async function remoteSnapshot(key){
@@ -191,6 +208,7 @@
   }
 
   async function load(){
+    const pub=await publicationCoverage();$('#publicationCoverage').innerHTML=publicationCoverageHtml(pub);
     $('#refresh').disabled=true;
     try{
       if(!connected()){
