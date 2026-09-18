@@ -189,3 +189,21 @@ Registry **ห้าม** เก็บ prompt, choices, คำตอบ, explana
 หลักนี้ป้องกันไม่ให้การพัฒนาระบบหรือแก้ CI ไปจอง Source Verification Backlog โดยที่ทีมตรวจยังไม่ได้ตั้งใจเริ่มงาน
 
 **CI push ไม่จอง Question ID** และไม่ควรเปลี่ยนสถานะ operational ของ Registry
+
+
+## การปลด Batch Reservation ก่อนครบกำหนด
+
+หาก operational batch ถูกสร้างแล้วแต่ทีมยกเลิกหรือไม่ต้องการดำเนินการต่อ สามารถใช้ workflow `K-EXAM Release Source Review Batch` เพื่อคืน Question ID สู่ backlog ก่อนครบ 30 วัน
+
+ต้องระบุ:
+- `batch_id`
+- เหตุผลการปลด reservation
+
+ระบบจะ:
+- ปฏิเสธการปลด batch ที่ status เป็น `applied`
+- บันทึก `reservation_released_at`
+- ปรับ `reservation_expires_at` ให้สิ้นสุดทันที
+- บันทึก `reservation_release_reason` และ run ID
+- คง batch history ไว้ใน Registry ไม่ลบย้อนหลัง
+
+การเรียกซ้ำด้วยเหตุผลเดิมเป็น idempotent แต่หาก batch เดิมถูกปลดด้วยเหตุผลอื่นแล้ว ระบบต้องหยุดเพื่อป้องกันการเขียนประวัติทับกัน
