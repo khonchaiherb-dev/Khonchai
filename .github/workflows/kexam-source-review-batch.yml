@@ -338,6 +338,7 @@ jobs:
             status:'generated',
             created_run_id:String(process.env.GITHUB_RUN_ID||''),
             created_event:String(process.env.GITHUB_EVENT_NAME||''),
+            operational_batch:true,
             reservation_expires_at:new Date(Date.parse(batch.generated_at)+30*86400000).toISOString(),
             applied_at:null,
             decision_counts:null
