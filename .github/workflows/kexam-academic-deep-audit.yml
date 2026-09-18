@@ -78,4 +78,19 @@ jobs:
             console.log('=== TOP REPEATED WRONG-REASON GROUPS ===');
             repeatedWrong.slice(0,12).forEach(g=>console.log(g.map(x=>`${x.set}.${x.q}`).join(',')));
           }
+          const sample=(si,qi)=>{
+            const r=d.q[si-1][qi-1];
+            return {
+              id:`${si}.${qi}`,
+              category:get(r,0),
+              prompt:get(r,1),
+              choices:(r[2]||[]).map(x=>String(d.s[x]??'').trim()),
+              answer:r[3],
+              explanation:get(r,4),
+              wrongReasons:get(r,5)
+            };
+          };
+          console.log('=== FULL SAMPLES FROM REPEATED PATTERNS ===');
+          const sampleIds=[[1,34],[1,7],[2,5],[1,56],[2,23],[1,9],[1,4],[1,24]];
+          sampleIds.forEach(([s,q])=>console.log(JSON.stringify(sample(s,q))));
           NODE
