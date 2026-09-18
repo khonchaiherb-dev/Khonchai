@@ -3277,6 +3277,177 @@
       "source_verification_reset": false,
       "qa_state": "verified",
       "applied_at": "2026-09-18T11:06:11.789Z"
+    },
+    {
+      "remediation_id": "TA-REM-TA-S02-Q013-e9282a2473a0",
+      "remediation_signature": "fbd20c186ce41dce13898eb62f60f514fd6efd00c8833e4634eb4f8a07206faf",
+      "question_id": "TA-S02-Q013",
+      "position": "tax-auditor",
+      "internal_transition": [
+        "Published",
+        "Reviewed",
+        "Verified",
+        "Published"
+      ],
+      "reviewed_at": "2026-09-18",
+      "review_note": "ปรับข้อซ้ำด้านการตรวจค่าใช้จ่ายปลายงวดเป็นสถานการณ์เฉพาะ พร้อมกำหนดหลักฐานตรวจสอบ ตัวลวง เฉลย และเหตุผลให้สอดคล้องกันแล้ว",
+      "old_content_sha256": "e9282a2473a0a07eb94d6050e8578ba60149421203297caabd8f245386a384f7",
+      "new_content_sha256": "8ae7eebc84e9c1dd7a9f40a7c237e1df7d0b7f65b44258ed154bfe7faa1d0adf",
+      "source_verification_reset": false,
+      "qa_state": "verified",
+      "applied_at": "2026-09-18T11:08:51.155Z"
+    },
+    {
+      "remediation_id": "TA-REM-TA-S03-Q035-866ef8794643",
+      "remediation_signature": "f4210e23d545a8d93f73019987c4b161bd033207b41ab194db7ec4f4f4517c5b",
+      "question_id": "TA-S03-Q035",
+      "position": "tax-auditor",
+      "internal_transition": [
+        "Published",
+        "Reviewed",
+        "Verified",
+        "Published"
+      ],
+      "reviewed_at": "2026-09-18",
+      "review_note": "ปรับข้อซ้ำด้านการตรวจค่าใช้จ่ายปลายงวดเป็นสถานการณ์เฉพาะ พร้อมกำหนดหลักฐานตรวจสอบ ตัวลวง เฉลย และเหตุผลให้สอดคล้องกันแล้ว",
+      "old_content_sha256": "866ef87946437473f5f4607e6f0a37c112b8e2905755acd64b9963936bde3284",
+      "new_content_sha256": "2dce893dc07186df770d390d6848da912a7e144431a2f37c164d05bc35545035",
+      "source_verification_reset": false,
+      "qa_state": "verified",
+      "applied_at": "2026-09-18T11:08:51.155Z"
+    },
+    {
+      "remediation_id": "TA-REM-TA-S04-Q002-016b4c1e993e",
+      "remediation_signature": "cfed282d5c4bae30932a60db68f71d4cfc050456cb7e0bb6eb10a856f0b20484",
+      "question_id": "TA-S04-Q002",
+      "position": "tax-auditor",
+      "internal_transition": [
+        "Published",
+        "Reviewed",
+        "Verified",
+        "Published"
+      ],
+      "reviewed_at": "2026-09-18",
+      "review_note": "ปรับข้อซ้ำด้านการตรวจค่าใช้จ่ายปลายงวดเป็นสถานการณ์เฉพาะ พร้อมกำหนดหลักฐานตรวจสอบ ตัวลวง เฉลย และเหตุผลให้สอดคล้องกันแล้ว",
+      "old_content_sha256": "016b4c1e993e56e52aebbe401d5211e857046d5b0d85e98b203f29851524536b",
+      "new_content_sha256": "9d48985d1072a3e388f640cf1406b8797b56ea1fd31c6a3e614352f99a2e1c7a",
+      "source_verification_reset": false,
+      "qa_state": "verified",
+      "applied_at": "2026-09-18T11:08:51.155Z"
+    },
+    {
+      "remediation_id": "TA-REM-TA-S05-Q070-866ef8794643",
+      "remediation_signature": "b808f545fedb93f7796fe506e0a576b3d9acfc90b68a62b24dd43daaa9575545",
+      "question_id": "TA-S05-Q070",
+      "position": "tax-auditor",
+      "internal_transition": [
+        "Published",
+        "Reviewed",
+        "Verified",
+        "Published"
+      ],
+      "reviewed_at": "2026-09-18",
+      "review_note": "ปรับข้อซ้ำด้านการตรวจค่าใช้จ่ายปลายงวดเป็นสถานการณ์เฉพาะ พร้อมกำหนดหลักฐานตรวจสอบ ตัวลวง เฉลย และเหตุผลให้สอดคล้องกันแล้ว",
+      "old_content_sha256": "866ef87946437473f5f4607e6f0a37c112b8e2905755acd64b9963936bde3284",
+      "new_content_sha256": "631ca5bd5792ef24aa8a4d9b3088a58370e766e783c2ebe4c406da570a570d1a",
+      "source_verification_reset": false,
+      "qa_state": "verified",
+      "applied_at": "2026-09-18T11:08:51.155Z"
+    },
+    {
+      "remediation_id": "TA-REM-TA-S06-Q093-799b9e254a24",
+      "remediation_signature": "0de0bde6d71a1c58f5703303b71da27a37fef50c5a3ae42c022fda3a5d0bd617",
+      "question_id": "TA-S06-Q093",
+      "position": "tax-auditor",
+      "internal_transition": [
+        "Published",
+        "Reviewed",
+        "Verified",
+        "Published"
+      ],
+      "reviewed_at": "2026-09-18",
+      "review_note": "ปรับข้อซ้ำด้านการตรวจค่าใช้จ่ายปลายงวดเป็นสถานการณ์เฉพาะ พร้อมกำหนดหลักฐานตรวจสอบ ตัวลวง เฉลย และเหตุผลให้สอดคล้องกันแล้ว",
+      "old_content_sha256": "799b9e254a2440dc2420f0628ad134a8928d33029c42427df02002c6f0a96fd0",
+      "new_content_sha256": "a4b316bb8804d75f35f54b40ebe9d4910e0bd0c875ad131ea6dc5eaaed76a07d",
+      "source_verification_reset": false,
+      "qa_state": "verified",
+      "applied_at": "2026-09-18T11:08:51.155Z"
+    },
+    {
+      "remediation_id": "TA-REM-TA-S07-Q053-3599aca443a8",
+      "remediation_signature": "ba8a05381c44b9dffbd44628e0500b9bc3d2e00c2c75978255568c05f1115471",
+      "question_id": "TA-S07-Q053",
+      "position": "tax-auditor",
+      "internal_transition": [
+        "Published",
+        "Reviewed",
+        "Verified",
+        "Published"
+      ],
+      "reviewed_at": "2026-09-18",
+      "review_note": "ปรับข้อซ้ำด้านการตรวจค่าใช้จ่ายปลายงวดเป็นสถานการณ์เฉพาะ พร้อมกำหนดหลักฐานตรวจสอบ ตัวลวง เฉลย และเหตุผลให้สอดคล้องกันแล้ว",
+      "old_content_sha256": "3599aca443a8e693c32c0299f1beb5994d60f4fe26dcb28758a0bdd421462b9a",
+      "new_content_sha256": "08d77087b3bba08b23591080cf13bc6f61fcda0965294ef6afecf43dad1e3739",
+      "source_verification_reset": false,
+      "qa_state": "verified",
+      "applied_at": "2026-09-18T11:08:51.155Z"
+    },
+    {
+      "remediation_id": "TA-REM-TA-S08-Q012-2347ed709c2a",
+      "remediation_signature": "308d36ac958a48c8052256a1c5a401ae600a282c7e254ec037d5544bf249e794",
+      "question_id": "TA-S08-Q012",
+      "position": "tax-auditor",
+      "internal_transition": [
+        "Published",
+        "Reviewed",
+        "Verified",
+        "Published"
+      ],
+      "reviewed_at": "2026-09-18",
+      "review_note": "ปรับข้อซ้ำด้านการตรวจค่าใช้จ่ายปลายงวดเป็นสถานการณ์เฉพาะ พร้อมกำหนดหลักฐานตรวจสอบ ตัวลวง เฉลย และเหตุผลให้สอดคล้องกันแล้ว",
+      "old_content_sha256": "2347ed709c2a780daf03e40257f09e81326c29596daa28289abcfe289b895799",
+      "new_content_sha256": "6193020070d32431d250fc4f538a0ee132b0879d55dff44788df8416922deb0a",
+      "source_verification_reset": false,
+      "qa_state": "verified",
+      "applied_at": "2026-09-18T11:08:51.155Z"
+    },
+    {
+      "remediation_id": "TA-REM-TA-S09-Q053-016b4c1e993e",
+      "remediation_signature": "f00e51975291040f4ec9f47fa5aec3f3ccbd0f44fda947551df500120c730103",
+      "question_id": "TA-S09-Q053",
+      "position": "tax-auditor",
+      "internal_transition": [
+        "Published",
+        "Reviewed",
+        "Verified",
+        "Published"
+      ],
+      "reviewed_at": "2026-09-18",
+      "review_note": "ปรับข้อซ้ำด้านการตรวจค่าใช้จ่ายปลายงวดเป็นสถานการณ์เฉพาะ พร้อมกำหนดหลักฐานตรวจสอบ ตัวลวง เฉลย และเหตุผลให้สอดคล้องกันแล้ว",
+      "old_content_sha256": "016b4c1e993e56e52aebbe401d5211e857046d5b0d85e98b203f29851524536b",
+      "new_content_sha256": "fccfca6c2d54970b39bee2bdbfdbb5633bcb2fda776fc9294514b7d88b3d5fe6",
+      "source_verification_reset": false,
+      "qa_state": "verified",
+      "applied_at": "2026-09-18T11:08:51.155Z"
+    },
+    {
+      "remediation_id": "TA-REM-TA-S10-Q039-7f893a290459",
+      "remediation_signature": "1505e7cfff46c57f501a3d9292593ca1401472205762af880a4e41747e57e0b6",
+      "question_id": "TA-S10-Q039",
+      "position": "tax-auditor",
+      "internal_transition": [
+        "Published",
+        "Reviewed",
+        "Verified",
+        "Published"
+      ],
+      "reviewed_at": "2026-09-18",
+      "review_note": "ปรับข้อซ้ำด้านการตรวจค่าใช้จ่ายปลายงวดเป็นสถานการณ์เฉพาะ พร้อมกำหนดหลักฐานตรวจสอบ ตัวลวง เฉลย และเหตุผลให้สอดคล้องกันแล้ว",
+      "old_content_sha256": "7f893a290459b817d616b8b637501a72c7518d0325166ebc3fb76102a0d320dd",
+      "new_content_sha256": "360c8bc3a722060ae942ff00c58ff51bb4790e11d36621efe5575dd76f5cec82",
+      "source_verification_reset": false,
+      "qa_state": "verified",
+      "applied_at": "2026-09-18T11:08:51.155Z"
     }
   ]
 }

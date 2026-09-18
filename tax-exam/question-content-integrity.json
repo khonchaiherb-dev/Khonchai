@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "algorithm": "sha256",
-  "generated_at": "2026-09-18T11:06:11.850Z",
+  "generated_at": "2026-09-18T11:08:51.202Z",
   "canonical_fields": [
     "category",
     "prompt",
@@ -697,7 +697,7 @@
       "source_state": "pending"
     },
     "TA-S02-Q013": {
-      "sha256": "e9282a2473a0a07eb94d6050e8578ba60149421203297caabd8f245386a384f7",
+      "sha256": "8ae7eebc84e9c1dd7a9f40a7c237e1df7d0b7f65b44258ed154bfe7faa1d0adf",
       "position": "tax-auditor",
       "lifecycle_status": "Published",
       "source_state": "pending"
@@ -1429,7 +1429,7 @@
       "source_state": "pending"
     },
     "TA-S03-Q035": {
-      "sha256": "866ef87946437473f5f4607e6f0a37c112b8e2905755acd64b9963936bde3284",
+      "sha256": "2dce893dc07186df770d390d6848da912a7e144431a2f37c164d05bc35545035",
       "position": "tax-auditor",
       "lifecycle_status": "Published",
       "source_state": "pending"
@@ -1831,7 +1831,7 @@
       "source_state": "pending"
     },
     "TA-S04-Q002": {
-      "sha256": "016b4c1e993e56e52aebbe401d5211e857046d5b0d85e98b203f29851524536b",
+      "sha256": "9d48985d1072a3e388f640cf1406b8797b56ea1fd31c6a3e614352f99a2e1c7a",
       "position": "tax-auditor",
       "lifecycle_status": "Published",
       "source_state": "pending"
@@ -2839,7 +2839,7 @@
       "source_state": "pending"
     },
     "TA-S05-Q070": {
-      "sha256": "866ef87946437473f5f4607e6f0a37c112b8e2905755acd64b9963936bde3284",
+      "sha256": "631ca5bd5792ef24aa8a4d9b3088a58370e766e783c2ebe4c406da570a570d1a",
       "position": "tax-auditor",
       "lifecycle_status": "Published",
       "source_state": "pending"
@@ -3577,7 +3577,7 @@
       "source_state": "pending"
     },
     "TA-S06-Q093": {
-      "sha256": "799b9e254a2440dc2420f0628ad134a8928d33029c42427df02002c6f0a96fd0",
+      "sha256": "a4b316bb8804d75f35f54b40ebe9d4910e0bd0c875ad131ea6dc5eaaed76a07d",
       "position": "tax-auditor",
       "lifecycle_status": "Published",
       "source_state": "pending"
@@ -3937,7 +3937,7 @@
       "source_state": "pending"
     },
     "TA-S07-Q053": {
-      "sha256": "3599aca443a8e693c32c0299f1beb5994d60f4fe26dcb28758a0bdd421462b9a",
+      "sha256": "08d77087b3bba08b23591080cf13bc6f61fcda0965294ef6afecf43dad1e3739",
       "position": "tax-auditor",
       "lifecycle_status": "Published",
       "source_state": "pending"
@@ -4291,7 +4291,7 @@
       "source_state": "pending"
     },
     "TA-S08-Q012": {
-      "sha256": "2347ed709c2a780daf03e40257f09e81326c29596daa28289abcfe289b895799",
+      "sha256": "6193020070d32431d250fc4f538a0ee132b0879d55dff44788df8416922deb0a",
       "position": "tax-auditor",
       "lifecycle_status": "Published",
       "source_state": "pending"
@@ -5137,7 +5137,7 @@
       "source_state": "pending"
     },
     "TA-S09-Q053": {
-      "sha256": "016b4c1e993e56e52aebbe401d5211e857046d5b0d85e98b203f29851524536b",
+      "sha256": "fccfca6c2d54970b39bee2bdbfdbb5633bcb2fda776fc9294514b7d88b3d5fe6",
       "position": "tax-auditor",
       "lifecycle_status": "Published",
       "source_state": "pending"
@@ -5653,7 +5653,7 @@
       "source_state": "pending"
     },
     "TA-S10-Q039": {
-      "sha256": "7f893a290459b817d616b8b637501a72c7518d0325166ebc3fb76102a0d320dd",
+      "sha256": "360c8bc3a722060ae942ff00c58ff51bb4790e11d36621efe5575dd76f5cec82",
       "position": "tax-auditor",
       "lifecycle_status": "Published",
       "source_state": "pending"
