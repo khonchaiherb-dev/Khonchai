@@ -65,12 +65,12 @@ daily as (
   from bounds b
   cross join lateral generate_series(date_trunc('day',b.now_ts) - make_interval(days=>b.days-1),date_trunc('day',b.now_ts),interval '1 day') d(day)
   left join (
-    select date_trunc('day',created_at) day,
+    select date_trunc('day',created_at) as bucket_day,
            count(*) filter(where event_name='page_view') page_views,
            count(*) filter(where event_name='exam_open' and coalesce((metadata->>'show_result')::boolean,false)=false) starts,
            count(*) filter(where event_name='exam_submit') submissions
     from base group by 1
-  ) x on x.day=d.day
+  ) x on x.bucket_day=d.day
 ),
 sources as (
   select coalesce(jsonb_agg(jsonb_build_object('name',name,'value',value) order by value desc),'[]'::jsonb) value from (
