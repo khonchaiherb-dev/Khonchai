@@ -1,0 +1,57 @@
+name: K-EXAM Cross Position Parity Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-cross-position-parity.yml'
+  workflow_dispatch:
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare academic and tax-auditor exam quality metrics
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages --depth=1
+          node <<'NODE'
+          const cp=require('child_process'),zlib=require('zlib');
+          const show=f=>cp.execFileSync('git',['show',`origin/gh-pages:tax-exam/${f}`],{encoding:'utf8',maxBuffer:8*1024*1024}).trim();
+          const taxFiles=['bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt'];
+          const academicFiles=['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'];
+          const load=files=>JSON.parse(zlib.gunzipSync(Buffer.from(files.map(show).join('').replace(/\s+/g,''),'base64')).toString('utf8'));
+          const pct=(a,p)=>{const b=[...a].sort((x,y)=>x-y);return b[Math.min(b.length-1,Math.floor((b.length-1)*p))]};
+          const norm=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu,'');
+          function audit(name,d){
+            const rows=d.q.flat(),t=d.s;
+            const prompts=[],exps=[],wrongs=[],choiceLens=[],answers=[0,0,0,0],cats={};
+            const ansRuns=[];
+            d.q.forEach(set=>{
+              let last=null,run=0,max=0;
+              set.forEach(r=>{
+                const p=String(t[r[1]]??''),e=String(t[r[4]]??''),w=String(t[r[5]]??''),choices=(r[2]||[]).map(x=>String(t[x]??''));
+                prompts.push(p);exps.push(e);wrongs.push(w);choiceLens.push(...choices.map(x=>x.length));
+                answers[r[3]]++;const cat=String(t[r[0]]??'');cats[cat]=(cats[cat]||0)+1;
+                if(last===r[3])run++;else{last=r[3];run=1}max=Math.max(max,run);
+              });ansRuns.push(max);
+            });
+            const lens=(label,a)=>console.log(name,label,'min/p10/median/p90/max',Math.min(...a),pct(a,.1),pct(a,.5),pct(a,.9),Math.max(...a));
+            const maxReuse=a=>{const m={};for(const x of a){const k=norm(x);m[k]=(m[k]||0)+1}return Math.max(...Object.values(m))};
+            console.log('\n===',name,'===');
+            console.log('sets/questions',d.q.length,rows.length);
+            console.log('categories',JSON.stringify(cats));
+            console.log('answers global',answers.join('/'),'max answer run per set',ansRuns.join('/'));
+            lens('PROMPT',prompts.map(x=>x.length));
+            lens('CHOICE',choiceLens);
+            lens('EXPLANATION',exps.map(x=>x.length));
+            lens('WRONG_REASON',wrongs.map(x=>x.length));
+            console.log('unique normalized prompts',new Set(prompts.map(norm)).size+'/'+prompts.length);
+            console.log('max normalized explanation reuse',maxReuse(exps));
+            console.log('max normalized wrong-reason reuse',maxReuse(wrongs));
+            return {prompts,exps,wrongs,choiceLens};
+          }
+          const tax=audit('TAX_AUDITOR',load(taxFiles));
+          const academic=audit('REVENUE_ACADEMIC',load(academicFiles));
+          console.log('\nPARITY NOTE: ทั้งสองตำแหน่งใช้โครงระบบ 10 ชุด x 100 ข้อ, 4 ตัวเลือก, ส่งเมื่อครบ, เฉลยหลังส่ง; blueprint เนื้อหาแยกตามตำแหน่ง');
+          NODE
