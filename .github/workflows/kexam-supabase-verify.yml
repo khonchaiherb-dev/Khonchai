@@ -50,6 +50,7 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 -f supabase/migrations/20260918_kexam_analytics.sql
           psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 -f supabase/migrations/20260918_kexam_item_analytics_v2.sql
           psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 -f supabase/migrations/20260918_kexam_item_discrimination_v3.sql
+          psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 -f supabase/migrations/20260918_kexam_item_psychometrics_v4.sql
 
       - name: Verify centralized item analytics
         run: |
@@ -77,6 +78,11 @@ jobs:
             '00000000-0000-4000-8000-000000000004','user-a','session-r','question_report','revenue-academic',1,null,null,'direct','desktop','18','/tax-exam/',
             '{"question_id":"RA-S01-Q002","report_type":"โจทย์หรือถ้อยคำกำกวม","category":"หลักภาษีอากรและประมวลรัษฎากร","topic":"ภาษีมูลค่าเพิ่ม (VAT)","prompt":"ตัวอย่างโจทย์สำหรับทดสอบระบบ"}'::jsonb,
             now()
+          ),
+          (
+            '00000000-0000-4000-8000-000000000005','user-a','session-a2','exam_submit','revenue-academic',1,10,240,'direct','desktop','18','/tax-exam/',
+            '{"total":20,"exam_mode":"fixed","wrong_questions":[],"item_responses":["RA-S01-Q002|2|2"],"topic_result":{"ภาษีมูลค่าเพิ่ม (VAT)":{"correct":1,"total":1}}}'::jsonb,
+            now() + interval '1 minute'
           );
 
           do $$
@@ -96,9 +102,12 @@ jobs:
               select 1
               from jsonb_array_elements(j->'item_stats') x
               where x->>'question_id'='RA-S01-Q002'
+                and (x->>'attempts')::int = 3
+                and (x->>'users')::int = 2
                 and (x->>'difficulty_index')::numeric = 0.500
                 and (x->>'distractor_efficiency')::numeric between 33.3 and 33.4
                 and (x->>'discrimination')::numeric < 0
+                and x->>'psychometric_basis' = 'first-response-per-user'
                 and x ? 'avg_rest_correct'
                 and x ? 'avg_rest_incorrect'
                 and x ? 'quality_status'
@@ -119,8 +128,8 @@ jobs:
             end if;
 
             avg_score:=(j->'summary'->>'avg_score')::numeric;
-            if avg_score <> 66.7 then
-              raise exception 'dynamic-total avg_score expected 66.7, got %',avg_score;
+            if avg_score <> 62.5 then
+              raise exception 'dynamic-total avg_score expected 62.5, got %',avg_score;
             end if;
           end $$;
 
