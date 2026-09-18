@@ -80,12 +80,15 @@ jobs:
                 newChoices[ci]=canonical[selected[wi++]];
               }
               if(new Set(newChoices.map(norm)).size!==4)throw new Error('ตัวเลือกใหม่ซ้ำกัน '+x.id);
-              let wrong=get(x.r,5);
+              const correctText=newChoices[x.r[3]];
+              const wrongParts=[];
               for(let ci=0;ci<4;ci++){
                 if(ci===x.r[3])continue;
-                if(!wrong.includes(oldChoices[ci]))throw new Error('เหตุผลตัวเลือกผิดเดิมไม่อ้างตัวเลือก '+x.id+' choice '+ci);
-                wrong=wrong.split(oldChoices[ci]).join(newChoices[ci]);
+                const wm=/มาตรา\s*40\((\d)\)/.exec(newChoices[ci]),section=wm?Number(wm[1]):null;
+                const basis=section&&canonical[section]?canonical[section]:newChoices[ci];
+                wrongParts.push(`${newChoices[ci]} ไม่ถูกต้อง เพราะตัวเลือกนี้เป็นลักษณะของ ${basis} ขณะที่ข้อเท็จจริงในโจทย์เข้าลักษณะ ${correctText}`);
               }
+              const wrong=wrongParts.join(' · ');
               const newIdx=[];for(const text of newChoices){d.s.push(text);newIdx.push(d.s.length-1)}x.r[2]=newIdx;
               put(x.r,5,wrong);
               changedChoices++;
