@@ -55,8 +55,7 @@ jobs:
           console.log('REMEDIATION DECISIONS SCHEMA PASS',JSON.stringify({records:d.records.length}));
           NODE
 
-      - name: Apply reviewed remediation atomically in working tree
-        if: github.ref == 'refs/heads/main'
+      - name: Build and validate reviewed remediation transaction
         shell: bash
         run: |
           set -euo pipefail
@@ -258,6 +257,11 @@ jobs:
           },null,2)+'\n');
           console.log('ATOMIC REMEDIATION QA PASS',JSON.stringify({changed:changed.length,questions:all.length,published:p.published_ids.length}));
           NODE
+
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "DRY RUN PASS — transaction validated; gh-pages not modified"
+            exit 0
+          fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
