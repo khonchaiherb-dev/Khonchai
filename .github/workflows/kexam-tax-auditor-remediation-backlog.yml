@@ -1,0 +1,143 @@
+name: K-EXAM Tax Auditor Remediation Backlog
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-tax-auditor-remediation-backlog.yml'
+      - '.github/workflows/kexam-cross-position-parity.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '35 0 * * 1'
+
+concurrency:
+  group: kexam-tax-auditor-remediation-backlog-writer
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 1
+
+      - name: Build stable-ID remediation backlog
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs'),zlib=require('zlib');
+          const files=['bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt'];
+          const data=JSON.parse(zlib.gunzipSync(Buffer.from(files.map(f=>fs.readFileSync('tax-exam/'+f,'utf8').trim()).join('').replace(/\s+/g,''),'base64')).toString('utf8'));
+          const manifest=JSON.parse(fs.readFileSync('tax-exam/question-publication-manifest.json','utf8'));
+          const integrity=JSON.parse(fs.readFileSync('tax-exam/question-content-integrity.json','utf8'));
+          if(!Array.isArray(data.q)||data.q.length!==10||data.q.some(s=>!Array.isArray(s)||s.length!==100))throw new Error('tax-auditor bank must be 10 x 100');
+          if(integrity.schema_version!==1||integrity.algorithm!=='sha256')throw new Error('content integrity baseline invalid');
+
+          const norm=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu,'');
+          const shape=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[0-9๐-๙]+/g,'#').replace(/[\s\p{P}\p{S}]+/gu,'');
+          const qid=(si,qi)=>`TA-S${String(si+1).padStart(2,'0')}-Q${String(qi+1).padStart(3,'0')}`;
+          const items=[];
+          data.q.forEach((set,si)=>set.forEach((r,qi)=>items.push({
+            id:qid(si,qi),set:si+1,question:qi+1,
+            category:String(data.s[r[0]]??'').trim(),
+            prompt:String(data.s[r[1]]??'').trim(),
+            choices:(r[2]||[]).map(x=>String(data.s[x]??'').trim()),
+            answer:Number(r[3]),
+            explanation:String(data.s[r[4]]??'').trim(),
+            wrong:String(data.s[r[5]]??'').trim()
+          })));
+
+          const countBy=fn=>{const m=new Map();for(const x of items){const k=fn(x);m.set(k,(m.get(k)||0)+1)}return m};
+          const exactMap=countBy(x=>x.prompt),normMap=countBy(x=>norm(x.prompt)),shapeMap=countBy(x=>shape(x.prompt));
+          const choiceMap=countBy(x=>JSON.stringify([...x.choices].map(norm).sort()));
+          const expMap=countBy(x=>norm(x.explanation)),wrongMap=countBy(x=>norm(x.wrong));
+
+          const pos=manifest.positions?.['tax-auditor'];if(!pos)throw new Error('publication manifest missing tax-auditor');
+          const lifecycle={};
+          for(const [status,field] of Object.entries({Draft:'draft_ids',Reviewed:'reviewed_ids',Verified:'verified_ids',Published:'published_ids',Retired:'retired_ids'})){
+            for(const id of pos[field]||[])lifecycle[id]=status;
+          }
+          const sourceVerified=new Set(pos.source_verified_ids||[]);
+          const rows=items.map(x=>{
+            const exact=exactMap.get(x.prompt)||1,normalized=normMap.get(norm(x.prompt))||1,promptShape=shapeMap.get(shape(x.prompt))||1;
+            const choices=choiceMap.get(JSON.stringify([...x.choices].map(norm).sort()))||1;
+            const exp=expMap.get(norm(x.explanation))||1,wrong=wrongMap.get(norm(x.wrong))||1;
+            let score=0;const reasons=[];
+            const add=(n,r)=>{score+=n;reasons.push(r)};
+            if(exact>1)add(Math.min(60,25+exact*4),`โจทย์ซ้ำตรงข้อความ ${exact} ข้อ`);
+            else if(normalized>1)add(Math.min(50,20+normalized*4),`โจทย์ซ้ำหลัง normalize ${normalized} ข้อ`);
+            if(promptShape>1)add(Math.min(30,5+promptShape*2),`โครงโจทย์ซ้ำ ${promptShape} ข้อ`);
+            if(choices>1)add(Math.min(20,choices*2),`ชุดตัวเลือกซ้ำ ${choices} ข้อ`);
+            if(exp>1)add(Math.min(25,exp*2),`คำอธิบายซ้ำ ${exp} ข้อ`);
+            if(wrong>3)add(Math.min(15,wrong),`เหตุผลตัวเลือกผิดซ้ำ ${wrong} ข้อ`);
+            const sourceState=sourceVerified.has(x.id)||manifest.source_overrides?.[x.id]?.source_state==='verified'?'verified':(manifest.source_overrides?.[x.id]?.source_state||'pending');
+            const priority=score>=80?'เร่งด่วน':score>=45?'สูง':score>0?'ปกติ':'ไม่มีสัญญาณซ้ำ';
+            return{
+              question_id:x.id,position:'tax-auditor',set:x.set,question:x.question,category:x.category,
+              lifecycle_status:lifecycle[x.id]||'unknown',source_state:sourceState,
+              content_sha256:integrity.questions?.[x.id]?.sha256||null,
+              priority,priority_score:score,reasons,
+              duplicate_metrics:{exact_prompt:exact,normalized_prompt:normalized,prompt_shape:promptShape,choice_set:choices,explanation:exp,wrong_reason:wrong},
+              prompt:x.prompt
+            };
+          }).sort((a,b)=>b.priority_score-a.priority_score||a.question_id.localeCompare(b.question_id));
+
+          const flagged=rows.filter(x=>x.priority_score>0);
+          const summary={
+            total_questions:rows.length,
+            flagged_questions:flagged.length,
+            exact_duplicate_questions:rows.filter(x=>x.duplicate_metrics.exact_prompt>1).length,
+            unique_exact_prompts:new Set(items.map(x=>x.prompt)).size,
+            urgent:rows.filter(x=>x.priority==='เร่งด่วน').length,
+            high:rows.filter(x=>x.priority==='สูง').length,
+            normal:rows.filter(x=>x.priority==='ปกติ').length,
+            source_verified_flagged:flagged.filter(x=>x.source_state==='verified').length,
+            max_exact_prompt_reuse:Math.max(...rows.map(x=>x.duplicate_metrics.exact_prompt)),
+            max_prompt_shape_reuse:Math.max(...rows.map(x=>x.duplicate_metrics.prompt_shape)),
+            max_choice_set_reuse:Math.max(...rows.map(x=>x.duplicate_metrics.choice_set)),
+            max_explanation_reuse:Math.max(...rows.map(x=>x.duplicate_metrics.explanation))
+          };
+          const output={
+            schema_version:1,
+            generated_at:new Date().toISOString(),
+            policy:{
+              note:'Backlog only. Items remain governed by Publication Lifecycle and Content Integrity. Do not rewrite Published content directly.',
+              remediation_rule:'Use batch review; preserve Question ID; update bank+integrity+lifecycle atomically after QA.'
+            },
+            summary,
+            rows:flagged
+          };
+          fs.writeFileSync('tax-exam/tax-auditor-remediation-backlog.json',JSON.stringify(output,null,2)+'\n');
+          console.log('TAX AUDITOR REMEDIATION',JSON.stringify(summary));
+          if(summary.total_questions!==1000)throw new Error('expected 1,000 tax-auditor questions');
+          if(summary.unique_exact_prompts>=1000)console.log('No duplicate remediation required');
+          NODE
+
+      - name: Publish remediation backlog
+        if: github.ref == 'refs/heads/main' || github.event_name == 'schedule'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tax-exam/tax-auditor-remediation-backlog.json
+          if git diff --cached --quiet; then
+            echo "Tax-auditor remediation backlog unchanged"
+            exit 0
+          fi
+          git commit -m "Update tax-auditor remediation backlog"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin gh-pages
+            if git rebase origin/gh-pages; then
+              if git push origin HEAD:gh-pages; then exit 0; fi
+            else
+              git rebase --abort || true
+            fi
+            sleep $((attempt * 2))
+          done
+          echo "Unable to update gh-pages after 5 attempts" >&2
+          exit 1

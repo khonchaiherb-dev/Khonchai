@@ -1,0 +1,146 @@
+name: K-EXAM Tax Auditor Remediation Batch
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-tax-auditor-remediation-batch.yml'
+  workflow_dispatch:
+    inputs:
+      group_count:
+        description: 'จำนวนกลุ่มคำถามซ้ำที่จะนำเข้าชุดแก้'
+        required: false
+        default: '10'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Build private remediation batch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages --depth=1
+          COUNT="${{ github.event.inputs.group_count || '10' }}"
+          if ! [[ "$COUNT" =~ ^[0-9]+$ ]] || [ "$COUNT" -lt 1 ] || [ "$COUNT" -gt 50 ]; then
+            echo "group_count must be 1..50" >&2
+            exit 1
+          fi
+          GROUP_COUNT="$COUNT" node <<'NODE'
+          const cp=require('child_process'),zlib=require('zlib'),fs=require('fs'),crypto=require('crypto');
+          const show=p=>cp.execFileSync('git',['show','origin/gh-pages:'+p],{encoding:'utf8',maxBuffer:64*1024*1024});
+          const files=['bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt'];
+          const joined=files.map(f=>show('tax-exam/'+f).trim()).join('').replace(/\s+/g,'');
+          const d=JSON.parse(zlib.gunzipSync(Buffer.from(joined,'base64')).toString('utf8'));
+          const manifest=JSON.parse(show('tax-exam/question-publication-manifest.json'));
+          const integrity=JSON.parse(show('tax-exam/question-content-integrity.json'));
+          const count=Number(process.env.GROUP_COUNT||10);
+          if(!Array.isArray(d.q)||d.q.length!==10||d.q.some(s=>s.length!==100))throw new Error('tax-auditor bank invalid');
+          const pad=(n,w)=>String(n).padStart(w,'0');
+          const qid=(si,qi)=>'TA-S'+pad(si+1,2)+'-Q'+pad(qi+1,3);
+          const letters=['ก','ข','ค','ง'];
+          const lifecycle={};const p=manifest.positions&&manifest.positions['tax-auditor'];if(!p)throw new Error('manifest missing tax-auditor');
+          for(const [status,field] of Object.entries({Draft:'draft_ids',Reviewed:'reviewed_ids',Verified:'verified_ids',Published:'published_ids',Retired:'retired_ids'})){
+            for(const id of p[field]||[])lifecycle[id]=status;
+          }
+          const sourceVerified=new Set(p.source_verified_ids||[]);
+          const items=[];
+          d.q.forEach((set,si)=>set.forEach((r,qi)=>{
+            const id=qid(si,qi),choices=(r[2]||[]).map(x=>String(d.s[x]||'').trim()),answer=Number(r[3]);
+            items.push({
+              question_id:id,set:si+1,question:qi+1,category:String(d.s[r[0]]||'').trim(),
+              prompt:String(d.s[r[1]]||'').trim(),choices,answer,
+              correct_answer:{index:answer,letter:letters[answer],text:choices[answer]||''},
+              explanation:String(d.s[r[4]]||'').trim(),wrong_reasons:String(d.s[r[5]]||'').trim(),
+              lifecycle_status:lifecycle[id]||'unknown',
+              source_state:sourceVerified.has(id)||((manifest.source_overrides||{})[id]||{}).source_state==='verified'?'verified':(((manifest.source_overrides||{})[id]||{}).source_state||'pending'),
+              content_sha256:(((integrity.questions||{})[id]||{}).sha256)||null
+            });
+          }));
+          const groups=new Map();
+          for(const x of items){const a=groups.get(x.prompt)||[];a.push(x);groups.set(x.prompt,a)}
+          const dup=[...groups.values()].filter(g=>g.length>1).sort((a,b)=>b.length-a.length||a[0].category.localeCompare(b[0].category,'th')||a[0].question_id.localeCompare(b[0].question_id));
+          const selected=dup.slice(0,count);
+          const outGroups=selected.map((g,idx)=>{
+            const groupHash=crypto.createHash('sha256').update(g[0].prompt,'utf8').digest('hex').slice(0,12);
+            return{
+              review_order:idx+1,
+              group_id:'TA-DUP-'+groupHash,
+              reuse:g.length,
+              category:g[0].category,
+              shared_prompt:g[0].prompt,
+              source_verified_members:g.filter(x=>x.source_state==='verified').map(x=>x.question_id),
+              remediation_guidance:[
+                'เปลี่ยนอย่างน้อยบางข้อให้วัดมุมคิดหรือสถานการณ์ที่แตกต่าง ไม่ใช่เพียงเติมคำขึ้นต้น',
+                'รักษา Question ID เดิมเพื่อคงประวัติสถิติ',
+                'หากสาระ ตัวเลือก คำตอบ หรือหลักกฎหมายเปลี่ยน ต้องตรวจคำตอบและเหตุผลใหม่ทั้งหมด',
+                'ข้อ source_state=verified ต้อง reset source verification ก่อนแก้สาระและตรวจแหล่งอ้างอิงใหม่หลัง QA',
+                'ห้ามแก้ Published bank โดยตรงนอก atomic remediation pipeline'
+              ],
+              questions:g.map(x=>Object.assign({},x,{
+                remediation_form:{
+                  action:'',
+                  new_prompt:'',
+                  new_choices:['','','',''],
+                  new_answer:null,
+                  new_explanation:'',
+                  new_wrong_reasons:'',
+                  reviewed_at:'',
+                  review_note:'',
+                  reset_source_verification:x.source_state==='verified'
+                }
+              }))
+            };
+          });
+          const output={
+            schema_version:1,
+            generated_at:new Date().toISOString(),
+            group_count:outGroups.length,
+            question_count:outGroups.reduce((n,g)=>n+g.questions.length,0),
+            selection_policy:'highest exact-prompt reuse first',
+            warning:'Private remediation artifact. Contains answers and explanations. Do not publish directly.',
+            groups:outGroups
+          };
+          fs.writeFileSync('/tmp/kexam-tax-auditor-remediation-batch.json',JSON.stringify(output,null,2)+'\n');
+
+          const decisions={
+            schema_version:1,
+            updated_at:new Date().toISOString().slice(0,10),
+            records:outGroups.flatMap(g=>g.questions.map(q=>({
+              question_id:q.question_id,
+              expected_content_sha256:q.content_sha256,
+              action:'',
+              new_prompt:'',
+              new_choices:['','','',''],
+              new_answer:null,
+              new_explanation:'',
+              new_wrong_reasons:'',
+              reviewed_at:'',
+              review_note:'',
+              reset_source_verification:q.source_state==='verified'
+            })))
+          };
+          fs.writeFileSync('/tmp/kexam-tax-auditor-remediation-decisions-template.json',JSON.stringify(decisions,null,2)+'\n');
+
+          const csvCell=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+          const header=['group_id','reuse','question_id','set','question','category','lifecycle_status','source_state','content_sha256','prompt','correct_letter','correct_answer','action','new_prompt','review_note'];
+          const lines=[header.join(',')];
+          for(const g of outGroups)for(const q of g.questions)lines.push([
+            g.group_id,g.reuse,q.question_id,q.set,q.question,q.category,q.lifecycle_status,q.source_state,q.content_sha256,q.prompt,q.correct_answer.letter,q.correct_answer.text,'','',''
+          ].map(csvCell).join(','));
+          fs.writeFileSync('/tmp/kexam-tax-auditor-remediation-batch.csv','\ufeff'+lines.join('\r\n'));
+          console.log('TAX AUDITOR REMEDIATION BATCH',JSON.stringify({groups:outGroups.length,questions:output.question_count,first_group:outGroups[0]&&outGroups[0].group_id,first_ids:outGroups[0]?outGroups[0].questions.map(x=>x.question_id):[]}));
+          NODE
+
+      - name: Upload private remediation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kexam-tax-auditor-remediation-batch
+          path: |
+            /tmp/kexam-tax-auditor-remediation-batch.json
+            /tmp/kexam-tax-auditor-remediation-batch.csv
+            /tmp/kexam-tax-auditor-remediation-decisions-template.json
+          if-no-files-found: error
+          retention-days: 30
