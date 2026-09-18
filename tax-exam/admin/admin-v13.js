@@ -71,12 +71,15 @@
     if(publicationCoverageCache)return publicationCoverageCache;
     try{
       const r=await fetch('../question-publication-manifest.json',{cache:'no-store'});if(!r.ok)throw new Error('manifest');
-      const m=await r.json(),positions=m?.positions||{};let published=0,retired=0,sourceVerified=0;
-      for(const p of Object.values(positions)){published+=(p?.published_ids||[]).length;retired+=(p?.retired_ids||[]).length;sourceVerified+=(p?.source_verified_ids||[]).length}
-      const qaVerified=published,pending=Math.max(0,published-sourceVerified);
-      publicationCoverageCache={published,retired,qaVerified,sourceVerified,pending,generatedAt:m?.generated_at||null};
+      const m=await r.json(),positions=m?.positions||{};let draft=0,reviewed=0,verified=0,published=0,retired=0,sourceVerified=0;
+      for(const p of Object.values(positions)){
+        draft+=(p?.draft_ids||[]).length;reviewed+=(p?.reviewed_ids||[]).length;verified+=(p?.verified_ids||[]).length;
+        published+=(p?.published_ids||[]).length;retired+=(p?.retired_ids||[]).length;sourceVerified+=(p?.source_verified_ids||[]).length
+      }
+      const pending=Math.max(0,published-sourceVerified),decisionLog=Array.isArray(m?.lifecycle_decision_log)?m.lifecycle_decision_log:[];
+      publicationCoverageCache={draft,reviewed,verified,published,retired,sourceVerified,pending,decisionLog,decisionCount:decisionLog.length,generatedAt:m?.generated_at||null};
       return publicationCoverageCache;
-    }catch{return{published:0,retired:0,qaVerified:0,sourceVerified:0,pending:0,generatedAt:null,error:true}}
+    }catch{return{draft:0,reviewed:0,verified:0,published:0,retired:0,sourceVerified:0,pending:0,decisionLog:[],decisionCount:0,generatedAt:null,error:true}}
   }
   async function contentIntegrityCoverage(){
     if(contentIntegrityCache)return contentIntegrityCache;
@@ -162,7 +165,11 @@
 
   function publicationCoverageHtml(x){
     if(x?.error)return '<div class="empty">ไม่สามารถโหลด Publication Manifest ได้</div>';
-    return `<div class="metrics"><div class="panel metric"><div class="label">Published</div><strong>${fmt(x.published)}</strong><small>ข้อที่อนุญาตให้ขึ้นเว็บ</small></div><div class="panel metric"><div class="label">ผ่าน QA ระบบ</div><strong>${fmt(x.qaVerified)}</strong><small>โครงสร้าง/คุณภาพตาม Gate ปัจจุบัน</small></div><div class="panel metric"><div class="label">ยืนยันแหล่งทางการแล้ว</div><strong>${fmt(x.sourceVerified)}</strong><small>ข้อที่ผูก source reference แล้ว</small></div><div class="panel metric"><div class="label">รอตรวจแหล่งทางการ</div><strong>${fmt(x.pending)}</strong><small>backlog สำหรับ Content Verification</small></div><div class="panel metric"><div class="label">Retired</div><strong>${fmt(x.retired)}</strong><small>ข้อที่ถูกพัก/เลิกเผยแพร่</small></div></div>`;
+    return `<div class="metrics"><div class="panel metric"><div class="label">Draft</div><strong>${fmt(x.draft)}</strong><small>ยังไม่อนุญาตให้ขึ้นเว็บ</small></div><div class="panel metric"><div class="label">Reviewed</div><strong>${fmt(x.reviewed)}</strong><small>รอตรวจ QA/เนื้อหาต่อ</small></div><div class="panel metric"><div class="label">Verified</div><strong>${fmt(x.verified)}</strong><small>ผ่าน QA พร้อมพิจารณาเผยแพร่</small></div><div class="panel metric"><div class="label">Published</div><strong>${fmt(x.published)}</strong><small>ข้อที่ Runtime ใช้งานได้</small></div><div class="panel metric"><div class="label">Retired</div><strong>${fmt(x.retired)}</strong><small>ถอนจากการใช้งาน แต่คงประวัติ</small></div><div class="panel metric"><div class="label">Source Verified</div><strong>${fmt(x.sourceVerified)}</strong><small>ผูกแหล่งทางการและ content hash แล้ว</small></div><div class="panel metric"><div class="label">Source Pending</div><strong>${fmt(x.pending)}</strong><small>รอ Content Verification</small></div><div class="panel metric"><div class="label">Lifecycle Decisions</div><strong>${fmt(x.decisionCount)}</strong><small>รายการ transition ที่ apply แล้ว</small></div></div>`;
+  }
+  function lifecycleDecisionList(rows=[]){
+    if(!rows.length)return '<div class="empty">ยังไม่มี lifecycle decision ที่ถูก apply</div>';
+    return `<div class="list">${[...rows].sort((a,b)=>String(b.applied_at||'').localeCompare(String(a.applied_at||''))).slice(0,20).map(r=>{const pos=r.position==='revenue-academic'?'นักวิชาการสรรพากรฯ':r.position==='tax-auditor'?'นักตรวจสอบภาษีฯ':r.position||'-';return `<div class="row"><div><div class="name">${esc(r.question_id||'')} · ${esc(r.from_status||'?')} → ${esc(r.to_status||'?')}</div><div class="meta">${esc(pos)} · ${esc(r.decision_id||'')} · วันที่ตัดสินใจ ${esc(r.decided_at||'-')}${r.reason?`<br>${esc(String(r.reason).slice(0,220))}`:''}</div></div><div class="val">${esc(r.to_status||'')}</div></div>`}).join('')}</div>`;
   }
 
   function contentIntegrityCoverageHtml(x){
@@ -299,6 +306,7 @@
   async function load(){
     const [pub,sourceBacklog,integrity,freshness]=await Promise.all([publicationCoverage(),sourceVerificationBacklog(),contentIntegrityCoverage(),sourceFreshnessWatchlist()]);
     $('#publicationCoverage').innerHTML=publicationCoverageHtml(pub);
+    if($('#lifecycleDecisions'))$('#lifecycleDecisions').innerHTML=lifecycleDecisionList(pub.decisionLog||[]);
     if($('#contentIntegrityCoverage'))$('#contentIntegrityCoverage').innerHTML=contentIntegrityCoverageHtml(integrity);
     if($('#sourceBacklogSummary'))$('#sourceBacklogSummary').innerHTML=sourceBacklogSummaryHtml(sourceBacklog.summary||{});
     syncSourcePositionOptions(sourceBacklog.rows||[]);
