@@ -78,6 +78,9 @@ jobs:
           grep -q 'qualityQueueList' /tmp/admin.js
           grep -q 'qualitySummaryHtml' /tmp/admin.js
           grep -q 'localQualityQueue' /tmp/admin.js
+          grep -q 'filteredQualityRows' /tmp/admin.js
+          grep -q 'exportQualityCsv' /tmp/admin.js
+          grep -q 'text/csv' /tmp/admin.js
           grep -q '#itemStats' /tmp/admin.js || grep -q "itemStats').innerHTML" /tmp/admin.js
           grep -q "topic-practice" /tmp/loader.js
           grep -q 'item_responses' /tmp/loader.js
@@ -141,7 +144,7 @@ jobs:
           node --check /tmp/live/app-v3.js
           node --check /tmp/live/analytics-v13.js
           node --check /tmp/live/admin-v13.js
-          grep -q 'admin-v13.js?v=21' /tmp/live/index.html
+          grep -q 'admin-v13.js?v=22' /tmp/live/index.html
           grep -q 'difficulty_index' /tmp/live/admin-v13.js
           grep -q 'discrimination' /tmp/live/admin-v13.js
           grep -q 'distractor_efficiency' /tmp/live/admin-v13.js
@@ -150,6 +153,9 @@ jobs:
           grep -q 'คำตอบครั้งแรกต่อผู้ใช้' /tmp/live/admin-v13.js
           grep -q 'qualityQueueList' /tmp/live/admin-v13.js
           grep -q 'qualitySummaryHtml' /tmp/live/admin-v13.js
+          grep -q 'filteredQualityRows' /tmp/live/admin-v13.js
+          grep -q 'exportQualityCsv' /tmp/live/admin-v13.js
+          grep -q 'text/csv' /tmp/live/admin-v13.js
           grep -q 'K-EXAM Analytics' /tmp/live/index.html || true
           cat /tmp/live/app-v3-part1.txt /tmp/live/app-v3-part2.txt /tmp/live/app-v3-part3.txt /tmp/live/app-v3-part4.txt > /tmp/live/combined.js
           node --check /tmp/live/combined.js
