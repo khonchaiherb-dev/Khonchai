@@ -1,0 +1,138 @@
+name: K-EXAM Diversify Academic Prompts
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-diversify-academic-prompts.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diversify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 1
+
+      - name: Diversify repeated computation stems without changing answers
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs'),zlib=require('zlib'),cp=require('child_process');
+          const files=['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'];
+          const paths=files.map(f=>'tax-exam/'+f);
+          const b64=paths.map(p=>fs.readFileSync(p,'utf8').trim()).join('').replace(/\s+/g,'');
+          const d=JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8'));
+          const get=(r,i)=>String(d.s[r[i]]??'').trim();
+          const putPrompt=(r,text)=>{d.s.push(text);r[1]=d.s.length-1;};
+          const normNoNum=s=>String(s).normalize('NFKC').toLowerCase().replace(/[0-9๐-๙]+/g,'#').replace(/[\s\p{P}\p{S}]+/gu,'');
+          const variants=[
+            {
+              re:/ภาษีตามวิธีนี้เป็นเท่าใด$/,
+              tails:[
+                'ภาษีตามวิธีนี้เป็นเท่าใด',
+                'ยอดภาษีเงินได้บุคคลธรรมดาที่คำนวณได้ควรเป็นเท่าใด',
+                'จำนวนภาษีตามอัตราก้าวหน้าที่ถูกต้องคือข้อใด',
+                'หากตรวจสอบยอดภาษีที่แสดงในแบบ จำนวนที่ถูกต้องควรเป็นเท่าใด',
+                'ผลการคำนวณภาษีตามอัตราก้าวหน้าควรเป็นจำนวนเท่าใด'
+              ]
+            },
+            {
+              re:/กำไรสุทธิทางภาษีเป็นเท่าใด$/,
+              tails:[
+                'กำไรสุทธิทางภาษีเป็นเท่าใด',
+                'ยอดกำไรสุทธิที่ใช้เป็นฐานภาษีควรเป็นเท่าใด',
+                'เมื่อกระทบยอดแล้ว ฐานกำไรสุทธิทางภาษีควรเท่ากับเท่าใด',
+                'จำนวนกำไรสุทธิทางภาษีที่ถูกต้องคือข้อใด'
+              ]
+            },
+            {
+              re:/ภาษีมูลค่าเพิ่มสุทธิที่ต้องชำระเป็นเท่าใด$/,
+              tails:[
+                'ภาษีมูลค่าเพิ่มสุทธิที่ต้องชำระเป็นเท่าใด',
+                'ยอดภาษีมูลค่าเพิ่มสุทธิของรอบภาษีนี้ควรเป็นเท่าใด',
+                'เมื่อหักภาษีซื้อที่มีสิทธิแล้ว จำนวนภาษีที่ต้องชำระควรเป็นเท่าใด',
+                'ยอดภาษีมูลค่าเพิ่มสุทธิที่ควรแสดงในแบบเป็นเท่าใด'
+              ]
+            },
+            {
+              re:/ฐานกำไรสุทธิหลังหักผลขาดทุนเป็นเท่าใด$/,
+              tails:[
+                'ฐานกำไรสุทธิหลังหักผลขาดทุนเป็นเท่าใด',
+                'กำไรสุทธิที่เหลือสำหรับใช้เป็นฐานคำนวณภาษีเป็นจำนวนเท่าใด'
+              ]
+            },
+            {
+              re:/ต้องคำนวณภาษีเท่าใด$/,
+              tails:[
+                'ต้องคำนวณภาษีเท่าใด',
+                'ภาษีเงินได้นิติบุคคลที่คำนวณจากฐานดังกล่าวควรเป็นเท่าใด'
+              ]
+            },
+            {
+              re:/ภาษีรวมเป็นเท่าใด$/,
+              tails:[
+                'ภาษีรวมเป็นเท่าใด',
+                'เมื่อนำภาษีท้องถิ่นมารวมแล้ว ยอดภาษีที่ต้องชำระทั้งหมดเป็นเท่าใด'
+              ]
+            },
+            {
+              re:/ค่าอากรเป็นเท่าใด$/,
+              tails:[
+                'ค่าอากรเป็นเท่าใด',
+                'จำนวนอากรแสตมป์ที่ต้องชำระตามเงื่อนไขดังกล่าวเป็นเท่าใด'
+              ]
+            }
+          ];
+          const counters=new Map();
+          let changed=0;
+          d.q.forEach(set=>set.forEach(r=>{
+            const p=get(r,1);
+            for(let gi=0;gi<variants.length;gi++){
+              const g=variants[gi];
+              if(!g.re.test(p))continue;
+              const n=counters.get(gi)||0;
+              const tail=g.tails[n%g.tails.length];
+              counters.set(gi,n+1);
+              const np=p.replace(g.re,tail);
+              if(np!==p){putPrompt(r,np);changed++}
+              break;
+            }
+          }));
+          const all=d.q.flat().map(r=>get(r,1));
+          if(new Set(all).size!==1000)throw new Error('หลังปรับปรุงพบคำถามซ้ำแบบตรงกัน');
+          const m=new Map();
+          all.forEach(p=>{const k=normNoNum(p),n=(m.get(k)||0)+1;m.set(k,n)});
+          const maxNorm=Math.max(...m.values());
+          if(maxNorm>10)throw new Error('กลุ่มคำถามโครงสร้างซ้ำยังเกินมาตรฐานนักตรวจสอบภาษี: '+maxNorm);
+          console.log('changed_prompts',changed);
+          console.log('max_normalized_prompt_reuse',maxNorm);
+
+          const out=Buffer.from(JSON.stringify(d));
+          const enc=zlib.gzipSync(out,{level:9}).toString('base64');
+          const n=files.length;
+          let pos=0;
+          for(let i=0;i<n;i++){
+            let end=i===n-1?enc.length:Math.floor(enc.length*(i+1)/n);
+            if(i<n-1)end-=end%4;
+            fs.writeFileSync(paths[i],enc.slice(pos,end));
+            pos=end;
+          }
+          const check=paths.map(p=>fs.readFileSync(p,'utf8').trim()).join('');
+          const d2=JSON.parse(zlib.gunzipSync(Buffer.from(check,'base64')).toString('utf8'));
+          if(d2.q.length!==10||d2.q.some(s=>s.length!==100))throw new Error('คลังหลังเขียนไม่ครบ 10 x 100');
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tax-exam/ra-bank-*.txt
+          if git diff --cached --quiet; then
+            echo "No academic bank changes needed"
+            exit 0
+          fi
+          git commit -m "Diversify repeated academic computation prompts"
+          git push origin HEAD:gh-pages
