@@ -42,7 +42,7 @@ jobs:
             exit 1
           fi
           BATCH_SIZE="$SIZE" REVIEW_MODE="$MODE" node <<'NODE'
-          const cp=require('child_process'),zlib=require('zlib'),fs=require('fs');
+          const cp=require('child_process'),zlib=require('zlib'),fs=require('fs'),crypto=require('crypto');
           const show=p=>cp.execFileSync('git',['show',`origin/gh-pages:${p}`],{encoding:'utf8',maxBuffer:64*1024*1024});
           const mode=String(process.env.REVIEW_MODE||'pending');
           const size=Number(process.env.BATCH_SIZE||50);
@@ -197,9 +197,15 @@ jobs:
           if(mode==='pending'&&!batch.length)throw new Error('source verification backlog is empty');
           const selectionPositions=batch.reduce((m,q)=>{m[q.position]=(m[q.position]||0)+1;return m},{});
           const selectionTopics=batch.reduce((m,q)=>{m[q.topic]=(m[q.topic]||0)+1;return m},{});
+          const batchGeneratedAt=new Date().toISOString();
+          const batchSnapshotPayload=batch.map(q=>({question_id:q.question_id,content_sha256:q.current_content_sha256})).sort((a,b)=>a.question_id.localeCompare(b.question_id));
+          const batchSnapshotSha256=crypto.createHash('sha256').update(JSON.stringify({review_mode:mode,questions:batchSnapshotPayload}),'utf8').digest('hex');
+          const batchId=`SRB-${batchGeneratedAt.slice(0,10).replace(/-/g,'')}-${batchSnapshotSha256.slice(0,12)}`;
           const out={
             schema_version:1,
-            generated_at:new Date().toISOString(),
+            generated_at:batchGeneratedAt,
+            batch_id:batchId,
+            batch_snapshot_sha256:batchSnapshotSha256,
             review_mode:mode,
             batch_size:batch.length,
             selection_policy:mode==='pending'?'priority score first, then stratified by position and topic':'freshness priority first, then stratified by position and topic',
@@ -214,8 +220,11 @@ jobs:
             schema_version:1,
             updated_at:new Date().toISOString().slice(0,10),
             review_mode:mode,
+            batch_id:batchId,
+            batch_snapshot_sha256:batchSnapshotSha256,
             records:batch.map(q=>({
               question_id:q.question_id,
+              review_batch_id:batchId,
               reviewed_content_sha256:q.current_content_sha256,
               decision:'',
               reviewed_at:'',
@@ -226,11 +235,11 @@ jobs:
           fs.writeFileSync('/tmp/kexam-source-review-decisions-template.json',JSON.stringify(decisionTemplate,null,2)+'\n');
 
           const csvCell=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
-          const header=['review_order','question_id','position','review_mode','priority','priority_score','category','topic','current_content_sha256','freshness_status','checked_at','due_at','days_until_due','prompt','correct_letter','correct_answer','reviewed_content_sha256','decision','reviewed_at','review_note','source_title','source_url','source_checked_at','source_section'];
+          const header=['batch_id','batch_snapshot_sha256','review_order','question_id','position','review_mode','priority','priority_score','category','topic','current_content_sha256','freshness_status','checked_at','due_at','days_until_due','prompt','correct_letter','correct_answer','reviewed_content_sha256','decision','reviewed_at','review_note','source_title','source_url','source_checked_at','source_section'];
           const lines=[header.join(',')];
           for(const q of batch){
             lines.push([
-              q.review_order,q.question_id,q.position,q.review_mode,q.priority,q.priority_score,q.category,q.topic,q.current_content_sha256,
+              batchId,batchSnapshotSha256,q.review_order,q.question_id,q.position,q.review_mode,q.priority,q.priority_score,q.category,q.topic,q.current_content_sha256,
               q.freshness?.status||'',q.freshness?.checked_at||'',q.freshness?.due_at||'',q.freshness?.days_until_due??'',q.prompt,
               q.correct_answer.letter,q.correct_answer.text,q.current_content_sha256,'','','','','','',''
             ].map(csvCell).join(','));
@@ -248,7 +257,7 @@ jobs:
             const maxTopic=Math.max(...Object.values(topics));
             if(Object.keys(topics).length>=3&&maxTopic>Math.ceil(batch.length*0.60))throw new Error('stratified batch is too concentrated in one topic: '+maxTopic+'/'+batch.length);
           }
-          console.log('SOURCE REVIEW BATCH',JSON.stringify({mode,size:batch.length,priority:counts,positions,topics,first:batch[0]?.question_id||null,last:batch.at(-1)?.question_id||null}));
+          console.log('SOURCE REVIEW BATCH',JSON.stringify({batch_id:batchId,batch_snapshot_sha256:batchSnapshotSha256,mode,size:batch.length,priority:counts,positions,topics,first:batch[0]?.question_id||null,last:batch.at(-1)?.question_id||null}));
           NODE
 
       - name: Upload private review artifact
