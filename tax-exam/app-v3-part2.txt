@@ -1,5 +1,5 @@
-  $('#app').innerHTML=`${header(extra)}<main class="page"><section class="home-hero position-selected-hero"><div><div class="eyebrow">ตำแหน่งที่เลือก</div><h1>${esc(p.title)}<br>กรมสรรพากร</h1><p>${esc(p.description)}</p><div class="hero-chips"><span class="chip">10 ชุด × 100 ข้อ</span><span class="chip">ตอบครบก่อนส่ง</span><span class="chip">ดูเฉลยย้อนหลัง</span><span class="chip">บันทึกความคืบหน้าอัตโนมัติ</span></div></div><div class="hero-stat"><span>ทำเสร็จแล้ว</span><strong>${completed}<small>/10</small></strong><span>ชุดข้อสอบ</span></div></section><div class="section-title">เลือกชุดข้อสอบ</div><section class="sets">${cards}</section></main>${footer()}`;
-  bindBrand();$('#changePosition').onclick=()=>{persist();renderPositionHome()};document.querySelectorAll('.set-card').forEach(el=>el.onclick=()=>openSet(+el.dataset.set));
+  $('#app').innerHTML=`${header(extra)}<main class="page"><section class="home-hero position-selected-hero"><div><div class="eyebrow">ตำแหน่งที่เลือก</div><h1>${esc(p.title)}<br>กรมสรรพากร</h1><p>${esc(p.description)}</p><div class="hero-chips"><span class="chip">10 ชุด × 100 ข้อ</span><span class="chip">ตอบครบก่อนส่ง</span><span class="chip">ดูเฉลยย้อนหลัง</span><span class="chip">บันทึกความคืบหน้าอัตโนมัติ</span></div></div><div class="hero-stat"><span>ทำเสร็จแล้ว</span><strong>${completed}<small>/10</small></strong><span>ชุดข้อสอบ</span></div></section><div class="section-title">เลือกชุดข้อสอบ</div><section class="sets">${cards}</section><div class="section-title practice-title">ฝึกแบบสุ่มจากคลัง</div><section class="random-practice-wrap">${randomHtml}</section></main>${footer()}`;
+  bindBrand();$('#changePosition').onclick=()=>{persist();renderPositionHome()};document.querySelectorAll('.set-card').forEach(el=>el.onclick=()=>openSet(+el.dataset.set));$('#randomPractice').onclick=()=>openSet(RANDOM_SET);
 }
 
 async function loadCompactBank(key=currentPosition){
@@ -14,21 +14,51 @@ async function loadCompactBank(key=currentPosition){
   })().catch(e=>{delete bankPromises[key];throw e});
   return bankPromises[key];
 }
-async function loadSet(n){const c=await loadCompactBank(),t=c.s,rows=c.q[n-1];return{set:n,title:`ชุดที่ ${n}`,questions:rows.map((r,i)=>({number:(n-1)*100+i+1,category:t[r[0]],prompt:t[r[1]],choices:r[2].map(x=>t[x]),answer:r[3],explanation:t[r[4]],wrongReasons:t[r[5]]}))}}
+function decodeQuestion(c,r,si,qi){const t=c.s;return{number:si*100+qi+1,sourceSet:si+1,sourceIndex:qi+1,category:t[r[0]],prompt:t[r[1]],choices:r[2].map(x=>t[x]),answer:r[3],explanation:t[r[4]],wrongReasons:t[r[5]]}}
+async function loadSet(n){const c=await loadCompactBank(),rows=c.q[n-1];return{set:n,title:`ชุดที่ ${n}`,questions:rows.map((r,i)=>decodeQuestion(c,r,n-1,i))}}
+function randomize(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){let j;if(globalThis.crypto?.getRandomValues){const x=new Uint32Array(1);crypto.getRandomValues(x);j=x[0]%(i+1)}else j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function buildRandomPlan(c){
+  const pools={};c.q.forEach((set,si)=>set.forEach((r,qi)=>{const cat=String(c.s[r[0]]||'ไม่ระบุ');(pools[cat]??=[]).push(`${si}:${qi}`)}));
+  const entries=Object.entries(pools).map(([cat,ids])=>({cat,ids,raw:ids.length/10,quota:Math.floor(ids.length/10)}));
+  let left=100-entries.reduce((n,x)=>n+x.quota,0);entries.sort((a,b)=>(b.raw-b.quota)-(a.raw-a.quota)||b.ids.length-a.ids.length);
+  for(let i=0;i<entries.length&&left>0;i++,left--)entries[i].quota++;
+  const chosen=[];entries.forEach(x=>chosen.push(...randomize(x.ids).slice(0,x.quota)));
+  if(chosen.length!==100)throw new Error('ไม่สามารถจัดสัดส่วนข้อสอบสุ่มให้ครบ 100 ข้อได้');
+  return randomize(chosen);
+}
+async function loadRandomSet(savedIds=null){
+  const c=await loadCompactBank();let ids=Array.isArray(savedIds)?savedIds.map(String):null;
+  const valid=id=>{const m=/^(\d+):(\d+)$/.exec(id);if(!m)return false;const si=+m[1],qi=+m[2];return !!c.q?.[si]?.[qi]};
+  if(!ids||ids.length!==100||new Set(ids).size!==100||ids.some(id=>!valid(id)))ids=buildRandomPlan(c);
+  const questions=ids.map(id=>{const [si,qi]=id.split(':').map(Number);return decodeQuestion(c,c.q[si][qi],si,qi)});
+  return{set:RANDOM_SET,title:'สุ่มจำลองสอบ 100 ข้อ',questions,randomIds:ids};
+}
 
 function openSet(n){
-  currentSet=n;const old=getSetState(n),hist=getHistory(n),p=position();
+  currentSet=n;const old=getSetState(n),hist=getHistory(n),p=position(),label=setLabel(n);
   if(old?.submitted){
-    modal(`<div class="modal-kicker">${esc(p.short)}</div><h3>ชุดที่ ${n} ทำเสร็จแล้ว</h3><p>คะแนนล่าสุด <strong>${old.score}/100</strong>${hist.length?` · คะแนนสูงสุด <strong>${Math.max(...hist.map(x=>x.score))}/100</strong>`:''}</p><div class="modal-actions wrap"><button class="ghost-btn" id="mClose">ยกเลิก</button><button class="ghost-btn" id="mHistory">ประวัติคะแนน</button><button class="primary-btn" id="mResult">ดูผลและเฉลย</button><button class="danger-btn" id="mRestart">เริ่มทำใหม่</button></div>`);
+    modal(`<div class="modal-kicker">${esc(p.short)}</div><h3>${esc(label)} ทำเสร็จแล้ว</h3><p>คะแนนล่าสุด <strong>${old.score}/100</strong>${hist.length?` · คะแนนสูงสุด <strong>${Math.max(...hist.map(x=>x.score))}/100</strong>`:''}</p><div class="modal-actions wrap"><button class="ghost-btn" id="mClose">ยกเลิก</button><button class="ghost-btn" id="mHistory">ประวัติคะแนน</button><button class="primary-btn" id="mResult">ดูผลและเฉลย</button><button class="danger-btn" id="mRestart">${isRandomSet(n)?'สุ่มชุดใหม่':'เริ่มทำใหม่'}</button></div>`);
     $('#mClose').onclick=()=>$('#modal').remove();$('#mHistory').onclick=()=>{$('#modal').remove();renderHistory(n)};$('#mResult').onclick=()=>{$('#modal').remove();beginExam(n,false,true)};$('#mRestart').onclick=()=>{$('#modal').remove();beginExam(n,true,false)};
   }else{
     const answered=old?Object.keys(old.answers||{}).length:0;
-    modal(`<div class="modal-kicker">${esc(p.short)}</div><h3>${old?'ทำต่อจากครั้งก่อน':'เริ่มทำข้อสอบ'} · ชุดที่ ${n}</h3><p>${old?`มีคำตอบที่บันทึกไว้ ${answered} ข้อ ระบบจะเปิดต่อจากเดิม`:'ระบบจะไม่แสดงเฉลยระหว่างทำข้อสอบ และจะเปิดให้ส่งคำตอบเมื่อทำครบ 100 ข้อ'}</p><div class="modal-actions"><button class="ghost-btn" id="mClose">ยกเลิก</button><button class="primary-btn" id="mStart">${old?'ทำต่อ':'เริ่มทำข้อสอบ'}</button></div>`);
+    modal(`<div class="modal-kicker">${esc(p.short)}</div><h3>${old?'ทำต่อจากครั้งก่อน':'เริ่มทำข้อสอบ'} · ${esc(label)}</h3><p>${old?`มีคำตอบที่บันทึกไว้ ${answered} ข้อ ระบบจะเปิดต่อจากเดิม`:'ระบบจะไม่แสดงเฉลยระหว่างทำข้อสอบ และจะเปิดให้ส่งคำตอบเมื่อทำครบ 100 ข้อ'}</p><div class="modal-actions"><button class="ghost-btn" id="mClose">ยกเลิก</button><button class="primary-btn" id="mStart">${old?'ทำต่อ':'เริ่มทำข้อสอบ'}</button></div>`);
     $('#mClose').onclick=()=>$('#modal').remove();$('#mStart').onclick=()=>{$('#modal').remove();beginExam(n,false,false)};
   }
 }
 async function beginExam(n,reset=false,showResult=false){
-  try{showLoading(`กำลังเตรียมข้อสอบชุดที่ ${n}...`);bank=await loadSet(n);let st=getSetState(n);if(reset||!st){st={answers:{},flags:{},startedAt:Date.now(),elapsed:0,submitted:false,score:null,lastIndex:0};putSetState(n,st)}state=st;currentSet=n;currentIndex=Math.min(99,state.lastIndex||0);if(showResult||state.submitted){renderResult();return}startTimestamp=Date.now();renderExam()}catch(e){showError(e)}
+  try{
+    currentSet=n;showLoading(`กำลังเตรียม${setLabel(n)}...`);
+    let st=getSetState(n);
+    if(isRandomSet(n)){
+      const saved=!reset&&Array.isArray(st?.randomIds)?st.randomIds:null;
+      bank=await loadRandomSet(saved);
+      if(reset||!st||!saved){st={answers:{},flags:{},startedAt:Date.now(),elapsed:0,submitted:false,score:null,lastIndex:0,randomIds:bank.randomIds};putSetState(n,st)}
+    }else{
+      bank=await loadSet(n);
+      if(reset||!st){st={answers:{},flags:{},startedAt:Date.now(),elapsed:0,submitted:false,score:null,lastIndex:0};putSetState(n,st)}
+    }
+    state=st;currentIndex=Math.min(99,state.lastIndex||0);if(showResult||state.submitted){renderResult();return}startTimestamp=Date.now();renderExam()
+  }catch(e){showError(e)}
 }
 function stopTimer(){if(timerHandle){clearInterval(timerHandle);timerHandle=null}}
 function startTimer(){stopTimer();timerHandle=setInterval(()=>{if(!state||state.submitted)return;const sec=(state.elapsed||0)+(Date.now()-startTimestamp)/1000;document.querySelectorAll('[data-time]').forEach(x=>x.textContent=fmtTime(sec))},1000)}
@@ -48,4 +78,4 @@ function renderExam(){
   if(!bank||!state){renderSetHome();return}startTimer();const p=position(),q=bank.questions[currentIndex],answered=answeredCount(),flags=flagCount(),complete=answered===100;
   const choices=q.choices.map((c,i)=>`<button class="choice ${state.answers[currentIndex]===i?'selected':''}" data-choice="${i}" aria-pressed="${state.answers[currentIndex]===i}"><span class="choice-letter">${LETTERS[i]}</span><span>${esc(c)}</span></button>`).join('');
   const cats=categoryProgress();const catHtml=Object.entries(cats).map(([k,v])=>`<div class="cat-row"><div class="label"><span>${esc(k)}</span><span>${v.answered}/${v.total}</span></div><div class="bar"><span style="width:${pct(v.answered,v.total)}%"></span></div></div>`).join('');
-  const extra=`<span class="chip position-chip">${esc(p.short)}</span><span class="chip">ชุดที่ ${currentSet}</span><span class="timer" data-time>${fmtTime((state.elapsed||0)+(Date.now()-startTimestamp)/1000)}</span>`;
+  const extra=`<span class="chip position-chip">${esc(p.short)}</span><span class="chip">${esc(setLabel(currentSet))}</span><span class="timer" data-time>${fmtTime((state.elapsed||0)+(Date.now()-startTimestamp)/1000)}</span>`;
