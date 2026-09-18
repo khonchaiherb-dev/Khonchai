@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow" />
   <meta name="theme-color" content="#050b16" />
   <title>K-EXAM Analytics Dashboard</title>
-  <link rel="stylesheet" href="admin-v13.css?v=24" />
+  <link rel="stylesheet" href="admin-v13.css?v=25" />
 </head>
 <body>
   <main class="shell">
@@ -31,6 +31,18 @@
     <section class="panel section" style="margin-top:16px">
       <div class="section-head"><div><h3>สถานะการเผยแพร่และการตรวจเนื้อหา</h3><div class="section-sub">แยกสถานะ Published/Retired ออกจากการตรวจแหล่งอ้างอิงทางการ เพื่อไม่ให้สถานะ QA เชิงระบบถูกตีความว่าเป็นการยืนยันกฎหมายรายข้อ</div></div></div>
       <div id="publicationCoverage"></div>
+    </section>
+
+    <section class="panel section" style="margin-top:16px">
+      <div class="section-head"><div><h3>คิวตรวจแหล่งอ้างอิงทางการ</h3><div class="section-sub">จัดลำดับข้อที่ source_state ยังเป็น pending เพื่อช่วยวางแผนตรวจจากกฎหมาย ประกาศ และแหล่งราชการ ไม่ได้หมายความว่าข้อเหล่านี้ผิด</div></div></div>
+      <div class="top-actions" style="margin:8px 0 14px">
+        <select class="btn" id="sourcePriority" aria-label="ระดับความสำคัญ"><option value="">ทุกระดับ</option><option value="เร่งด่วน">เร่งด่วน</option><option value="สูง">สูง</option><option value="ปกติ">ปกติ</option></select>
+        <select class="btn" id="sourcePosition" aria-label="ตำแหน่ง"><option value="">ทุกตำแหน่ง</option></select>
+        <input class="btn" id="sourceSearch" type="search" placeholder="ค้นหา Question ID / หัวข้อ" aria-label="ค้นหา source verification backlog" />
+        <button class="btn" id="exportSourceBacklog">ส่งออก CSV</button>
+      </div>
+      <div id="sourceBacklogSummary"></div>
+      <div id="sourceBacklog" style="margin-top:12px"></div>
     </section>
 
     <section class="grid2">
@@ -82,7 +94,7 @@
 
     <div class="footer">K-EXAM · ติวสอบราชการ อาจารย์คิม · www.k-exam.com</div>
   </main>
-  <script src="../analytics-config.js?v=24"></script>
-  <script src="admin-v13.js?v=24"></script>
+  <script src="../analytics-config.js?v=25"></script>
+  <script src="admin-v13.js?v=25"></script>
 </body>
 </html>
