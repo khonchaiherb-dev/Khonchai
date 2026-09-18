@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-18T12:26:05.076Z",
+  "updated_at": "2026-09-18T12:28:00.000Z",
   "batches": [
     {
       "batch_id": "SRB-20260918-51ee796c34c6",
@@ -74,9 +74,12 @@
       ],
       "status": "generated",
       "created_run_id": "35344623871",
-      "reservation_expires_at": "2026-10-18T12:26:03.928Z",
+      "reservation_expires_at": "2026-09-18T12:28:00.000Z",
       "applied_at": null,
-      "decision_counts": null
+      "decision_counts": null,
+      "reservation_released_at": "2026-09-18T12:28:00.000Z",
+      "reservation_release_reason": "development-ci-batch-before-manual-registration-policy",
+      "operational_batch": false
     },
     {
       "batch_id": "SRB-20260918-5be16e599cec",
@@ -152,7 +155,10 @@
       "created_run_id": "35344030557",
       "applied_at": null,
       "decision_counts": null,
-      "reservation_expires_at": "2026-10-18T12:19:23.550Z"
+      "reservation_expires_at": "2026-09-18T12:28:00.000Z",
+      "reservation_released_at": "2026-09-18T12:28:00.000Z",
+      "reservation_release_reason": "development-ci-batch-before-manual-registration-policy",
+      "operational_batch": false
     }
   ]
 }
