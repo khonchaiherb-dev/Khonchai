@@ -30,7 +30,7 @@ jobs:
           set -euo pipefail
           git fetch origin gh-pages --depth=1
           node <<'NODE'
-          const cp=require('child_process'),fs=require('fs');
+          const cp=require('child_process'),fs=require('fs'),crypto=require('crypto');
           const decisions=JSON.parse(fs.readFileSync('data/kexam-source-review-decisions.json','utf8'));
           if(decisions.schema_version!==1)throw new Error('decision schema_version must be 1');
           if(!Array.isArray(decisions.records))throw new Error('decision records must be an array');
@@ -67,6 +67,7 @@ jobs:
           const validDate=s=>dateRe.test(String(s||''))&&!Number.isNaN(Date.parse(String(s)+'T00:00:00Z'))&&String(s)<=today;
           const cleanText=(v,name,id,min=1)=>{const s=String(v||'').trim();if(s.length<min)throw new Error(id+' missing/invalid '+name);return s};
           const hashRe=/^[a-f0-9]{64}$/;
+          const batchIdRe=/^SRB-\d{8}-[a-f0-9]{12}$/;
           const validateReviewedContentHash=(id,rec,baseline)=>{
             const reviewedHash=String(rec?.reviewed_content_sha256||'').trim().toLowerCase();
             const existing=manifest.source_overrides?.[id];
@@ -82,6 +83,26 @@ jobs:
             if(reviewedHash!==baseline.sha256)throw new Error(id+' review is stale: reviewed_content_sha256 does not match current content baseline');
             return 'bound';
           };
+          const currentDecisionRows=decisions.records.filter(rec=>String(rec?.reviewed_content_sha256||'').trim());
+          const hasBatchIdentity=Boolean(String(decisions.batch_id||'').trim()||String(decisions.batch_snapshot_sha256||'').trim()||currentDecisionRows.some(rec=>String(rec?.review_batch_id||'').trim()));
+          if(hasBatchIdentity){
+            const batchId=String(decisions.batch_id||'').trim(),snapshot=String(decisions.batch_snapshot_sha256||'').trim().toLowerCase();
+            if(!batchIdRe.test(batchId))throw new Error('invalid or missing batch_id for hash-bound source review decisions');
+            if(!hashRe.test(snapshot))throw new Error('invalid or missing batch_snapshot_sha256');
+            for(const rec of currentDecisionRows){
+              if(String(rec.review_batch_id||'').trim()!==batchId)throw new Error(String(rec.question_id||'record')+' review_batch_id does not match decisions.batch_id');
+            }
+            const payload=currentDecisionRows.map(rec=>({
+              question_id:String(rec.question_id||''),
+              content_sha256:String(rec.reviewed_content_sha256||'').trim().toLowerCase()
+            })).sort((a,b)=>a.question_id.localeCompare(b.question_id));
+            const computed=crypto.createHash('sha256').update(JSON.stringify({review_mode:String(decisions.review_mode||'pending'),questions:payload}),'utf8').digest('hex');
+            if(computed!==snapshot)throw new Error('batch_snapshot_sha256 does not match the decision rows');
+            const expectedId=`SRB-${String(decisions.updated_at||'').replace(/-/g,'')}-${snapshot.slice(0,12)}`;
+            if(batchId!==expectedId)throw new Error('batch_id does not match updated_at + snapshot digest');
+            console.log('SOURCE REVIEW BATCH IDENTITY PASS',JSON.stringify({batchId,records:currentDecisionRows.length}));
+          }
+
           {
             const sample=Object.entries(integrity.questions||{}).find(([id])=>!manifest.positions?.[manifest.positions?.['tax-auditor']?.published_ids?.includes(id)?'tax-auditor':'revenue-academic']?.source_verified_ids?.includes(id));
             if(sample){
