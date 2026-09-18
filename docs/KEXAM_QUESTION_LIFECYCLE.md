@@ -90,6 +90,20 @@ Transition ที่อนุญาต:
 - การ Retire ต้องนำข้อออกจาก source-verified active state แต่คงประวัติ Question ID ไว้
 - ห้ามใช้ Lifecycle Decision เพื่อแก้เนื้อหาข้อสอบโดยตรง; การแก้เนื้อหาต้องผ่าน Content Review, Integrity Baseline และ QA ตามลำดับ
 
+## 8.3 Atomic Remediation Transaction
+
+สำหรับการแก้ข้อสอบจำนวนมากในคลังที่กำลังเผยแพร่และต้องคงจำนวนข้อให้ครบตลอดเวลา อนุญาตให้ใช้ workflow `K-EXAM Apply Tax Auditor Remediation` เป็นธุรกรรมแบบ atomic ได้ โดยมีข้อกำหนดดังนี้
+
+- ใช้เฉพาะ record ที่ผ่านการทบทวนใน `data/kexam-tax-auditor-remediation-decisions.json`
+- ต้องระบุ `remediation_id` ที่ไม่ซ้ำ, Question ID, SHA-256 เดิมที่คาดไว้, เนื้อหาใหม่, วันที่ตรวจ และเหตุผล
+- Question ID ต้องอยู่สถานะ Published และ SHA-256 ก่อนแก้ต้องตรงทั้งคลังจริงและ Content Integrity Baseline
+- workflow ถือว่าแต่ละข้อผ่านลำดับภายใน Published → Reviewed → Verified → Published ภายในธุรกรรมเดียว และต้องบันทึกลำดับนี้ใน `remediation_log`
+- ห้ามเผยแพร่สถานะกลางของธุรกรรม; bank, content integrity และ publication manifest ต้องถูก commit พร้อมกัน
+- ข้อที่เคย `source_state = verified` ต้องกำหนด `reset_source_verification = true` และกลับเป็น pending ก่อนตรวจแหล่งอ้างอิงใหม่
+- เนื้อหาใหม่ต้องผ่าน QA ทั้งคลัง รวมถึง 4 ตัวเลือก คำตอบเดียว คำอธิบาย/เหตุผลสัมพันธ์กับตัวเลือก และโจทย์ใหม่ของข้อที่แก้ต้องไม่ซ้ำหลัง normalize
+- จำนวน Published ของตำแหน่งต้องไม่ลดลงจาก 1,000 ข้อในผลลัพธ์สุดท้าย
+- การใช้ atomic remediation ไม่ใช่ช่องทางข้าม QA, Source Verification หรือการควบคุม Content Integrity
+
 ## 9. QA Gate
 Workflow `K-EXAM Publication Lifecycle Verify` ต้องตรวจอย่างน้อย
 - lifecycle ครบทุก Question ID ในคลัง
