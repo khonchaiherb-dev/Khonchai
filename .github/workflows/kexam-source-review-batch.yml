@@ -363,6 +363,11 @@ jobs:
           let registry={schema_version:1,updated_at:new Date().toISOString(),batches:[]};
           if(fs.existsSync(path))registry=JSON.parse(fs.readFileSync(path,'utf8'));
           if(registry.schema_version!==1||!Array.isArray(registry.batches))throw new Error('invalid source review batch registry');
+          for(const b of registry.batches){
+            if(b.status==='generated'&&!b.reservation_expires_at){
+              const t=Date.parse(String(b.generated_at||''));if(Number.isFinite(t))b.reservation_expires_at=new Date(t+30*86400000).toISOString();
+            }
+          }
           const existing=registry.batches.find(x=>x.batch_id===entry.batch_id);
           if(existing){
             if(existing.batch_snapshot_sha256!==entry.batch_snapshot_sha256)throw new Error('batch_id collision with different snapshot '+entry.batch_id);
