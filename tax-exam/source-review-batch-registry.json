@@ -1,7 +1,83 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-18T12:19:25.138Z",
+  "updated_at": "2026-09-18T12:26:05.076Z",
   "batches": [
+    {
+      "batch_id": "SRB-20260918-51ee796c34c6",
+      "batch_snapshot_sha256": "51ee796c34c6776b7ce806362d1038f197a86d0dfc99e7a8ff526f8de360b686",
+      "generated_at": "2026-09-18T12:26:03.928Z",
+      "review_mode": "pending",
+      "batch_size": 50,
+      "selection_policy": "priority score first, then stratified by position and topic",
+      "selection_summary": {
+        "positions": {
+          "revenue-academic": 46,
+          "tax-auditor": 4
+        },
+        "topics": {
+          "ภาษีเงินได้นิติบุคคล": 13,
+          "ภาษีเงินได้บุคคลธรรมดา": 15,
+          "ภาษีมูลค่าเพิ่ม (VAT)": 22
+        }
+      },
+      "question_ids": [
+        "RA-S05-Q060",
+        "RA-S05-Q094",
+        "RA-S06-Q061",
+        "RA-S06-Q064",
+        "RA-S07-Q002",
+        "RA-S07-Q030",
+        "RA-S07-Q051",
+        "RA-S07-Q063",
+        "RA-S07-Q082",
+        "RA-S07-Q091",
+        "RA-S07-Q096",
+        "RA-S08-Q001",
+        "RA-S08-Q059",
+        "RA-S05-Q079",
+        "RA-S06-Q009",
+        "RA-S06-Q034",
+        "RA-S06-Q039",
+        "RA-S06-Q055",
+        "RA-S06-Q063",
+        "RA-S06-Q091",
+        "RA-S06-Q100",
+        "RA-S07-Q043",
+        "RA-S08-Q009",
+        "RA-S08-Q016",
+        "RA-S08-Q031",
+        "RA-S08-Q089",
+        "RA-S09-Q017",
+        "RA-S09-Q018",
+        "RA-S06-Q018",
+        "RA-S06-Q026",
+        "RA-S06-Q041",
+        "RA-S07-Q041",
+        "RA-S07-Q047",
+        "RA-S07-Q073",
+        "RA-S07-Q087",
+        "RA-S08-Q020",
+        "RA-S08-Q021",
+        "RA-S08-Q036",
+        "RA-S08-Q047",
+        "RA-S08-Q058",
+        "RA-S08-Q086",
+        "RA-S08-Q092",
+        "RA-S09-Q006",
+        "RA-S09-Q031",
+        "RA-S09-Q047",
+        "RA-S09-Q070",
+        "TA-S05-Q075",
+        "TA-S06-Q082",
+        "TA-S07-Q085",
+        "TA-S08-Q046"
+      ],
+      "status": "generated",
+      "created_run_id": "35344623871",
+      "reservation_expires_at": "2026-10-18T12:26:03.928Z",
+      "applied_at": null,
+      "decision_counts": null
+    },
     {
       "batch_id": "SRB-20260918-5be16e599cec",
       "batch_snapshot_sha256": "5be16e599cec7f242735d1cdb1ac27aa979219bba81dee5d1aa52cd818074fb0",
@@ -75,7 +151,8 @@
       "status": "generated",
       "created_run_id": "35344030557",
       "applied_at": null,
-      "decision_counts": null
+      "decision_counts": null,
+      "reservation_expires_at": "2026-10-18T12:19:23.550Z"
     }
   ]
 }
