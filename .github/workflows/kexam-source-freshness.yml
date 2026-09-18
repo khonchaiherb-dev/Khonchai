@@ -1,0 +1,118 @@
+name: K-EXAM Source Freshness Watch
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-source-freshness.yml'
+      - 'docs/KEXAM_SOURCE_REVIEW_PIPELINE.md'
+  workflow_dispatch:
+  schedule:
+    - cron: '20 0 * * 1'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 1
+
+      - name: Build source re-verification watchlist
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs'),zlib=require('zlib');
+          const manifest=JSON.parse(fs.readFileSync('tax-exam/question-publication-manifest.json','utf8'));
+          const integrity=JSON.parse(fs.readFileSync('tax-exam/question-content-integrity.json','utf8'));
+          const configs={
+            'tax-auditor':{prefix:'TA',files:['bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt']},
+            'revenue-academic':{prefix:'RA',files:['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt']}
+          };
+          const today=new Date();today.setUTCHours(0,0,0,0);
+          const addDays=(date,n)=>{const d=new Date(date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d};
+          const ymd=d=>d.toISOString().slice(0,10);
+          const daysBetween=(a,b)=>Math.round((b-a)/86400000);
+          const questionText={};
+          for(const [position,cfg] of Object.entries(configs)){
+            const b64=cfg.files.map(f=>fs.readFileSync('tax-exam/'+f,'utf8').trim()).join('').replace(/\s+/g,'');
+            const d=JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8'));
+            d.q.forEach((set,si)=>set.forEach((r,qi)=>{
+              const id=`${cfg.prefix}-S${String(si+1).padStart(2,'0')}-Q${String(qi+1).padStart(3,'0')}`;
+              questionText[id]={position,category:String(d.s[r[0]]||''),prompt:String(d.s[r[1]]||'')};
+            }));
+          }
+          const intervalFor=(q,o)=>{
+            const text=((q?.category||'')+' '+(q?.prompt||'')+' '+(o?.review_note||'')).toLowerCase();
+            if(/ปัจจุบัน|ล่าสุด|สถานการณ์|แนวโน้ม|ในปี|พ\.ศ\.|อัตราแลกเปลี่ยน|เงินเฟ้อ|gdp|ดอกเบี้ย/.test(text))return{days:90,tier:'เปลี่ยนแปลงเร็ว'};
+            if(/อัตรา|ร้อยละ|เปอร์เซ็นต์|%|เกณฑ์|บาท|กำหนดเวลา|ภายใน\s*\d+|\d+\s*(วัน|เดือน|ปี)|จดทะเบียน|เบี้ยปรับ|เงินเพิ่ม|ยกเว้น/.test(text))return{days:180,tier:'ต้องทบทวนเป็นระยะ'};
+            return{days:365,tier:'กฎหมาย/หลักเกณฑ์ทั่วไป'};
+          };
+          const rows=[];
+          for(const [id,o] of Object.entries(manifest.source_overrides||{})){
+            if(o?.source_state!=='verified')continue;
+            const baseline=integrity.questions?.[id];
+            if(!baseline||o.content_sha256!==baseline.sha256)throw new Error('source/content hash mismatch '+id);
+            const refs=Array.isArray(o.source_refs)?o.source_refs:[];
+            if(!refs.length)throw new Error('verified source has no refs '+id);
+            const checked=refs.map(r=>String(r.checked_at||'')).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)).sort();
+            if(!checked.length)throw new Error('verified source has no checked_at '+id);
+            const lastChecked=checked[0]; // conservative: oldest supporting reference controls review date
+            const policy=intervalFor(questionText[id],o),due=addDays(lastChecked,policy.days),daysUntil=daysBetween(today,due);
+            const status=daysUntil<0?'เกินกำหนด':daysUntil<=30?'ใกล้ครบกำหนด':'ยังสดใหม่';
+            rows.push({
+              question_id:id,
+              position:questionText[id]?.position||baseline.position,
+              category:questionText[id]?.category||'',
+              prompt:questionText[id]?.prompt||'',
+              checked_at:lastChecked,
+              review_interval_days:policy.days,
+              freshness_tier:policy.tier,
+              due_at:ymd(due),
+              days_until_due:daysUntil,
+              status,
+              source_count:refs.length,
+              content_sha256:o.content_sha256
+            });
+          }
+          rows.sort((a,b)=>a.days_until_due-b.days_until_due||a.question_id.localeCompare(b.question_id));
+          const summary={
+            total_verified:rows.length,
+            overdue:rows.filter(x=>x.status==='เกินกำหนด').length,
+            due_soon:rows.filter(x=>x.status==='ใกล้ครบกำหนด').length,
+            fresh:rows.filter(x=>x.status==='ยังสดใหม่').length,
+            positions:Object.fromEntries(Object.keys(configs).map(p=>[p,{total:rows.filter(x=>x.position===p).length,overdue:rows.filter(x=>x.position===p&&x.status==='เกินกำหนด').length,due_soon:rows.filter(x=>x.position===p&&x.status==='ใกล้ครบกำหนด').length}]))
+          };
+          const output={
+            schema_version:1,
+            generated_at:new Date().toISOString(),
+            policy:{
+              note:'Watchlist only. Overdue status does not automatically make a question incorrect or retire it.',
+              fast_change_days:90,
+              threshold_rate_time_limit_days:180,
+              general_rule_days:365,
+              checked_at_basis:'oldest supporting source reference'
+            },
+            summary,rows
+          };
+          fs.writeFileSync('tax-exam/source-reverification-watchlist.json',JSON.stringify(output,null,2));
+          console.log('SOURCE FRESHNESS',JSON.stringify(summary));
+          NODE
+
+      - name: Publish source freshness watchlist
+        if: github.ref == 'refs/heads/main' || github.event_name == 'schedule'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tax-exam/source-reverification-watchlist.json
+          if git diff --cached --quiet; then
+            echo "Source freshness watchlist unchanged"
+            exit 0
+          fi
+          git commit -m "Update source re-verification watchlist"
+          git push origin HEAD:gh-pages
