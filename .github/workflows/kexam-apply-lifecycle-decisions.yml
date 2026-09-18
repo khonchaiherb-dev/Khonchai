@@ -1,0 +1,221 @@
+name: K-EXAM Apply Lifecycle Decisions
+on:
+  push:
+    paths:
+      - 'data/kexam-lifecycle-decisions.json'
+      - 'docs/KEXAM_QUESTION_LIFECYCLE.md'
+      - '.github/workflows/kexam-apply-lifecycle-decisions.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  validate-and-apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Validate lifecycle decisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages --depth=1
+          node <<'NODE'
+          const cp=require('child_process'),fs=require('fs'),zlib=require('zlib'),crypto=require('crypto');
+          const decisions=JSON.parse(fs.readFileSync('data/kexam-lifecycle-decisions.json','utf8'));
+          if(decisions.schema_version!==1)throw new Error('lifecycle decision schema_version must be 1');
+          if(!Array.isArray(decisions.records))throw new Error('lifecycle decision records must be an array');
+
+          const show=p=>cp.execFileSync('git',['show',`origin/gh-pages:${p}`],{encoding:'utf8',maxBuffer:64*1024*1024});
+          const manifest=JSON.parse(show('tax-exam/question-publication-manifest.json'));
+          const integrity=JSON.parse(show('tax-exam/question-content-integrity.json'));
+          if(manifest.schema_version!==1)throw new Error('publication manifest schema_version must be 1');
+          if(integrity.schema_version!==1||integrity.algorithm!=='sha256')throw new Error('content integrity baseline invalid');
+          if(Object.keys(integrity.questions||{}).length!==2000)throw new Error('content integrity baseline must contain exactly 2,000 IDs');
+
+          const lifecycleFields={Draft:'draft_ids',Reviewed:'reviewed_ids',Verified:'verified_ids',Published:'published_ids',Retired:'retired_ids'};
+          const validStatuses=new Set(Object.keys(lifecycleFields));
+          const allowedTransitions=new Set([
+            'Draft>Reviewed',
+            'Reviewed>Verified',
+            'Verified>Published',
+            'Published>Reviewed',
+            'Reviewed>Retired',
+            'Verified>Retired',
+            'Published>Retired',
+            'Retired>Reviewed'
+          ]);
+          const configs={
+            'tax-auditor':{prefix:'TA',files:['bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt']},
+            'revenue-academic':{prefix:'RA',files:['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt']}
+          };
+          const canonical=(data,r)=>JSON.stringify({
+            category:String(data.s[r[0]]??''),
+            prompt:String(data.s[r[1]]??''),
+            choices:(r[2]||[]).map(i=>String(data.s[i]??'')),
+            answer:r[3],
+            explanation:String(data.s[r[4]]??''),
+            wrong_reasons:String(data.s[r[5]]??'')
+          });
+          const sha256=x=>crypto.createHash('sha256').update(x,'utf8').digest('hex');
+          const bankHash=new Map();
+          for(const [position,cfg] of Object.entries(configs)){
+            const b64=cfg.files.map(f=>show('tax-exam/'+f).trim()).join('').replace(/\s+/g,'');
+            const d=JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8'));
+            if(!Array.isArray(d.q)||d.q.length!==10||d.q.some(set=>set.length!==100))throw new Error(position+' bank invalid');
+            d.q.forEach((set,si)=>set.forEach((r,qi)=>{
+              const id=`${cfg.prefix}-S${String(si+1).padStart(2,'0')}-Q${String(qi+1).padStart(3,'0')}`;
+              bankHash.set(id,sha256(canonical(d,r)));
+            }));
+          }
+
+          const out=structuredClone(manifest);
+          out.lifecycle_decision_log=Array.isArray(out.lifecycle_decision_log)?out.lifecycle_decision_log:[];
+          const appliedById=new Map(out.lifecycle_decision_log.map(x=>[String(x.decision_id),x]));
+          const idToPosition=new Map(),idToStatus=new Map();
+          for(const [position,p] of Object.entries(out.positions||{})){
+            for(const [status,field] of Object.entries(lifecycleFields)){
+              if(!Array.isArray(p[field]))throw new Error(position+' missing '+field);
+              for(const id of p[field]){
+                if(idToPosition.has(id))throw new Error('Question ID appears in multiple lifecycle states: '+id);
+                idToPosition.set(id,position);idToStatus.set(id,status);
+              }
+            }
+          }
+          if(idToPosition.size!==2000)throw new Error('lifecycle must cover exactly 2,000 Question IDs');
+
+          const today=new Date().toISOString().slice(0,10),dateRe=/^\d{4}-\d{2}-\d{2}$/;
+          const validDate=s=>dateRe.test(String(s||''))&&!Number.isNaN(Date.parse(String(s)+'T00:00:00Z'))&&String(s)<=today;
+          const clean=(v,name,id,min=1)=>{const x=String(v||'').trim();if(x.length<min)throw new Error(id+' missing/invalid '+name);return x};
+          const recordSignature=rec=>sha256(JSON.stringify({
+            decision_id:String(rec.decision_id||''),
+            question_id:String(rec.question_id||''),
+            from_status:String(rec.from_status||''),
+            to_status:String(rec.to_status||''),
+            decided_at:String(rec.decided_at||''),
+            reason:String(rec.reason||'').trim(),
+            reset_source_verification:Boolean(rec.reset_source_verification)
+          }));
+          const seen=new Set();
+          const newRecords=[];
+
+          const removeFromAll=(p,id)=>{for(const field of Object.values(lifecycleFields))p[field]=(p[field]||[]).filter(x=>x!==id)};
+          const pushUnique=(arr,id)=>{if(!arr.includes(id))arr.push(id);return arr};
+          const resetSource=(p,id)=>{
+            p.source_verified_ids=Array.isArray(p.source_verified_ids)?p.source_verified_ids.filter(x=>x!==id):[];
+            const o=out.source_overrides?.[id];
+            if(o){
+              o.source_state='pending';
+              o.review_result='lifecycle_reopened';
+              delete o.content_hash_algorithm;
+              delete o.content_sha256;
+            }
+          };
+
+          for(const rec of decisions.records){
+            const decisionId=clean(rec?.decision_id,'decision_id','record',8);
+            if(seen.has(decisionId))throw new Error('duplicate decision_id '+decisionId);seen.add(decisionId);
+            const id=clean(rec?.question_id,'question_id',decisionId);
+            if(!idToPosition.has(id))throw new Error(decisionId+' unknown Question ID '+id);
+            const from=clean(rec?.from_status,'from_status',decisionId),to=clean(rec?.to_status,'to_status',decisionId);
+            if(!validStatuses.has(from)||!validStatuses.has(to))throw new Error(decisionId+' invalid lifecycle status');
+            if(!allowedTransitions.has(from+'>'+to))throw new Error(decisionId+' transition not allowed: '+from+' -> '+to);
+            if(!validDate(rec?.decided_at))throw new Error(decisionId+' decided_at must be valid YYYY-MM-DD and not future');
+            const reason=clean(rec?.reason,'reason',decisionId,12);
+            const signature=recordSignature(rec);
+            const previous=appliedById.get(decisionId);
+            if(previous){
+              if(previous.decision_signature!==signature)throw new Error('decision_id collision with different content: '+decisionId);
+              console.log('SKIP already applied',decisionId,id,from+'>'+to);
+              continue;
+            }
+
+            const current=idToStatus.get(id);
+            if(current!==from)throw new Error(decisionId+' expected '+from+' but current status is '+current);
+            const position=idToPosition.get(id),p=out.positions[position];
+            const baseline=integrity.questions?.[id],liveHash=bankHash.get(id);
+            if(!baseline||!liveHash)throw new Error(decisionId+' missing content hash for '+id);
+
+            if(to==='Verified'||to==='Published'){
+              if(liveHash!==baseline.sha256)throw new Error(decisionId+' cannot move '+id+' to '+to+' because live content does not match reviewed integrity baseline');
+            }
+            if(to==='Published'){
+              const o=out.source_overrides?.[id];
+              if(o?.source_state==='verified'&&(o.content_hash_algorithm!=='sha256'||o.content_sha256!==baseline.sha256)){
+                throw new Error(decisionId+' source verification hash is stale for '+id);
+              }
+            }
+
+            const sourceVerified=(p.source_verified_ids||[]).includes(id)||out.source_overrides?.[id]?.source_state==='verified';
+            if(from==='Published'&&to==='Reviewed'&&sourceVerified&&!rec.reset_source_verification){
+              throw new Error(decisionId+' must set reset_source_verification=true before reopening source-verified Published item '+id);
+            }
+
+            removeFromAll(p,id);
+            pushUnique(p[lifecycleFields[to]],id);
+            if((from==='Published'&&to==='Reviewed'&&sourceVerified)||to==='Retired'){
+              resetSource(p,id);
+            }
+            idToStatus.set(id,to);
+
+            const logEntry={
+              decision_id:decisionId,
+              decision_signature:signature,
+              question_id:id,
+              position,
+              from_status:from,
+              to_status:to,
+              decided_at:String(rec.decided_at),
+              reason,
+              reset_source_verification:Boolean(rec.reset_source_verification),
+              content_sha256:baseline.sha256,
+              applied_at:new Date().toISOString()
+            };
+            out.lifecycle_decision_log.push(logEntry);appliedById.set(decisionId,logEntry);newRecords.push(logEntry);
+          }
+
+          for(const p of Object.values(out.positions||{})){
+            for(const field of Object.values(lifecycleFields))p[field]=[...new Set(p[field]||[])].sort();
+            p.source_verified_ids=[...new Set(p.source_verified_ids||[])].sort();
+          }
+          out.generated_at=today;
+          fs.writeFileSync('/tmp/question-publication-manifest.json',JSON.stringify(out,null,2)+'\n');
+          console.log('LIFECYCLE DECISIONS',JSON.stringify({records:decisions.records.length,newly_applied:newRecords.length,skipped:decisions.records.length-newRecords.length,log_size:out.lifecycle_decision_log.length}));
+          NODE
+
+      - name: Apply lifecycle decisions to deployed manifest
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$(node -p "require('./data/kexam-lifecycle-decisions.json').records.length")" = "0" ]; then
+            echo "No lifecycle decisions to apply"
+            exit 0
+          fi
+          git fetch origin gh-pages --depth=1
+          git checkout -B gh-pages origin/gh-pages
+          cp /tmp/question-publication-manifest.json tax-exam/question-publication-manifest.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tax-exam/question-publication-manifest.json
+          if git diff --cached --quiet; then
+            echo "Publication manifest unchanged"
+          else
+            git commit -m "Apply lifecycle decisions"
+            git push origin HEAD:gh-pages
+          fi
+
+      - name: Refresh lifecycle dependent checks
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run kexam-publication-lifecycle-verify.yml --ref main
+          gh workflow run kexam-source-verification-backlog.yml --ref main
+          gh workflow run kexam-source-freshness.yml --ref main

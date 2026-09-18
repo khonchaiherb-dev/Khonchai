@@ -69,6 +69,27 @@ Runtime ต้องโหลดเฉพาะ Question ID ที่อยู�
 - ห้ามเพิ่มหรือลด Question ID ผ่านการ refresh baseline; การเปลี่ยน identity ของข้อสอบต้องจัดการเป็นกระบวนการแยกต่างหาก
 - การกด refresh เพียงอย่างเดียวไม่ถือเป็นการอนุมัติเนื้อหา และไม่สามารถข้าม Content Review หรือ Source Verification ได้
 
+## 8.2 Lifecycle Decision Pipeline
+การเปลี่ยนสถานะต้องดำเนินการผ่าน `data/kexam-lifecycle-decisions.json` และ workflow `K-EXAM Apply Lifecycle Decisions` เพื่อให้มีประวัติการตัดสินใจและป้องกันการเปลี่ยนสถานะแบบข้ามขั้น
+
+Transition ที่อนุญาต:
+- Draft → Reviewed
+- Reviewed → Verified
+- Verified → Published
+- Published → Reviewed
+- Reviewed → Retired
+- Verified → Retired
+- Published → Retired
+- Retired → Reviewed
+
+กฎสำคัญ:
+- ทุก decision ต้องมี `decision_id` ที่ไม่ซ้ำ, Question ID, สถานะต้นทาง/ปลายทาง, วันที่ตัดสินใจ และเหตุผล
+- ระบบเก็บ decision signature ใน manifest เพื่อป้องกัน decision เดิมถูกแก้แล้วนำกลับมาใช้ซ้ำ
+- การย้ายไป Verified หรือ Published ต้องมี content SHA-256 ของคลังจริงตรงกับ Content Integrity Baseline
+- Published → Reviewed สำหรับข้อที่ source-verified ต้องกำหนด `reset_source_verification = true` เพื่อกลับไปตรวจแหล่งอ้างอิงใหม่ก่อนแก้สาระ
+- การ Retire ต้องนำข้อออกจาก source-verified active state แต่คงประวัติ Question ID ไว้
+- ห้ามใช้ Lifecycle Decision เพื่อแก้เนื้อหาข้อสอบโดยตรง; การแก้เนื้อหาต้องผ่าน Content Review, Integrity Baseline และ QA ตามลำดับ
+
 ## 9. QA Gate
 Workflow `K-EXAM Publication Lifecycle Verify` ต้องตรวจอย่างน้อย
 - lifecycle ครบทุก Question ID ในคลัง
