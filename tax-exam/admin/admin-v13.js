@@ -23,12 +23,13 @@
           const attempts=Number(x?.attempts)||0,correct=Number(x?.correct)||0,choices=Array.isArray(x?.choices)?x.choices.map(v=>Number(v)||0):[0,0,0,0],answer=Number(x?.answer);
           if(!attempts)continue;
           const accuracy=Math.round(correct/attempts*100),unused=choices.reduce((n,v,i)=>n+(i!==answer&&v===0?1:0),0);
-          const risk=(attempts>=3?(accuracy<35?4:accuracy>95?1:0):0)+(unused>=2?3:unused)+(attempts>=5?1:0);
-          out.push({id,position,attempts,correct,accuracy,unused,risk,choices,answer,category:String(x?.category||''),topic:String(x?.topic||''),prompt:String(x?.prompt||''),lastSeen:Number(x?.lastSeen)||0});
+          let reviewScore=Number(x?.reviewScore);const flags=Array.isArray(x?.reviewFlags)?x.reviewFlags:[];
+          if(!Number.isFinite(reviewScore)){reviewScore=0;if(attempts>=3&&accuracy<35)reviewScore+=32;if(attempts>=5&&accuracy>95)reviewScore+=18;reviewScore+=Math.min(36,unused*12);reviewScore+=Math.min(14,Math.max(0,attempts-2)*2);reviewScore=Math.min(100,Math.round(reviewScore))}
+          out.push({id,position,attempts,correct,accuracy,unused,reviewScore,flags,choices,answer,category:String(x?.category||''),topic:String(x?.topic||''),prompt:String(x?.prompt||''),lastSeen:Number(x?.lastSeen)||0});
         }
       }catch{}
     }
-    return out.sort((a,b)=>b.risk-a.risk||b.attempts-a.attempts||a.accuracy-b.accuracy||a.id.localeCompare(b.id)).slice(0,40);
+    return out.sort((a,b)=>b.reviewScore-a.reviewScore||b.attempts-a.attempts||a.accuracy-b.accuracy||a.id.localeCompare(b.id)).slice(0,40);
   }
   function localSnapshot(){
     const ev=localEvents(),now=Date.now(),today=new Date().toISOString().slice(0,10),isToday=e=>String(e.client_time||'').slice(0,10)===today;
@@ -75,7 +76,7 @@
   }
   function itemStatsList(rows=null){
     const src=Array.isArray(rows)?rows:localItemStats();if(!src.length)return '<div class="empty">ยังไม่มีสถิติรายข้อ กรุณาทำและส่งข้อสอบอย่างน้อย 1 ครั้ง</div>';
-    return `<div class="list">${src.slice(0,50).map(r=>{const id=r.question_id||r.id||'ไม่มีรหัส',unused=Number(r.unused_distractors??r.unused)||0,accuracy=Number(r.accuracy)||0,attempts=Number(r.attempts)||0,pos=r.position==='revenue-academic'?'นักวิชาการสรรพากรฯ':r.position==='tax-auditor'?'นักตรวจสอบภาษีฯ':r.position||'-',flag=attempts>=3&&(accuracy<35||accuracy>95||unused>=2)?'ควรตรวจ':'ติดตาม',choices=Array.isArray(r.choices)?r.choices.join('/'):'–';return `<div class="row"><div><div class="name">${esc(id)} · ${accuracy}% ถูก · ทำ ${fmt(attempts)} ครั้ง</div><div class="meta">${esc(pos)}${r.topic||r.category?` · ${esc(r.topic||r.category)}`:''} · เลือก ก/ข/ค/ง = ${esc(choices)} · ตัวลวงไม่เคยถูกเลือก ${unused}/3${r.prompt?`<br>${esc(String(r.prompt).slice(0,170))}`:''}</div></div><div class="val">${flag}</div></div>`}).join('')}</div>`;
+    return `<div class="list">${src.slice(0,50).map(r=>{const id=r.question_id||r.id||'ไม่มีรหัส',unused=Number(r.unused_distractors??r.unused)||0,accuracy=Number(r.accuracy)||0,attempts=Number(r.attempts)||0,posKey=r.position||'',pos=posKey==='revenue-academic'?'นักวิชาการสรรพากรฯ':posKey==='tax-auditor'?'นักตรวจสอบภาษีฯ':posKey||'-',reviewScore=Number(r.review_score??r.reviewScore)||0,choices=Array.isArray(r.choices)?r.choices.join('/'):'–',href=`../?position=${encodeURIComponent(posKey)}&question=${encodeURIComponent(id)}`;return `<div class="row"><div><div class="name">${esc(id)} · ${accuracy}% ถูก · ทำ ${fmt(attempts)} ครั้ง</div><div class="meta">${esc(pos)}${r.topic||r.category?` · ${esc(r.topic||r.category)}`:''} · เลือก ก/ข/ค/ง = ${esc(choices)} · ตัวลวงไม่เคยถูกเลือก ${unused}/3${r.prompt?`<br>${esc(String(r.prompt).slice(0,170))}`:''}</div></div><div class="val"><strong>${reviewScore}/100</strong><br><a href="${href}" target="_blank" rel="noopener">เปิดข้อ</a></div></div>`}).join('')}</div>`;
   }
   function topicStatsList(rows=[]){
     if(!rows.length)return '<div class="empty">ยังไม่มีข้อมูลหัวข้อย่อย</div>';
