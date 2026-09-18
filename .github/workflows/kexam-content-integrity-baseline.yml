@@ -1,4 +1,5 @@
 name: K-EXAM Content Integrity Baseline
+# gh-pages writer safety: targeted concurrency + rebase retry
 
 on:
   push:
