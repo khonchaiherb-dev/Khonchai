@@ -16,16 +16,47 @@ async function loadCompactBank(key=currentPosition){
 }
 function questionId(si,qi){const prefix=currentPosition==='revenue-academic'?'RA':'TA';return `${prefix}-S${String(si+1).padStart(2,'0')}-Q${String(qi+1).padStart(3,'0')}`}
 function parseQuestionId(id){const m=/^(RA|TA)-S(\d{2})-Q(\d{3})$/.exec(String(id||''));if(!m)return null;const expected=currentPosition==='revenue-academic'?'RA':'TA';if(m[1]!==expected)return null;const si=Number(m[2])-1,qi=Number(m[3])-1;return si>=0&&si<10&&qi>=0&&qi<100?{si,qi}:null}
-function decodeQuestion(c,r,si,qi){const t=c.s;return{id:questionId(si,qi),number:si*100+qi+1,sourceSet:si+1,sourceIndex:qi+1,category:t[r[0]],prompt:t[r[1]],choices:r[2].map(x=>t[x]),answer:r[3],explanation:t[r[4]],wrongReasons:t[r[5]]}}
+function deriveTopic(category,prompt){
+  const c=String(category||''),t=String(prompt||''),x=(c+' '+t).toLowerCase();
+  const rules=[
+    ['ภาษีมูลค่าเพิ่ม (VAT)',/ภาษีมูลค่าเพิ่ม|\bvat\b|ภาษีซื้อ|ภาษีขาย|จดทะเบียน.*มูลค่าเพิ่ม/i],
+    ['ภาษีธุรกิจเฉพาะ (SBT)',/ภาษีธุรกิจเฉพาะ|\bsbt\b/i],
+    ['อากรแสตมป์',/อากรแสตมป์|ตราสาร|แสตมป์บริบูรณ์/i],
+    ['ภาษีหัก ณ ที่จ่าย',/หัก\s*ณ\s*ที่จ่าย|withholding/i],
+    ['ภาษีเงินได้บุคคลธรรมดา',/ภาษีเงินได้บุคคลธรรมดา|เงินได้พึงประเมิน|มาตรา\s*40|ค่าลดหย่อน|เงินได้สุทธิ/i],
+    ['ภาษีเงินได้นิติบุคคล',/ภาษีเงินได้นิติบุคคล|กำไรสุทธิ|ขาดทุนสุทธิ|รอบระยะเวลาบัญชี|บริษัทหรือห้างหุ้นส่วนนิติบุคคล/i],
+    ['การประเมิน อุทธรณ์ และการบังคับทางภาษี',/เจ้าพนักงานประเมิน|หมายเรียก|การประเมิน|อุทธรณ์|คณะกรรมการพิจารณาอุทธรณ์|เบี้ยปรับ|เงินเพิ่ม|ยึด|อายัด/i],
+    ['การบัญชีและงบการเงิน',/งบการเงิน|งบดุล|งบแสดงฐานะ|งบกำไรขาดทุน|กระแสเงินสด|สินทรัพย์|หนี้สิน|ส่วนของผู้ถือหุ้น|บัญชี/i],
+    ['ข้อมูลส่วนบุคคล (PDPA)',/pdpa|ข้อมูลส่วนบุคคล|เจ้าของข้อมูล|ผู้ควบคุมข้อมูล|ผู้ประมวลผลข้อมูล/i],
+    ['ข้อมูลข่าวสารของราชการ',/ข้อมูลข่าวสาร|คณะกรรมการข้อมูลข่าวสาร|เปิดเผยข้อมูล|ข้อมูลที่ไม่ต้องเปิดเผย/i],
+    ['กรมสรรพากรและการบริการผู้เสียภาษี',/กรมสรรพากร|rd smart tax|e-filing|e-payment|tax service|ผู้เสียภาษี/i],
+    ['เศรษฐกิจ',/gdp|เงินเฟ้อ|ดอกเบี้ย|เศรษฐกิจ|การคลัง|การเงิน|การส่งออก|อัตราแลกเปลี่ยน/i],
+    ['เทคโนโลยีและดิจิทัล',/เทคโนโลยี|ดิจิทัล|ปัญญาประดิษฐ์|\bai\b|cyber|cloud|blockchain|big data/i],
+    ['สังคมและประชากร',/สังคม|ประชากร|ผู้สูงอายุ|แรงงาน|ความเหลื่อมล้ำ|ครัวเรือน/i]
+  ];
+  for(const [name,re] of rules)if(re.test(x))return name;
+  return c||'อื่น ๆ';
+}
+function decodeQuestion(c,r,si,qi){const t=c.s,category=t[r[0]],prompt=t[r[1]];return{id:questionId(si,qi),number:si*100+qi+1,sourceSet:si+1,sourceIndex:qi+1,category,topic:deriveTopic(category,prompt),prompt,choices:r[2].map(x=>t[x]),answer:r[3],explanation:t[r[4]],wrongReasons:t[r[5]]}}
 async function loadSet(n){const c=await loadCompactBank(),rows=c.q[n-1];return{set:n,title:`ชุดที่ ${n}`,questions:rows.map((r,i)=>decodeQuestion(c,r,n-1,i))}}
 function randomize(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){let j;if(globalThis.crypto?.getRandomValues){const x=new Uint32Array(1);crypto.getRandomValues(x);j=x[0]%(i+1)}else j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function allocateSample(groups,target){
+  const total=Object.values(groups).reduce((n,ids)=>n+ids.length,0);if(!total||target<=0)return[];
+  const entries=Object.entries(groups).map(([name,ids])=>{const raw=ids.length/total*target;return{name,ids,raw,quota:Math.floor(raw)}});
+  let left=target-entries.reduce((n,x)=>n+x.quota,0);
+  entries.sort((a,b)=>(b.raw-b.quota)-(a.raw-a.quota)||b.ids.length-a.ids.length||a.name.localeCompare(b.name,'th'));
+  for(let i=0;left>0&&entries.length;i=(i+1)%entries.length,left--)if(entries[i].quota<entries[i].ids.length)entries[i].quota++;
+  const chosen=[];entries.forEach(x=>chosen.push(...randomize(x.ids).slice(0,x.quota)));return chosen;
+}
 function buildRandomPlan(c){
-  const pools={};c.q.forEach((set,si)=>set.forEach((r,qi)=>{const cat=String(c.s[r[0]]||'ไม่ระบุ');(pools[cat]??=[]).push(`${si}:${qi}`)}));
-  const entries=Object.entries(pools).map(([cat,ids])=>({cat,ids,raw:ids.length/10,quota:Math.floor(ids.length/10)}));
-  let left=100-entries.reduce((n,x)=>n+x.quota,0);entries.sort((a,b)=>(b.raw-b.quota)-(a.raw-a.quota)||b.ids.length-a.ids.length);
-  for(let i=0;i<entries.length&&left>0;i++,left--)entries[i].quota++;
-  const chosen=[];entries.forEach(x=>chosen.push(...randomize(x.ids).slice(0,x.quota)));
-  if(chosen.length!==100)throw new Error('ไม่สามารถจัดสัดส่วนข้อสอบสุ่มให้ครบ 100 ข้อได้');
+  const cats={};let total=0;
+  c.q.forEach((set,si)=>set.forEach((r,qi)=>{const cat=String(c.s[r[0]]||'ไม่ระบุ'),prompt=String(c.s[r[1]]||''),topic=deriveTopic(cat,prompt);cats[cat]??={};(cats[cat][topic]??=[]).push(`${si}:${qi}`);total++}));
+  const catEntries=Object.entries(cats).map(([cat,topics])=>{const size=Object.values(topics).reduce((n,a)=>n+a.length,0),raw=size/total*100;return{cat,topics,size,raw,quota:Math.floor(raw)}});
+  let left=100-catEntries.reduce((n,x)=>n+x.quota,0);
+  catEntries.sort((a,b)=>(b.raw-b.quota)-(a.raw-a.quota)||b.size-a.size||a.cat.localeCompare(b.cat,'th'));
+  for(let i=0;left>0&&catEntries.length;i=(i+1)%catEntries.length,left--)if(catEntries[i].quota<catEntries[i].size)catEntries[i].quota++;
+  const chosen=[];catEntries.forEach(x=>chosen.push(...allocateSample(x.topics,x.quota)));
+  if(chosen.length!==100||new Set(chosen).size!==100)throw new Error('ไม่สามารถจัดสัดส่วนข้อสอบสุ่มตามหมวดและหัวข้อย่อยให้ครบ 100 ข้อได้');
   return randomize(chosen);
 }
 async function loadRandomSet(savedIds=null){
