@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow" />
   <meta name="theme-color" content="#050b16" />
   <title>K-EXAM Analytics Dashboard</title>
-  <link rel="stylesheet" href="admin-v13.css?v=17" />
+  <link rel="stylesheet" href="admin-v13.css?v=18" />
 </head>
 <body>
   <main class="shell">
@@ -38,11 +38,16 @@
       <div class="panel section"><div class="section-head"><div><h3>ชุดข้อสอบที่ถูกเปิดมากที่สุด</h3><div class="section-sub">ชุดที่ 1–10 ของแต่ละตำแหน่ง</div></div></div><div id="sets"></div></div>
     </section>
 
+    <section class="grid2">
+      <div class="panel section"><div class="section-head"><div><h3>โหมดการฝึกที่ถูกใช้งาน</h3><div class="section-sub">ชุดปกติ สุ่ม ข้อที่เคยผิด หมวดอ่อน และหัวข้อย่อยอ่อน</div></div></div><div id="modes"></div></div>
+      <div class="panel section"><div class="section-head"><div><h3>หัวข้อย่อยที่ควรทบทวนรวม</h3><div class="section-sub">รวมผลการส่งข้อสอบตามช่วงวันที่ที่เลือก เรียงจากร้อยละตอบถูกต่ำ</div></div></div><div id="topicStats"></div></div>
+    </section>
+
     <section class="panel section" style="margin-top:16px"><div class="section-head"><div><h3>ข้อที่ตอบผิดบ่อย</h3><div class="section-sub">ใช้สำหรับตรวจคุณภาพข้อสอบและวางแผนทบทวนเนื้อหา</div></div></div><div id="wrong"></div></section>
 
-    <section class="panel section" style="margin-top:16px"><div class="section-head"><div><h3>สถิติคุณภาพรายข้อ</h3><div class="section-sub">สรุปจากการทำข้อสอบในเบราว์เซอร์เครื่องนี้ด้วย Question ID: จำนวนครั้งที่ทำ ร้อยละตอบถูก และจำนวนตัวลวงที่ยังไม่เคยถูกเลือก</div></div></div><div id="itemStats"></div></section>
+    <section class="panel section" style="margin-top:16px"><div class="section-head"><div><h3>สถิติคุณภาพรายข้อ</h3><div class="section-sub">สรุปด้วย Question ID: จำนวนครั้งที่ทำ ร้อยละตอบถูก การกระจายตัวเลือก และจำนวนตัวลวงที่ยังไม่เคยถูกเลือก</div></div></div><div id="itemStats"></div></section>
 
-    <section class="panel section" style="margin-top:16px"><div class="section-head"><div><h3>รายงานปัญหาข้อสอบ</h3><div class="section-sub">รายการที่ผู้ทำข้อสอบกดแจ้งจากเบราว์เซอร์เครื่องนี้ พร้อม Question ID สำหรับตรวจทานต้นฉบับ</div></div></div><div id="questionReports"></div></section>
+    <section class="panel section" style="margin-top:16px"><div class="section-head"><div><h3>รายงานปัญหาข้อสอบ</h3><div class="section-sub">รายการที่ผู้ทำข้อสอบกดแจ้ง พร้อม Question ID และประเภทปัญหาเพื่อใช้ตรวจทานต้นฉบับ</div></div></div><div id="questionReports"></div></section>
 
     <section class="panel setup" id="setup">
       <div class="section-head"><div><h3>สถานะฐานข้อมูลส่วนกลาง</h3><div class="section-sub">หน้าแดชบอร์ดและระบบติดตามถูกติดตั้งแล้ว แต่ต้องเชื่อมฐานข้อมูลก่อนจึงจะรวมข้อมูลจากผู้ใช้ทุกคนได้</div></div></div>
@@ -59,7 +64,7 @@
 
     <div class="footer">K-EXAM · ติวสอบราชการ อาจารย์คิม · www.k-exam.com</div>
   </main>
-  <script src="../analytics-config.js?v=17"></script>
-  <script src="admin-v13.js?v=17"></script>
+  <script src="../analytics-config.js?v=18"></script>
+  <script src="admin-v13.js?v=18"></script>
 </body>
 </html>
