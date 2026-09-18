@@ -1,0 +1,84 @@
+name: K-EXAM Release Source Review Batch
+on:
+  workflow_dispatch:
+    inputs:
+      batch_id:
+        description: 'Batch ID เช่น SRB-20260918-xxxxxxxxxxxx'
+        required: true
+        type: string
+      reason:
+        description: 'เหตุผลที่ปลด reservation'
+        required: true
+        type: string
+
+concurrency:
+  group: kexam-source-review-registry-writer
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Release source review batch reservation
+        shell: bash
+        env:
+          BATCH_ID: ${{ inputs.batch_id }}
+          RELEASE_REASON: ${{ inputs.reason }}
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages --depth=1
+          git checkout -B gh-pages origin/gh-pages
+          node <<'NODE'
+          const fs=require('fs');
+          const path='tax-exam/source-review-batch-registry.json';
+          if(!fs.existsSync(path))throw new Error('source review batch registry not found');
+          const registry=JSON.parse(fs.readFileSync(path,'utf8'));
+          if(registry.schema_version!==1||!Array.isArray(registry.batches))throw new Error('invalid source review batch registry');
+          const batchId=String(process.env.BATCH_ID||'').trim(),reason=String(process.env.RELEASE_REASON||'').trim();
+          if(!/^SRB-\d{8}-[a-f0-9]{12}$/.test(batchId))throw new Error('invalid batch_id');
+          if(reason.length<8)throw new Error('release reason must be at least 8 characters');
+          const entry=registry.batches.find(b=>b.batch_id===batchId);
+          if(!entry)throw new Error('batch not found: '+batchId);
+          if(entry.status==='applied')throw new Error('cannot release an applied batch: '+batchId);
+          if(entry.status!=='generated')throw new Error('batch must be generated before release: '+batchId);
+          const now=new Date().toISOString();
+          if(entry.reservation_released_at){
+            if(String(entry.reservation_release_reason||'')!==reason)throw new Error('batch already released with a different reason');
+            console.log('RELEASE IDEMPOTENT',batchId,entry.reservation_released_at);
+          }else{
+            entry.reservation_released_at=now;
+            entry.reservation_expires_at=now;
+            entry.reservation_release_reason=reason;
+            entry.released_run_id=String(process.env.GITHUB_RUN_ID||'');
+            registry.updated_at=now;
+            console.log('RELEASED SOURCE REVIEW BATCH',JSON.stringify({batch_id:batchId,size:entry.batch_size,reason}));
+          }
+          fs.writeFileSync(path,JSON.stringify(registry,null,2)+'\n');
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tax-exam/source-review-batch-registry.json
+          if git diff --cached --quiet; then
+            echo "Registry unchanged"
+            exit 0
+          fi
+          git commit -m "Release source review batch reservation"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin gh-pages
+            if git rebase origin/gh-pages; then
+              if git push origin HEAD:gh-pages; then exit 0; fi
+            else
+              git rebase --abort || true
+            fi
+            sleep $((attempt * 2))
+          done
+          echo "Unable to release batch after 5 attempts" >&2
+          exit 1
