@@ -177,3 +177,15 @@ Registry **ห้าม** เก็บ prompt, choices, คำตอบ, explana
 - reservation ถือว่าหมดอายุ
 - Question ID สามารถกลับมาอยู่ใน batch ใหม่ได้ หากยังคงอยู่ใน Source Verification Backlog
 - Registry ยังคงเก็บประวัติ batch เดิมไว้ ไม่ลบย้อนหลัง
+
+
+## Operational registration vs CI smoke test
+
+การรัน `K-EXAM Source Review Batch` แยกเป็น 2 วัตถุประสงค์:
+
+- **workflow_dispatch** — เป็นการสร้างชุดตรวจสำหรับใช้งานจริง ระบบจึงลงทะเบียน batch ใน Registry และเปิด reservation 30 วัน
+- **push ที่เกิดจากการแก้ workflow/code** — ใช้เป็น CI smoke test เท่านั้น สามารถสร้าง private artifact เพื่อตรวจระบบ แต่ **ไม่ลงทะเบียน batch และไม่จอง Question ID**
+
+หลักนี้ป้องกันไม่ให้การพัฒนาระบบหรือแก้ CI ไปจอง Source Verification Backlog โดยที่ทีมตรวจยังไม่ได้ตั้งใจเริ่มงาน
+
+**CI push ไม่จอง Question ID** และไม่ควรเปลี่ยนสถานะ operational ของ Registry
