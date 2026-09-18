@@ -13,6 +13,7 @@ function recordItemStats(){
     x.attempts=(Number(x.attempts)||0)+1;x.correct=(Number(x.correct)||0)+(selected===q.answer?1:0);
     x.choices=Array.isArray(x.choices)&&x.choices.length===4?x.choices.map(v=>Number(v)||0):[0,0,0,0];
     if(Number.isInteger(selected)&&selected>=0&&selected<4)x.choices[selected]++;
+    const itemSec=Math.max(0,Math.round(Number(state.itemElapsed?.[i])||0));if(itemSec>0){x.timeTotal=(Number(x.timeTotal)||0)+itemSec;x.timeSamples=(Number(x.timeSamples)||0)+1}
     x.answer=q.answer;x.category=q.category||'';x.topic=q.topic||q.category||'';x.prompt=String(q.prompt||'').slice(0,240);x.lastSeen=now;
     g.itemStats[q.id]=x;
   });
