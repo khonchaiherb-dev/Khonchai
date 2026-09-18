@@ -45,7 +45,7 @@ jobs:
           const get=(r,i)=>String(d.s[r[i]]??'').trim();
           if(!Array.isArray(d.q)||d.q.length!==10||d.q.some(s=>!Array.isArray(s)||s.length!==100))throw new Error('ต้องมี 10 ชุด ชุดละ 100 ข้อ');
 
-          const prompts=[];const cats={};const explanations=[];const wrongReasons=[];
+          const prompts=[];const cats={};const explanations=[];const wrongReasons=[];const choiceSetKeys=[];
           d.q.forEach((set,si)=>{
             const ans=[0,0,0,0];
             const setCats={};
@@ -65,8 +65,10 @@ jobs:
               if(exp.length>420)throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: คำอธิบายยาวเกินมาตรฐานการอ่านทบทวน`);
               if(wrong.length>800)throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: เหตุผลตัวเลือกผิดยาวเกินมาตรฐานการอ่านทบทวน`);
               if(exp===wrong)throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: คำอธิบายและเหตุผลตัวเลือกผิดซ้ำกันทั้งข้อความ`);
+              if(!exp.includes(choices[r[3]]))throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: คำอธิบายไม่อ้างข้อความคำตอบที่ถูกต้อง`);
+              for(let ci=0;ci<4;ci++)if(ci!==r[3]&&!wrong.includes(choices[ci]))throw new Error(`ชุด ${si+1} ข้อ ${qi+1}: เหตุผลตัวเลือกผิดไม่อ้างตัวเลือก ${ci+1}`);
               ans[r[3]]++;
-              prompts.push(prompt);explanations.push(exp);wrongReasons.push(wrong);
+              prompts.push(prompt);explanations.push(exp);wrongReasons.push(wrong);choiceSetKeys.push(JSON.stringify([...choices].sort()));
               cats[cat]=(cats[cat]||0)+1;setCats[cat]=(setCats[cat]||0)+1;
             });
             if(ans.some(n=>n!==25))throw new Error(`ชุด ${si+1}: ต้องกระจายคำตอบ ก/ข/ค/ง อย่างละ 25 ข้อ แต่ได้ ${ans.join('/')}`);
@@ -81,6 +83,9 @@ jobs:
           const promptShapeCounts=new Map();let maxPromptShapeReuse=0;
           for(const p of prompts){const k=normNoNum(p),n=(promptShapeCounts.get(k)||0)+1;promptShapeCounts.set(k,n);if(n>maxPromptShapeReuse)maxPromptShapeReuse=n}
           if(maxPromptShapeReuse>10)throw new Error(`พบโครงคำถามคำนวณซ้ำเกินมาตรฐานนักตรวจสอบภาษี: สูงสุด ${maxPromptShapeReuse} ข้อ`);
+          const choiceSetCounts=new Map();let maxChoiceSetReuse=0;
+          for(const k of choiceSetKeys){const n=(choiceSetCounts.get(k)||0)+1;choiceSetCounts.set(k,n);if(n>maxChoiceSetReuse)maxChoiceSetReuse=n}
+          if(maxChoiceSetReuse>10)throw new Error(`พบชุดตัวเลือกซ้ำเกินมาตรฐานนักตรวจสอบภาษี: สูงสุด ${maxChoiceSetReuse} ข้อ`);
           const maxReuse=arr=>{
             const m=new Map();let mx=0;
             for(const s of arr){const k=norm(s);const n=(m.get(k)||0)+1;m.set(k,n);if(n>mx)mx=n}
@@ -95,6 +100,7 @@ jobs:
           console.log(`UNIQUE EXPLANATIONS ${new Set(explanations).size}/1000`);
           console.log(`UNIQUE WRONG-REASONS ${new Set(wrongReasons).size}/1000`);
           console.log(`MAX NORMALIZED PROMPT-SHAPE REUSE ${maxPromptShapeReuse}`);
+          console.log(`MAX EXACT CHOICE-SET REUSE ${maxChoiceSetReuse}`);
           console.log(`MAX NORMALIZED EXPLANATION REUSE ${maxExpReuse}; WRONG-REASON REUSE ${maxWrongReuse}`);
           console.log('PASS: นักวิชาการสรรพากรปฏิบัติการผ่านมาตรฐานโครงสร้างเดียวกับระบบนักตรวจสอบภาษีปฏิบัติการ');
           console.log('10 ชุด x 100 ข้อ, ชุดละ 60/15/15/10 ตามหมวด, 4 ตัวเลือก, 1 คำตอบ, ก/ข/ค/ง = 25/25/25/25 ต่อชุด, ไม่มีคำถามซ้ำ, มีคำอธิบายและเหตุผลตัวเลือกผิดครบ');
