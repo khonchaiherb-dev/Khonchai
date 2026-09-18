@@ -102,6 +102,48 @@ jobs:
             });
           }
 
+          // 1b) Diversify the remaining repeated VAT-registration distractor group.
+          const vatDistractors=[
+            'ให้เปลี่ยนไปเสียภาษีธุรกิจเฉพาะแทน VAT โดยอัตโนมัติเมื่อรายรับเกินเกณฑ์',
+            'ให้พิจารณาเกณฑ์จดทะเบียนจากกำไรสุทธิหลังหักรายจ่ายแทนจำนวนรายรับ',
+            'ต้องจดทะเบียน VAT ตั้งแต่วันเริ่มกิจการทุกกรณี แม้รายรับยังไม่ถึงเกณฑ์',
+            'เมื่อรายรับเกินเกณฑ์สามารถรอจนสิ้นปีถัดไปจึงยื่นจดทะเบียนได้',
+            'ไม่ต้องจดทะเบียน VAT หากกำไรสุทธิต่ำ แม้รายรับเกินเกณฑ์และไม่มีข้อยกเว้น',
+            'รายรับเกินเกณฑ์ทำให้พ้นหน้าที่ VAT และเข้าสู่ภาษีธุรกิจเฉพาะทันที',
+            'การจดทะเบียน VAT เป็นความสมัครใจเสมอ แม้รายรับเกินเกณฑ์และไม่มีข้อยกเว้น'
+          ];
+          let vatGroupsTouched=0,vatQuestionsChanged=0;
+          for(const group of [...choiceGroups.values()].filter(g=>g.length>=8)){
+            const joined=group[0].choices.join(' ');
+            if(!/VAT/i.test(joined)||!group.some(x=>/จดทะเบียน/i.test(x.choices.join(' '))))continue;
+            const allCorrectLookLikeRule=group.every(x=>{
+              const ct=x.choices[x.r[3]]||'';
+              return /จดทะเบียน/i.test(ct)&&(/30\s*วัน/.test(ct)||/เกินเกณฑ์/i.test(ct));
+            });
+            if(!allCorrectLookLikeRule)continue;
+            vatGroupsTouched++;
+            group.slice(5).forEach((x,idx)=>{
+              const oldChoices=(x.r[2]||[]).map(i=>String(d.s[i]??'').trim()),correctText=oldChoices[x.r[3]];
+              const pool=[...vatDistractors],combos=[];
+              for(let a=0;a<pool.length;a++)for(let b=a+1;b<pool.length;b++)for(let c=b+1;c<pool.length;c++)combos.push([pool[a],pool[b],pool[c]]);
+              let newChoices=null,newKey=null;
+              const offset=(idx+vatGroupsTouched)%combos.length;
+              for(let step=0;step<combos.length;step++){
+                const combo=combos[(offset+step)%combos.length],candidate=[...oldChoices];let wi=0;
+                for(let ci=0;ci<4;ci++){if(ci===x.r[3])continue;candidate[ci]=combo[wi++]}
+                const key=choiceKey(candidate);
+                if(new Set(candidate.map(norm)).size===4&&!usedChoiceKeys.has(key)){newChoices=candidate;newKey=key;break}
+              }
+              if(!newChoices)throw new Error('ไม่พบชุดตัวลวง VAT ใหม่ที่ไม่ซ้ำสำหรับ '+x.id);
+              usedChoiceKeys.add(newKey);
+              const wrongParts=[];
+              for(let ci=0;ci<4;ci++)if(ci!==x.r[3])wrongParts.push(`${newChoices[ci]} ไม่ถูกต้อง เพราะเกณฑ์จดทะเบียน VAT ในโจทย์พิจารณาหน้าที่จากจำนวนรายรับและเงื่อนไขของกิจการ ไม่ใช่หลักตามตัวเลือกนี้ ขณะที่คำตอบที่ถูกคือ ${correctText}`);
+              const newIdx=[];for(const text of newChoices){d.s.push(text);newIdx.push(d.s.length-1)}x.r[2]=newIdx;
+              put(x.r,5,wrongParts.join(' · '));
+              vatQuestionsChanged++;
+            });
+          }
+
           // 2) Diversify repeated prompt shapes with distinct exam-use contexts.
           // Core facts, numbers, legal assumptions and requested calculation remain unchanged.
           const shapeGroups=new Map();
@@ -144,6 +186,7 @@ jobs:
           }
           if(maxShapeReuse>6)throw new Error('โครงคำถามยังซ้ำเกินเป้าหมายรอบนี้: '+maxShapeReuse);
           console.log('choice_groups_touched',choiceGroupsTouched,'questions_with_new_distractors',changedChoices);
+          console.log('vat_groups_touched',vatGroupsTouched,'vat_questions_with_new_distractors',vatQuestionsChanged);
           console.log('prompt_groups_touched',promptGroupsTouched,'questions_with_context_refactor',changedPrompts);
           console.log('max_exact_choice_set_reuse_after',maxChoiceReuse);
           console.log('max_normalized_prompt_shape_reuse_after',maxShapeReuse);
