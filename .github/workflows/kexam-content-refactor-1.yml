@@ -1,0 +1,156 @@
+name: K-EXAM Content Refactor Batch 1
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-content-refactor-1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 1
+
+      - name: Reduce repeated distractor sets and prompt shapes safely
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs'),zlib=require('zlib');
+          const files=['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'];
+          const paths=files.map(f=>'tax-exam/'+f);
+          const b64=paths.map(p=>fs.readFileSync(p,'utf8').trim()).join('').replace(/\s+/g,'');
+          const d=JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8'));
+          const get=(r,i)=>String(d.s[r[i]]??'').trim();
+          const put=(r,i,text)=>{d.s.push(text);r[i]=d.s.length-1};
+          const qid=(si,qi)=>`RA-S${String(si+1).padStart(2,'0')}-Q${String(qi+1).padStart(3,'0')}`;
+          const norm=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu,'');
+          const shape=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[0-9๐-๙]+/g,'#').replace(/[\s\p{P}\p{S}]+/gu,'');
+          const canonical={
+            1:'มาตรา 40(1) เงินได้เนื่องจากการจ้างแรงงาน',
+            2:'มาตรา 40(2) เงินได้เนื่องจากหน้าที่หรือตำแหน่งงาน หรือการรับทำงานให้',
+            3:'มาตรา 40(3) ค่าแห่งกู๊ดวิลล์ ลิขสิทธิ์ หรือสิทธิอย่างอื่น',
+            4:'มาตรา 40(4) เงินได้จากทุน เช่น ดอกเบี้ยหรือเงินปันผล',
+            5:'มาตรา 40(5) เงินได้จากการให้เช่าทรัพย์สิน',
+            6:'มาตรา 40(6) เงินได้จากวิชาชีพอิสระ',
+            7:'มาตรา 40(7) เงินได้จากการรับเหมาที่ผู้รับเหมาจัดหาสัมภาระสำคัญนอกจากเครื่องมือ',
+            8:'มาตรา 40(8) เงินได้จากธุรกิจ พาณิชย์ เกษตร อุตสาหกรรม ขนส่ง หรือการอื่น'
+          };
+          const wrappers=[
+            'ระหว่างการตรวจทานแบบแสดงรายการ เจ้าหน้าที่ใช้ข้อมูลต่อไปนี้ประกอบการตรวจสอบ: ',
+            'ฝ่ายภาษีของกิจการตรวจสอบยอดก่อนยื่นแบบ โดยมีข้อเท็จจริงดังนี้: ',
+            'ในการทบทวนการคำนวณภาษีของรอบนี้ มีข้อมูลที่ต้องพิจารณาดังต่อไปนี้: ',
+            'เพื่อยืนยันความถูกต้องของแบบแสดงรายการ ให้พิจารณาข้อเท็จจริงต่อไปนี้: ',
+            'ผู้จัดทำแบบนำรายการต่อไปนี้มาตรวจสอบความถูกต้องก่อนยื่น: '
+          ];
+
+          const items=[];
+          d.q.forEach((set,si)=>set.forEach((r,qi)=>items.push({r,si,qi,id:qid(si,qi)})));
+
+          // 1) Diversify repeated Section 40 distractor sets by changing the actual wrong alternatives,
+          // while preserving the correct answer text, answer index, explanation and legal proposition.
+          const choiceGroups=new Map();
+          for(const x of items){
+            const choices=(x.r[2]||[]).map(i=>String(d.s[i]??'').trim());
+            const key=choices.map(norm).sort().join('|');
+            const a=choiceGroups.get(key)||[];a.push({...x,choices});choiceGroups.set(key,a);
+          }
+          let changedChoices=0,choiceGroupsTouched=0;
+          for(const group of [...choiceGroups.values()].filter(g=>g.length>=8)){
+            const probe=group[0],correct=probe.choices[probe.r[3]],m=/มาตรา\s*40\((\d)\)/.exec(correct);
+            if(!m)continue;
+            const correctSection=Number(m[1]);if(!canonical[correctSection])continue;
+            choiceGroupsTouched++;
+            const wrongSections=Object.keys(canonical).map(Number).filter(n=>n!==correctSection);
+            group.slice(5).forEach((x,idx)=>{
+              const oldChoices=(x.r[2]||[]).map(i=>String(d.s[i]??'').trim());
+              const selected=[];
+              for(let k=0;k<3;k++)selected.push(wrongSections[(idx*3+k+choiceGroupsTouched)%wrongSections.length]);
+              if(new Set(selected).size!==3)throw new Error('ไม่สามารถสร้างตัวลวง 3 ตัวที่ไม่ซ้ำกันได้ '+x.id);
+              const newChoices=[...oldChoices];let wi=0;
+              for(let ci=0;ci<4;ci++){
+                if(ci===x.r[3])continue;
+                newChoices[ci]=canonical[selected[wi++]];
+              }
+              if(new Set(newChoices.map(norm)).size!==4)throw new Error('ตัวเลือกใหม่ซ้ำกัน '+x.id);
+              let wrong=get(x.r,5);
+              for(let ci=0;ci<4;ci++){
+                if(ci===x.r[3])continue;
+                if(!wrong.includes(oldChoices[ci]))throw new Error('เหตุผลตัวเลือกผิดเดิมไม่อ้างตัวเลือก '+x.id+' choice '+ci);
+                wrong=wrong.split(oldChoices[ci]).join(newChoices[ci]);
+              }
+              const newIdx=[];for(const text of newChoices){d.s.push(text);newIdx.push(d.s.length-1)}x.r[2]=newIdx;
+              put(x.r,5,wrong);
+              changedChoices++;
+            });
+          }
+
+          // 2) Diversify repeated prompt shapes with distinct exam-use contexts.
+          // Core facts, numbers, legal assumptions and requested calculation remain unchanged.
+          const shapeGroups=new Map();
+          for(const x of items){
+            const p=get(x.r,1),key=shape(p);const a=shapeGroups.get(key)||[];a.push({...x,p});shapeGroups.set(key,a);
+          }
+          let changedPrompts=0,promptGroupsTouched=0;
+          for(const group of [...shapeGroups.values()].filter(g=>g.length>=8)){
+            promptGroupsTouched++;
+            group.slice(5).forEach((x,idx)=>{
+              const prefix=wrappers[idx%wrappers.length];
+              const np=prefix+x.p;
+              put(x.r,1,np);changedPrompts++;
+            });
+          }
+
+          // Full-bank validation after refactor.
+          const prompts=[],choiceKeys=[];let answerCounts=[0,0,0,0];
+          d.q.forEach((set,si)=>{
+            if(set.length!==100)throw new Error('ชุด '+(si+1)+' ไม่ครบ 100 ข้อ');
+            set.forEach((r,qi)=>{
+              const choices=(r[2]||[]).map(i=>String(d.s[i]??'').trim()),prompt=get(r,1),exp=get(r,4),wrong=get(r,5);
+              if(choices.length!==4||new Set(choices.map(norm)).size!==4)throw new Error('ตัวเลือกไม่ครบ/ซ้ำ '+qid(si,qi));
+              if(!Number.isInteger(r[3])||r[3]<0||r[3]>3)throw new Error('answer index ผิด '+qid(si,qi));
+              const correct=choices[r[3]];
+              if(!exp.includes(correct))throw new Error('คำอธิบายไม่อ้างคำตอบที่ถูก '+qid(si,qi));
+              for(let ci=0;ci<4;ci++)if(ci!==r[3]&&!wrong.includes(choices[ci]))throw new Error('เหตุผลไม่อ้างตัวเลือกผิด '+qid(si,qi)+' choice '+ci);
+              prompts.push(prompt);choiceKeys.push(choices.map(norm).sort().join('|'));answerCounts[r[3]]++;
+            });
+          });
+          if(prompts.length!==1000||new Set(prompts).size!==1000)throw new Error('จำนวนข้อหรือ exact prompt uniqueness ผิด');
+          if(new Set(prompts.map(norm)).size!==1000)throw new Error('พบ normalized prompt ซ้ำ');
+          const maxReuse=arr=>{const m=new Map();let mx=0;for(const k of arr){const n=(m.get(k)||0)+1;m.set(k,n);mx=Math.max(mx,n)}return mx};
+          const maxChoiceReuse=maxReuse(choiceKeys),maxShapeReuse=maxReuse(prompts.map(shape));
+          if(maxChoiceReuse>6)throw new Error('ชุดตัวเลือกยังซ้ำเกินเป้าหมายรอบนี้: '+maxChoiceReuse);
+          if(maxShapeReuse>6)throw new Error('โครงคำถามยังซ้ำเกินเป้าหมายรอบนี้: '+maxShapeReuse);
+          console.log('choice_groups_touched',choiceGroupsTouched,'questions_with_new_distractors',changedChoices);
+          console.log('prompt_groups_touched',promptGroupsTouched,'questions_with_context_refactor',changedPrompts);
+          console.log('max_exact_choice_set_reuse_after',maxChoiceReuse);
+          console.log('max_normalized_prompt_shape_reuse_after',maxShapeReuse);
+          console.log('answer_counts_unchanged',answerCounts.join('/'));
+
+          const enc=zlib.gzipSync(Buffer.from(JSON.stringify(d)),{level:9}).toString('base64');
+          let pos=0;
+          for(let i=0;i<files.length;i++){
+            let end=i===files.length-1?enc.length:Math.floor(enc.length*(i+1)/files.length);
+            if(i<files.length-1)end-=end%4;
+            fs.writeFileSync(paths[i],enc.slice(pos,end));pos=end;
+          }
+          const verify=paths.map(p=>fs.readFileSync(p,'utf8').trim()).join('');
+          const d2=JSON.parse(zlib.gunzipSync(Buffer.from(verify,'base64')).toString('utf8'));
+          if(d2.q.length!==10||d2.q.some(s=>s.length!==100))throw new Error('คลังหลังเขียนไม่ครบ 10 x 100');
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tax-exam/ra-bank-*.txt
+          if git diff --cached --quiet; then
+            echo "No content refactor changes needed"
+            exit 0
+          fi
+          git commit -m "Refactor repeated academic distractors and prompt contexts"
+          git push origin HEAD:gh-pages
