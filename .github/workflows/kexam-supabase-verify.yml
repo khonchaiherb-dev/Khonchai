@@ -49,6 +49,7 @@ jobs:
           SQL
           psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 -f supabase/migrations/20260918_kexam_analytics.sql
           psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 -f supabase/migrations/20260918_kexam_item_analytics_v2.sql
+          psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 -f supabase/migrations/20260918_kexam_item_discrimination_v3.sql
 
       - name: Verify centralized item analytics
         run: |
@@ -90,6 +91,19 @@ jobs:
             end if;
             if not (j->'item_stats' @> '[{"question_id":"RA-S01-Q001"}]'::jsonb) then
               raise exception 'RA-S01-Q001 missing from item_stats';
+            end if;
+            if not exists (
+              select 1
+              from jsonb_array_elements(j->'item_stats') x
+              where x->>'question_id'='RA-S01-Q002'
+                and (x->>'difficulty_index')::numeric = 0.500
+                and (x->>'distractor_efficiency')::numeric between 33.3 and 33.4
+                and (x->>'discrimination')::numeric < 0
+                and x ? 'avg_rest_correct'
+                and x ? 'avg_rest_incorrect'
+                and x ? 'quality_status'
+            ) then
+              raise exception 'v3 item discrimination fields invalid: %',j->'item_stats';
             end if;
             if not (j->'question_reports' @> '[{"question_id":"RA-S01-Q002"}]'::jsonb) then
               raise exception 'question report missing';

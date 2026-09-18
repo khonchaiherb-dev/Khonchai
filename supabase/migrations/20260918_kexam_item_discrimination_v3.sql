@@ -1,3 +1,7 @@
+-- K-EXAM centralized item analytics v3
+-- Adds corrected-rest-score discrimination and distractor efficiency.
+-- Safe to apply after 20260918_kexam_item_analytics_v2.sql.
+
 alter table public.kexam_events
   drop constraint if exists kexam_events_event_name_check;
 
@@ -26,6 +30,11 @@ base as (
 ),
 submit_base as (
   select b.*,
+         case
+           when (b.metadata->>'total') ~ '^[0-9]+$' and (b.metadata->>'total')::int > 0
+             then (b.metadata->>'total')::int
+           else null
+         end as total_questions,
          case
            when (b.metadata->>'total') ~ '^[0-9]+$' and (b.metadata->>'total')::int > 0
              then round((coalesce(b.score,0)::numeric * 100.0 / (b.metadata->>'total')::int),2)
@@ -118,26 +127,55 @@ wrong as (
   ) s
 ),
 item_answers as (
-  select b.position_key,
+  select b.id event_id,
+         b.position_key,
          b.anonymous_hash,
          split_part(i.value,'|',1) question_id,
          split_part(i.value,'|',2)::smallint selected_choice,
-         split_part(i.value,'|',3)::smallint correct_choice
-  from base b
-  cross join lateral jsonb_array_elements_text(case when jsonb_typeof(b.metadata->'item_responses')='array' then b.metadata->'item_responses' else '[]'::jsonb end) i(value)
-  where b.event_name='exam_submit'
-    and i.value ~ '^(RA|TA)-S[0-9]{2}-Q[0-9]{3}\|[0-3]\|[0-3]$'
+         split_part(i.value,'|',3)::smallint correct_choice,
+         b.total_questions,
+         case
+           when b.total_questions is not null
+             and b.total_questions > 1
+             and b.score is not null
+           then round(
+             (
+               (b.score - case when split_part(i.value,'|',2)=split_part(i.value,'|',3) then 1 else 0 end)::numeric
+               * 100.0
+               / (b.total_questions - 1)
+             ),
+             2
+           )
+           else null
+         end as rest_score_percent
+  from submit_base b
+  cross join lateral jsonb_array_elements_text(
+    case when jsonb_typeof(b.metadata->'item_responses')='array'
+      then b.metadata->'item_responses' else '[]'::jsonb end
+  ) i(value)
+  where i.value ~ '^(RA|TA)-S[0-9]{2}-Q[0-9]{3}\|[0-3]\|[0-3]$'
 ),
 item_agg as (
   select position_key,question_id,
          count(*)::int attempts,
          count(distinct anonymous_hash)::int users,
          count(*) filter(where selected_choice=correct_choice)::int correct,
+         count(*) filter(where selected_choice<>correct_choice)::int incorrect,
          max(correct_choice)::int answer,
          count(*) filter(where selected_choice=0)::int c0,
          count(*) filter(where selected_choice=1)::int c1,
          count(*) filter(where selected_choice=2)::int c2,
-         count(*) filter(where selected_choice=3)::int c3
+         count(*) filter(where selected_choice=3)::int c3,
+         round(avg(rest_score_percent) filter(where selected_choice=correct_choice),1) avg_rest_correct,
+         round(avg(rest_score_percent) filter(where selected_choice<>correct_choice),1) avg_rest_incorrect,
+         round(
+           (
+             avg(rest_score_percent) filter(where selected_choice=correct_choice)
+             -
+             avg(rest_score_percent) filter(where selected_choice<>correct_choice)
+           )::numeric,
+           1
+         ) discrimination
   from item_answers
   group by position_key,question_id
 ),
@@ -148,19 +186,72 @@ item_stats as (
     'attempts',attempts,
     'users',users,
     'correct',correct,
+    'incorrect',incorrect,
     'accuracy',case when attempts=0 then null else round(correct::numeric*100.0/attempts,1) end,
+    'difficulty_index',case when attempts=0 then null else round(correct::numeric/attempts,3) end,
     'answer',answer,
     'choices',jsonb_build_array(c0,c1,c2,c3),
     'unused_distractors',
       (case when answer<>0 and c0=0 then 1 else 0 end)+
       (case when answer<>1 and c1=0 then 1 else 0 end)+
       (case when answer<>2 and c2=0 then 1 else 0 end)+
-      (case when answer<>3 and c3=0 then 1 else 0 end)
-  ) order by attempts desc,correct::numeric/nullif(attempts,0) asc,question_id asc),'[]'::jsonb) value
+      (case when answer<>3 and c3=0 then 1 else 0 end),
+    'distractor_efficiency',round(
+      (
+        3-
+        (
+          (case when answer<>0 and c0=0 then 1 else 0 end)+
+          (case when answer<>1 and c1=0 then 1 else 0 end)+
+          (case when answer<>2 and c2=0 then 1 else 0 end)+
+          (case when answer<>3 and c3=0 then 1 else 0 end)
+        )
+      )::numeric*100.0/3.0,
+      1
+    ),
+    'avg_rest_correct',avg_rest_correct,
+    'avg_rest_incorrect',avg_rest_incorrect,
+    'discrimination',discrimination,
+    'quality_status',
+      case
+        when attempts < 5 then 'ข้อมูลยังน้อย'
+        when correct::numeric/nullif(attempts,0) < 0.20 then 'ยากผิดปกติ'
+        when correct::numeric/nullif(attempts,0) > 0.95 then 'ง่ายผิดปกติ'
+        when discrimination is not null and discrimination < 0 then 'ควรตรวจเร่งด่วน'
+        when discrimination is not null and discrimination < 10 then 'ควรตรวจ'
+        when (
+          (case when answer<>0 and c0=0 then 1 else 0 end)+
+          (case when answer<>1 and c1=0 then 1 else 0 end)+
+          (case when answer<>2 and c2=0 then 1 else 0 end)+
+          (case when answer<>3 and c3=0 then 1 else 0 end)
+        ) >= 2 then 'ตัวลวงควรปรับ'
+        else 'ปกติ'
+      end
+  ) order by
+      case
+        when attempts < 5 then 5
+        when discrimination is not null and discrimination < 0 then 1
+        when correct::numeric/nullif(attempts,0) < 0.20 then 2
+        when correct::numeric/nullif(attempts,0) > 0.95 then 2
+        when discrimination is not null and discrimination < 10 then 3
+        else 4
+      end,
+      attempts desc,
+      question_id asc
+  ),'[]'::jsonb) value
   from (
     select * from item_agg
-    order by attempts desc,correct::numeric/nullif(attempts,0) asc,question_id asc
-    limit 80
+    order by
+      case
+        when attempts < 5 then 5
+        when discrimination is not null and discrimination < 0 then 1
+        when correct::numeric/nullif(attempts,0) < 0.20 then 2
+        when correct::numeric/nullif(attempts,0) > 0.95 then 2
+        when discrimination is not null and discrimination < 10 then 3
+        else 4
+      end,
+      attempts desc,
+      question_id asc
+    limit 100
   ) x
 ),
 topic_rows as (

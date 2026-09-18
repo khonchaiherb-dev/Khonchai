@@ -1,3 +1,4 @@
+/// <reference lib="deno.ns" />
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const defaultOrigins=['https://khonchaiherb-dev.github.io','https://k-exam.com','https://www.k-exam.com'];
