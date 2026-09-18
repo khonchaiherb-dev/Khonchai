@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-18T10:53:57.654Z",
+  "generated_at": "2026-09-18T11:03:11.903Z",
   "policy": {
     "note": "Backlog only. Items remain governed by Publication Lifecycle and Content Integrity. Do not rewrite Published content directly.",
     "remediation_rule": "Use batch review; preserve Question ID; update bank+integrity+lifecycle atomically after QA."
   },
   "summary": {
     "total_questions": 1000,
-    "flagged_questions": 993,
-    "exact_duplicate_questions": 779,
-    "unique_exact_prompts": 362,
-    "urgent": 756,
+    "flagged_questions": 983,
+    "exact_duplicate_questions": 769,
+    "unique_exact_prompts": 371,
+    "urgent": 746,
     "high": 100,
     "normal": 137,
     "source_verified_flagged": 10,
@@ -100,33 +100,6 @@
         "wrong_reason": 1
       },
       "prompt": "มาตรา 9 แห่ง พ.ร.บ.ข้อมูลข่าวสารของราชการกำหนดหน้าที่สำคัญใด"
-    },
-    {
-      "question_id": "TA-S01-Q013",
-      "position": "tax-auditor",
-      "set": 1,
-      "question": 13,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "c1ea61b8b3d8eaecae40e3ccb2450b9c7feb0ce03495191aaf09d3a1139474ab",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 2
-      },
-      "prompt": "การให้บริการภาษีทางอิเล็กทรอนิกส์ควรมุ่งให้เกิดผลใด"
     },
     {
       "question_id": "TA-S01-Q016",
@@ -2289,33 +2262,6 @@
       "prompt": "ค่าบริการของเดือนธันวาคมบันทึกเป็นรายได้เดือนมกราคม ทั้งที่ให้บริการเสร็จและเกิดสิทธิเรียกร้องแล้วในธันวาคม ควรตรวจประเด็นใด"
     },
     {
-      "question_id": "TA-S02-Q080",
-      "position": "tax-auditor",
-      "set": 2,
-      "question": 80,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "6311629783ba97f0cb11f5c378ecdbecf1c288d94717fc9e6de4a898253720d8",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 1
-      },
-      "prompt": "การให้บริการภาษีทางอิเล็กทรอนิกส์ควรมุ่งให้เกิดผลใด"
-    },
-    {
       "question_id": "TA-S02-Q081",
       "position": "tax-auditor",
       "set": 2,
@@ -3097,33 +3043,6 @@
         "wrong_reason": 2
       },
       "prompt": "ค่าใช้จ่ายในเดือนสุดท้ายของรอบระยะเวลาบัญชีสูงผิดปกติ และมีเพียงใบสำคัญจ่ายภายในเป็นหลักฐาน ควรตรวจสอบอย่างไร"
-    },
-    {
-      "question_id": "TA-S03-Q040",
-      "position": "tax-auditor",
-      "set": 3,
-      "question": 40,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "b5a081fb5b15eea7572e6b33ef045db88d36c699327446c18ee63d2219ed2379",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 1
-      },
-      "prompt": "การให้บริการภาษีทางอิเล็กทรอนิกส์ควรมุ่งให้เกิดผลใด"
     },
     {
       "question_id": "TA-S03-Q043",
@@ -4692,33 +4611,6 @@
       "prompt": "มาตรา 15 แห่ง พ.ร.บ.ข้อมูลข่าวสารของราชการมีหลักใด"
     },
     {
-      "question_id": "TA-S04-Q063",
-      "position": "tax-auditor",
-      "set": 4,
-      "question": 63,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "b06ff9058002fe499faf842617ccdee18078883615c54ffa60117e5b5deaa443",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 1
-      },
-      "prompt": "การให้บริการภาษีทางอิเล็กทรอนิกส์ควรมุ่งให้เกิดผลใด"
-    },
-    {
       "question_id": "TA-S04-Q064",
       "position": "tax-auditor",
       "set": 4,
@@ -5770,33 +5662,6 @@
         "wrong_reason": 2
       },
       "prompt": "หลัก Zero Trust ให้ความสำคัญกับเรื่องใด"
-    },
-    {
-      "question_id": "TA-S05-Q049",
-      "position": "tax-auditor",
-      "set": 5,
-      "question": 49,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "48d00ffd1b8f6db9f216c8d36d939a7ddcab766b10ada39f1e66a14fdd16a285",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 1
-      },
-      "prompt": "การให้บริการภาษีทางอิเล็กทรอนิกส์ควรมุ่งให้เกิดผลใด"
     },
     {
       "question_id": "TA-S05-Q050",
@@ -7311,33 +7176,6 @@
       "prompt": "ผู้จ่ายมีหน้าที่หักภาษี ณ ที่จ่ายแต่ไม่ได้หักและนำส่ง ประเด็นแรกที่ควรพิจารณาคืออะไร"
     },
     {
-      "question_id": "TA-S06-Q061",
-      "position": "tax-auditor",
-      "set": 6,
-      "question": 61,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "c1ea61b8b3d8eaecae40e3ccb2450b9c7feb0ce03495191aaf09d3a1139474ab",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 2
-      },
-      "prompt": "การให้บริการภาษีทางอิเล็กทรอนิกส์ควรมุ่งให้เกิดผลใด"
-    },
-    {
       "question_id": "TA-S06-Q062",
       "position": "tax-auditor",
       "set": 6,
@@ -8553,33 +8391,6 @@
       "prompt": "การเสนอแนะนโยบายการจัดเก็บภาษีต่อกระทรวงการคลังเป็นอย่างไร"
     },
     {
-      "question_id": "TA-S07-Q066",
-      "position": "tax-auditor",
-      "set": 7,
-      "question": 66,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "5a2b96f3ce2423c8390b872e752d4aa55aaa55348d5e27df3dbd8f2459da789e",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 1
-      },
-      "prompt": "การให้บริการภาษีทางอิเล็กทรอนิกส์ควรมุ่งให้เกิดผลใด"
-    },
-    {
       "question_id": "TA-S07-Q067",
       "position": "tax-auditor",
       "set": 7,
@@ -9793,33 +9604,6 @@
         "wrong_reason": 1
       },
       "prompt": "ใบกำกับภาษีซื้อมีข้อมูลสำคัญไม่ครบ การพิจารณาสิทธิภาษีซื้อควรทำอย่างไร"
-    },
-    {
-      "question_id": "TA-S08-Q063",
-      "position": "tax-auditor",
-      "set": 8,
-      "question": 63,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "f63aef990b70429b91dffc3299531941937ad416700567f437872b7ab33c2866",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 1
-      },
-      "prompt": "การให้บริการภาษีทางอิเล็กทรอนิกส์ควรมุ่งให้เกิดผลใด"
     },
     {
       "question_id": "TA-S08-Q064",
@@ -11361,33 +11145,6 @@
       "prompt": "ในภาวะที่เศรษฐกิจขยายตัวในระดับต่ำและสินเชื่อของวิสาหกิจขนาดกลางและขนาดย่อมหดตัวต่อเนื่อง ควรติดตามประเด็นใดเป็นสำคัญ"
     },
     {
-      "question_id": "TA-S09-Q076",
-      "position": "tax-auditor",
-      "set": 9,
-      "question": 76,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "5d78f8a0e0198db60a554207e561b40411bcf78d1d5ec0857b4bcd92904215a5",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 1
-      },
-      "prompt": "การให้บริการภาษีทางอิเล็กทรอนิกส์ควรมุ่งให้เกิดผลใด"
-    },
-    {
       "question_id": "TA-S09-Q078",
       "position": "tax-auditor",
       "set": 9,
@@ -12304,33 +12061,6 @@
         "wrong_reason": 2
       },
       "prompt": "ขายสินค้าให้บุคคลเกี่ยวข้องต่ำกว่าราคาตลาดมากโดยไม่มีเหตุผลทางการค้า ควรทำอย่างไร"
-    },
-    {
-      "question_id": "TA-S10-Q052",
-      "position": "tax-auditor",
-      "set": 10,
-      "question": 52,
-      "category": "กรมสรรพากร",
-      "lifecycle_status": "Published",
-      "source_state": "pending",
-      "content_sha256": "8992d576490030f933697eee5b1523286cb56c31f9f0954c7e3a66607469d7d5",
-      "priority": "เร่งด่วน",
-      "priority_score": 125,
-      "reasons": [
-        "โจทย์ซ้ำตรงข้อความ 10 ข้อ",
-        "โครงโจทย์ซ้ำ 10 ข้อ",
-        "ชุดตัวเลือกซ้ำ 10 ข้อ",
-        "คำอธิบายซ้ำ 10 ข้อ"
-      ],
-      "duplicate_metrics": {
-        "exact_prompt": 10,
-        "normalized_prompt": 10,
-        "prompt_shape": 10,
-        "choice_set": 10,
-        "explanation": 10,
-        "wrong_reason": 1
-      },
-      "prompt": "การให้บริการภาษีทางอิเล็กทรอนิกส์ควรมุ่งให้เกิดผลใด"
     },
     {
       "question_id": "TA-S10-Q053",
