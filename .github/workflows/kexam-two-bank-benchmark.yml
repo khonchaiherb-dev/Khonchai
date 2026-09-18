@@ -1,0 +1,82 @@
+name: K-EXAM Two-Bank Benchmark
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-two-bank-benchmark.yml'
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare tax-auditor and revenue-academic bank quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages --depth=1
+          node <<'NODE'
+          const cp=require('child_process'),zlib=require('zlib');
+          const show=f=>cp.execFileSync('git',['show',`origin/gh-pages:tax-exam/${f}`],{encoding:'utf8',maxBuffer:8*1024*1024}).trim();
+          const banks={
+            auditor:['bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt'],
+            academic:['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt']
+          };
+          const normNoNum=s=>String(s).normalize('NFKC').toLowerCase().replace(/[0-9๐-๙]+/g,'#').replace(/[\s\p{P}\p{S}]+/gu,'');
+          const exact=s=>String(s).normalize('NFKC').trim();
+          function groups(items,keyFn){
+            const m=new Map();
+            for(const x of items){const k=keyFn(x);const a=m.get(k)||[];a.push(x);m.set(k,a)}
+            const g=[...m.values()].filter(a=>a.length>1).sort((a,b)=>b.length-a.length);
+            return {groups:g.length,max:g[0]?.length||1,questions:g.reduce((n,a)=>n+a.length,0)};
+          }
+          function decode(files){
+            const b64=files.map(show).join('').replace(/\s+/g,'');
+            return JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8'));
+          }
+          function audit(name,files){
+            const d=decode(files),items=[];
+            d.q.forEach((set,si)=>set.forEach((r,qi)=>items.push({
+              id:`${si+1}.${qi+1}`,
+              prompt:String(d.s[r[1]]??'').trim(),
+              choices:(r[2]||[]).map(x=>String(d.s[x]??'').trim()),
+              exp:String(d.s[r[4]]??'').trim(),
+              wrong:String(d.s[r[5]]??'').trim()
+            })));
+            const lens=key=>items.map(x=>x[key].length);
+            const avg=a=>Math.round(a.reduce((s,n)=>s+n,0)/a.length);
+            const median=a=>{const b=[...a].sort((x,y)=>x-y);return b[Math.floor(b.length/2)]};
+            const scenario=items.filter(x=>/กรณี|สถานการณ์|บริษัท|ห้างหุ้นส่วน|ผู้เสียภาษี|นาย|นาง|บุคคล|กิจการ|ผู้ประกอบการ/.test(x.prompt)).length;
+            const exactPrompt=groups(items,x=>exact(x.prompt));
+            const normPrompt=groups(items,x=>normNoNum(x.prompt));
+            const exactChoices=groups(items,x=>JSON.stringify([...x.choices].map(exact).sort()));
+            const exactExp=groups(items,x=>exact(x.exp));
+            const exactWrong=groups(items,x=>exact(x.wrong));
+            const out={
+              name,questions:items.length,scenario,
+              prompt:{avg:avg(lens('prompt')),median:median(lens('prompt')),min:Math.min(...lens('prompt')),max:Math.max(...lens('prompt'))},
+              explanation:{avg:avg(lens('exp')),median:median(lens('exp')),min:Math.min(...lens('exp')),max:Math.max(...lens('exp'))},
+              wrong:{avg:avg(lens('wrong')),median:median(lens('wrong')),min:Math.min(...lens('wrong')),max:Math.max(...lens('wrong'))},
+              exactPrompt,normPrompt,exactChoices,exactExp,exactWrong
+            };
+            console.log(name.toUpperCase(),JSON.stringify(out));
+            console.log(name.toUpperCase()+'_TOP_NORMALIZED_PROMPTS');
+            const m=new Map();
+            items.forEach(x=>{const k=normNoNum(x.prompt);const a=m.get(k)||[];a.push(x);m.set(k,a)});
+            [...m.values()].filter(a=>a.length>1).sort((a,b)=>b.length-a.length).slice(0,10)
+              .forEach(g=>console.log(g.length,g.slice(0,12).map(x=>x.id).join(','),'::',g[0].prompt.slice(0,180)));
+            return out;
+          }
+          const a=audit('auditor',banks.auditor);
+          const b=audit('academic',banks.academic);
+          console.log('COMPARISON',JSON.stringify({
+            normalized_prompt_max:{auditor:a.normPrompt.max,academic:b.normPrompt.max},
+            normalized_prompt_groups:{auditor:a.normPrompt.groups,academic:b.normPrompt.groups},
+            normalized_prompt_questions:{auditor:a.normPrompt.questions,academic:b.normPrompt.questions},
+            exact_choice_groups:{auditor:a.exactChoices.groups,academic:b.exactChoices.groups},
+            exact_choice_max:{auditor:a.exactChoices.max,academic:b.exactChoices.max},
+            scenario:{auditor:a.scenario,academic:b.scenario},
+            explanation_avg:{auditor:a.explanation.avg,academic:b.explanation.avg},
+            wrong_avg:{auditor:a.wrong.avg,academic:b.wrong.avg}
+          }));
+          NODE
