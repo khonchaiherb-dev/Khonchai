@@ -47,6 +47,11 @@
 
     <section class="panel section" style="margin-top:16px">
       <div class="section-head"><div><h3>คิวตรวจคุณภาพข้อสอบอัตโนมัติ</h3><div class="section-sub">รวมสัญญาณจาก p, D, ตัวลวงที่ไม่ทำงาน และรายงานจากผู้ใช้ เพื่อจัดลำดับ Question ID ที่ควรตรวจ</div></div></div>
+      <div class="top-actions" style="margin:8px 0 14px">
+        <select class="btn" id="qualityPriority" aria-label="ระดับความเร่งด่วน"><option value="">ทุกระดับ</option><option value="เร่งด่วน">เร่งด่วน</option><option value="ควรตรวจ">ควรตรวจ</option><option value="เฝ้าดู">เฝ้าดู</option></select>
+        <select class="btn" id="qualityPosition" aria-label="ตำแหน่ง"><option value="">ทุกตำแหน่ง</option></select>
+        <button class="btn" id="exportQuality">ส่งออก CSV</button>
+      </div>
       <div id="qualitySummary"></div>
       <div id="qualityQueue" style="margin-top:12px"></div>
     </section>
@@ -71,6 +76,6 @@
     <div class="footer">K-EXAM · ติวสอบราชการ อาจารย์คิม · www.k-exam.com</div>
   </main>
   <script src="../analytics-config.js?v=18"></script>
-  <script src="admin-v13.js?v=21"></script>
+  <script src="admin-v13.js?v=22"></script>
 </body>
 </html>

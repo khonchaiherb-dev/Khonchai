@@ -6,7 +6,7 @@
   const pct=n=>Number.isFinite(Number(n))?`${Math.round(Number(n)*10)/10}%`:'–';
   const endpoint=()=>{const b=String(CFG.supabaseUrl||'').replace(/\/$/,'');return b&&CFG.dashboardFunction?`${b}/functions/v1/${CFG.dashboardFunction}`:''};
   const connected=()=>Boolean(endpoint()&&CFG.supabaseAnonKey);
-  let days=30;
+  let days=30,qualityRowsCache=[];
 
   function localEvents(){try{return JSON.parse(localStorage.getItem('kexam_analytics_local_v1')||'[]')||[]}catch{return[]}}
   function localQuestionReports(){
@@ -85,6 +85,31 @@
     const total=Number(summary.total_flagged??(urgent+review+watch))||0;
     return `<div class="metrics"><div class="panel metric"><div class="label">ควรตรวจทั้งหมด</div><strong>${fmt(total)}</strong><small>Question ID ที่มีสัญญาณผิดปกติ</small></div><div class="panel metric"><div class="label">เร่งด่วน</div><strong>${fmt(urgent)}</strong><small>D ติดลบ/หลายสัญญาณร่วมกัน</small></div><div class="panel metric"><div class="label">ควรตรวจ</div><strong>${fmt(review)}</strong><small>ความเสี่ยงระดับกลาง</small></div><div class="panel metric"><div class="label">เฝ้าดู</div><strong>${fmt(watch)}</strong><small>ยังไม่ถึงระดับเร่งแก้</small></div></div>`;
   }
+  function syncQualityPositionOptions(rows=[]){
+    const el=$('#qualityPosition');if(!el)return;
+    const keep=el.value,values=[...new Set(rows.map(r=>String(r.position||'')).filter(Boolean))].sort();
+    el.innerHTML='<option value="">ทุกตำแหน่ง</option>'+values.map(v=>`<option value="${esc(v)}">${v==='revenue-academic'?'นักวิชาการสรรพากรปฏิบัติการ':v==='tax-auditor'?'นักตรวจสอบภาษีปฏิบัติการ':esc(v)}</option>`).join('');
+    if(values.includes(keep))el.value=keep;
+  }
+  function filteredQualityRows(){
+    const pri=$('#qualityPriority')?.value||'',pos=$('#qualityPosition')?.value||'';
+    return qualityRowsCache.filter(r=>(!pri||String(r.priority||'')===pri)&&(!pos||String(r.position||'')===pos));
+  }
+  function refreshQualityQueue(){
+    const rows=filteredQualityRows();$('#qualityQueue').innerHTML=qualityQueueList(rows);
+  }
+  function csvCell(v){const s=String(v??'');return '"'+s.replace(/"/g,'""')+'"'}
+  function exportQualityCsv(){
+    const rows=filteredQualityRows();if(!rows.length)return;
+    const header=['question_id','position','priority','risk_score','accuracy','discrimination','unused_distractors','reports','users','attempts'];
+    const lines=[header.join(',')];
+    for(const r of rows)lines.push([
+      r.question_id||r.id||'',r.position||'',r.priority||'',r.risk_score??'',r.accuracy??'',r.discrimination??'',r.unused_distractors??r.unused??'',r.reports??'',r.users??'',r.attempts??''
+    ].map(csvCell).join(','));
+    const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`kexam-quality-queue-${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0);
+  }
+
   function qualityQueueList(rows=[]){
     if(!rows.length)return '<div class="empty">ยังไม่มีข้อที่เข้าเกณฑ์คิวตรวจคุณภาพ</div>';
     return `<div class="list">${rows.slice(0,60).map(r=>{
@@ -141,8 +166,10 @@
     $('#topicStats').innerHTML=topicStatsList(data.topic_stats||[]);
     $('#wrong').innerHTML=list(data.top_wrong||[],'ระบบจะเริ่มแสดงเมื่อมีการส่งข้อสอบ');
     const qualityRows=remote?(data.quality_queue||[]):localQualityQueue();
-    $('#qualitySummary').innerHTML=qualitySummaryHtml(remote?(data.quality_summary||{}):{},qualityRows);
-    $('#qualityQueue').innerHTML=qualityQueueList(qualityRows);
+    qualityRowsCache=Array.isArray(qualityRows)?qualityRows:[];
+    syncQualityPositionOptions(qualityRowsCache);
+    $('#qualitySummary').innerHTML=qualitySummaryHtml(remote?(data.quality_summary||{}):{},qualityRowsCache);
+    refreshQualityQueue();
     $('#itemStats').innerHTML=itemStatsList(remote?(data.item_stats||[]):null);
     $('#questionReports').innerHTML=reportList(remote?(data.question_reports||[]):null);
     $('#dataMode').textContent=remote?'ฐานข้อมูลส่วนกลาง':'ข้อมูลเฉพาะเบราว์เซอร์เครื่องนี้';
@@ -174,6 +201,9 @@
     }finally{$('#refresh').disabled=false}
   }
 
+  $('#qualityPriority').onchange=refreshQualityQueue;
+  $('#qualityPosition').onchange=refreshQualityQueue;
+  $('#exportQuality').onclick=exportQualityCsv;
   $('#refresh').onclick=load;
   $('#days').onchange=e=>{days=Number(e.target.value)||30;load()};
   $('#loginBtn').onclick=()=>{const v=$('#adminKey').value.trim();if(!v)return;sessionStorage.setItem('kexam_admin_key',v);$('#adminKey').value='';load()};
