@@ -39,14 +39,14 @@ summary as (
     'unique_users_total',(select count(distinct anonymous_hash) from public.kexam_events),
     'unique_users_today',(select count(distinct anonymous_hash) from public.kexam_events,bounds where created_at >= today_start),
     'page_views_today',(select count(*) from public.kexam_events,bounds where event_name='page_view' and created_at >= today_start),
-    'exam_starts_today',(select count(*) from public.kexam_events,bounds where event_name='exam_open' and coalesce((metadata->>'show_result')::boolean,false)=false and created_at >= today_start),
+    'exam_starts_today',(select count(*) from public.kexam_events,bounds where event_name='exam_open' and coalesce(metadata->>'show_result','false') not in ('true','1') and created_at >= today_start),
     'submissions_today',(select count(*) from public.kexam_events,bounds where event_name='exam_submit' and created_at >= today_start),
     'active_30m',(select count(distinct anonymous_hash) from public.kexam_events where created_at >= now() - interval '30 minutes'),
     'avg_score',(select round(avg(score_percent),1) from submit_base where score_percent is not null),
     'completion_rate',(
       select case when starts=0 then null else round((submits::numeric/starts::numeric)*100,1) end
       from (
-        select count(*) filter (where event_name='exam_open' and coalesce((metadata->>'show_result')::boolean,false)=false) starts,
+        select count(*) filter (where event_name='exam_open' and coalesce(metadata->>'show_result','false') not in ('true','1')) starts,
                count(*) filter (where event_name='exam_submit') submits
         from base
       ) q
@@ -69,7 +69,7 @@ daily as (
   left join (
     select date_trunc('day',created_at) day,
            count(*) filter(where event_name='page_view') page_views,
-           count(*) filter(where event_name='exam_open' and coalesce((metadata->>'show_result')::boolean,false)=false) starts,
+           count(*) filter(where event_name='exam_open' and coalesce(metadata->>'show_result','false') not in ('true','1')) starts,
            count(*) filter(where event_name='exam_submit') submissions
     from base group by 1
   ) x on x.day=d.day
@@ -111,7 +111,7 @@ wrong as (
   from (
     select q.value question_id,count(*) value
     from base b
-    cross join lateral jsonb_array_elements_text(coalesce(b.metadata->'wrong_questions','[]'::jsonb)) q(value)
+    cross join lateral jsonb_array_elements_text(case when jsonb_typeof(b.metadata->'wrong_questions')='array' then b.metadata->'wrong_questions' else '[]'::jsonb end) q(value)
     where b.event_name='exam_submit'
       and length(q.value) between 1 and 64
     group by 1 order by 2 desc limit 20
@@ -124,7 +124,7 @@ item_answers as (
          split_part(i.value,'|',2)::smallint selected_choice,
          split_part(i.value,'|',3)::smallint correct_choice
   from base b
-  cross join lateral jsonb_array_elements_text(coalesce(b.metadata->'item_responses','[]'::jsonb)) i(value)
+  cross join lateral jsonb_array_elements_text(case when jsonb_typeof(b.metadata->'item_responses')='array' then b.metadata->'item_responses' else '[]'::jsonb end) i(value)
   where b.event_name='exam_submit'
     and i.value ~ '^(RA|TA)-S[0-9]{2}-Q[0-9]{3}\|[0-3]\|[0-3]$'
 ),
