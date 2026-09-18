@@ -109,6 +109,7 @@ jobs:
             schema_version:1,
             updated_at:new Date().toISOString().slice(0,10),
             records:outGroups.flatMap(g=>g.questions.map(q=>({
+              remediation_id:'TA-REM-'+q.question_id+'-'+String(q.content_sha256||'').slice(0,12),
               question_id:q.question_id,
               expected_content_sha256:q.content_sha256,
               action:'',
