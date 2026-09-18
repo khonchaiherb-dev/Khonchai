@@ -66,6 +66,34 @@ jobs:
           const dateRe=/^\d{4}-\d{2}-\d{2}$/;
           const validDate=s=>dateRe.test(String(s||''))&&!Number.isNaN(Date.parse(String(s)+'T00:00:00Z'))&&String(s)<=today;
           const cleanText=(v,name,id,min=1)=>{const s=String(v||'').trim();if(s.length<min)throw new Error(id+' missing/invalid '+name);return s};
+          const hashRe=/^[a-f0-9]{64}$/;
+          const validateReviewedContentHash=(id,rec,baseline)=>{
+            const reviewedHash=String(rec?.reviewed_content_sha256||'').trim().toLowerCase();
+            const existing=manifest.source_overrides?.[id];
+            const legacyApplied=existing?.source_state==='verified'
+              && existing?.content_sha256===baseline.sha256
+              && String(existing?.reviewed_at||'')===String(rec?.reviewed_at||'')
+              && String(existing?.review_note||'').trim()===String(rec?.review_note||'').trim();
+            if(!reviewedHash){
+              if(legacyApplied)return 'legacy-grandfathered';
+              throw new Error(id+' verified decision requires reviewed_content_sha256 from the review batch');
+            }
+            if(!hashRe.test(reviewedHash))throw new Error(id+' reviewed_content_sha256 must be SHA-256 hex');
+            if(reviewedHash!==baseline.sha256)throw new Error(id+' review is stale: reviewed_content_sha256 does not match current content baseline');
+            return 'bound';
+          };
+          {
+            const sample=Object.entries(integrity.questions||{}).find(([id])=>!manifest.positions?.[manifest.positions?.['tax-auditor']?.published_ids?.includes(id)?'tax-auditor':'revenue-academic']?.source_verified_ids?.includes(id));
+            if(sample){
+              const [id,baseline]=sample;
+              let blocked=false;
+              try{validateReviewedContentHash(id,{reviewed_at:today,review_note:'synthetic source hash self-test'},baseline)}catch(e){blocked=/requires reviewed_content_sha256/.test(String(e.message||e))}
+              if(!blocked)throw new Error('reviewed_content_sha256 self-test failed to block unbound verified decision');
+              const ok=validateReviewedContentHash(id,{reviewed_at:today,review_note:'synthetic source hash self-test',reviewed_content_sha256:baseline.sha256},baseline);
+              if(ok!=='bound')throw new Error('reviewed_content_sha256 self-test failed matching-hash path');
+              console.log('SOURCE REVIEW HASH SELF-TEST PASS',id);
+            }
+          }
 
           for(const rec of decisions.records){
             const id=cleanText(rec?.question_id,'question_id','record');
@@ -92,6 +120,8 @@ jobs:
               const baseline=integrity.questions?.[id];
               if(!baseline||!baseline.sha256)throw new Error(id+' missing content integrity hash');
               if(baseline.position!==idToPosition.get(id))throw new Error(id+' content integrity position mismatch');
+              const bindingMode=validateReviewedContentHash(id,rec,baseline);
+              if(bindingMode==='legacy-grandfathered')console.log('LEGACY SOURCE REVIEW GRANDFATHERED',id);
             }
           }
 
@@ -120,6 +150,7 @@ jobs:
                 source_state:'verified',
                 content_hash_algorithm:'sha256',
                 content_sha256:integrity.questions[id].sha256,
+                reviewed_content_sha256:integrity.questions[id].sha256,
                 source_refs:rec.source_refs.map(ref=>({
                   title:String(ref.title).trim(),
                   url:String(ref.url).trim(),
