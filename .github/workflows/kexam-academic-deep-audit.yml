@@ -1,0 +1,81 @@
+name: K-EXAM Academic Deep Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-academic-deep-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deep-audit revenue academic bank
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages --depth=1
+          node <<'NODE'
+          const cp=require('child_process'),zlib=require('zlib');
+          const show=f=>cp.execFileSync('git',['show',`origin/gh-pages:tax-exam/${f}`],{encoding:'utf8',maxBuffer:8*1024*1024}).trim();
+          const files=['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'];
+          const raw=Buffer.from(files.map(show).join('').replace(/\s+/g,''),'base64');
+          const d=JSON.parse(zlib.gunzipSync(raw).toString('utf8'));
+          const get=(r,i)=>String(d.s[r[i]]??'').trim();
+          const norm=s=>String(s).toLowerCase().replace(/[0-9๐-๙]+/g,'#').replace(/[\s\p{P}\p{S}]+/gu,'');
+          const setReports=[];
+          const allPrompts=[], allNorm=[], choiceSets=[], expNorm=[], wrongNorm=[];
+          let situational=0;
+          d.q.forEach((set,si)=>{
+            const cats={},ans=[0,0,0,0];
+            let minPrompt=1e9,minExp=1e9,minWrong=1e9;
+            set.forEach((r,qi)=>{
+              const cat=get(r,0),prompt=get(r,1),choices=(r[2]||[]).map(x=>String(d.s[x]??'').trim()),exp=get(r,4),wrong=get(r,5);
+              cats[cat]=(cats[cat]||0)+1; ans[r[3]]++;
+              minPrompt=Math.min(minPrompt,prompt.length);minExp=Math.min(minExp,exp.length);minWrong=Math.min(minWrong,wrong.length);
+              allPrompts.push({set:si+1,q:qi+1,text:prompt});
+              allNorm.push({set:si+1,q:qi+1,n:norm(prompt),text:prompt});
+              choiceSets.push({set:si+1,q:qi+1,n:choices.map(norm).sort().join('|')});
+              expNorm.push({set:si+1,q:qi+1,n:norm(exp)});
+              wrongNorm.push({set:si+1,q:qi+1,n:norm(wrong)});
+              if(/กรณี|สถานการณ์|บริษัท|ห้างหุ้นส่วน|ผู้เสียภาษี|นาย|นาง|บุคคล|กิจการ/.test(prompt))situational++;
+            });
+            setReports.push({set:si+1,cats,answers:ans,minPrompt,minExp,minWrong});
+          });
+          const dupGroups=(arr,minLen=1)=>{
+            const m=new Map();
+            for(const x of arr){if((x.n||'').length<minLen)continue;const a=m.get(x.n)||[];a.push(x);m.set(x.n,a)}
+            return [...m.values()].filter(a=>a.length>1).sort((a,b)=>b.length-a.length);
+          };
+          const exactPrompt=dupGroups(allPrompts.map(x=>({...x,n:x.text})),1);
+          const normalizedPrompt=dupGroups(allNorm,30);
+          const repeatedChoices=dupGroups(choiceSets,10);
+          const repeatedExp=dupGroups(expNorm,30);
+          const repeatedWrong=dupGroups(wrongNorm,30);
+          console.log('=== PER-SET CATEGORY / ANSWER BALANCE ===');
+          for(const r of setReports)console.log(JSON.stringify(r));
+          console.log('=== GLOBAL ===');
+          console.log('questions',allPrompts.length);
+          console.log('situational_or_case_based',situational);
+          console.log('exact_prompt_duplicate_groups',exactPrompt.length);
+          console.log('normalized_prompt_duplicate_groups',normalizedPrompt.length);
+          console.log('repeated_choice_set_groups',repeatedChoices.length);
+          console.log('repeated_explanation_groups',repeatedExp.length);
+          console.log('repeated_wrong_reason_groups',repeatedWrong.length);
+          if(normalizedPrompt.length){
+            console.log('=== TOP NORMALIZED PROMPT GROUPS ===');
+            normalizedPrompt.slice(0,12).forEach(g=>console.log(g.map(x=>`${x.set}.${x.q}`).join(','),'::',g[0].text.slice(0,180)));
+          }
+          if(repeatedChoices.length){
+            console.log('=== TOP REPEATED CHOICE-SET GROUPS ===');
+            repeatedChoices.slice(0,12).forEach(g=>console.log(g.map(x=>`${x.set}.${x.q}`).join(',')));
+          }
+          if(repeatedExp.length){
+            console.log('=== TOP REPEATED EXPLANATION GROUPS ===');
+            repeatedExp.slice(0,12).forEach(g=>console.log(g.map(x=>`${x.set}.${x.q}`).join(',')));
+          }
+          if(repeatedWrong.length){
+            console.log('=== TOP REPEATED WRONG-REASON GROUPS ===');
+            repeatedWrong.slice(0,12).forEach(g=>console.log(g.map(x=>`${x.set}.${x.q}`).join(',')));
+          }
+          NODE
