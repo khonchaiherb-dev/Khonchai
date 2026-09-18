@@ -75,7 +75,14 @@
   }
   function itemStatsList(rows=null){
     const src=Array.isArray(rows)?rows:localItemStats();if(!src.length)return '<div class="empty">ยังไม่มีสถิติรายข้อ กรุณาทำและส่งข้อสอบอย่างน้อย 1 ครั้ง</div>';
-    return `<div class="list">${src.slice(0,50).map(r=>{const id=r.question_id||r.id||'ไม่มีรหัส',unused=Number(r.unused_distractors??r.unused)||0,accuracy=Number(r.accuracy)||0,attempts=Number(r.attempts)||0,pos=r.position==='revenue-academic'?'นักวิชาการสรรพากรฯ':r.position==='tax-auditor'?'นักตรวจสอบภาษีฯ':r.position||'-',flag=attempts>=3&&(accuracy<35||accuracy>95||unused>=2)?'ควรตรวจ':'ติดตาม',choices=Array.isArray(r.choices)?r.choices.join('/'):'–';return `<div class="row"><div><div class="name">${esc(id)} · ${accuracy}% ถูก · ทำ ${fmt(attempts)} ครั้ง</div><div class="meta">${esc(pos)}${r.topic||r.category?` · ${esc(r.topic||r.category)}`:''} · เลือก ก/ข/ค/ง = ${esc(choices)} · ตัวลวงไม่เคยถูกเลือก ${unused}/3${r.prompt?`<br>${esc(String(r.prompt).slice(0,170))}`:''}</div></div><div class="val">${flag}</div></div>`}).join('')}</div>`;
+    return `<div class="list">${src.slice(0,60).map(r=>{
+      const id=r.question_id||r.id||'ไม่มีรหัส',unused=Number(r.unused_distractors??r.unused)||0,accuracy=Number(r.accuracy)||0,attempts=Number(r.attempts)||0,users=Number(r.users)||0;
+      const pos=r.position==='revenue-academic'?'นักวิชาการสรรพากรฯ':r.position==='tax-auditor'?'นักตรวจสอบภาษีฯ':r.position||'-',choices=Array.isArray(r.choices)?r.choices.join('/'):'–';
+      const diff=r.difficulty_index==null?null:Number(r.difficulty_index),disc=r.discrimination==null?null:Number(r.discrimination),de=r.distractor_efficiency==null?null:Number(r.distractor_efficiency);
+      const status=String(r.quality_status||'').trim()||(attempts>=3&&(accuracy<35||accuracy>95||unused>=2)?'ควรตรวจ':'ติดตาม');
+      const statBits=[`ถูก ${accuracy}%`,diff==null?null:`p=${diff.toFixed(3)}`,disc==null?null:`D=${disc.toFixed(1)}`,de==null?null:`DE=${de.toFixed(1)}%`].filter(Boolean).join(' · ');
+      return `<div class="row"><div><div class="name">${esc(id)} · ${esc(statBits)} · ทำ ${fmt(attempts)} ครั้ง${users?` / ${fmt(users)} ผู้ใช้`:''}</div><div class="meta">${esc(pos)}${r.topic||r.category?` · ${esc(r.topic||r.category)}`:''} · เลือก ก/ข/ค/ง = ${esc(choices)} · ตัวลวงไม่เคยถูกเลือก ${unused}/3${r.avg_rest_correct!=null||r.avg_rest_incorrect!=null?`<br>คะแนนข้ออื่นเฉลี่ย: กลุ่มตอบถูก ${esc(String(r.avg_rest_correct??'–'))}% · กลุ่มตอบผิด ${esc(String(r.avg_rest_incorrect??'–'))}%`:''}${r.prompt?`<br>${esc(String(r.prompt).slice(0,170))}`:''}</div></div><div class="val">${esc(status)}</div></div>`
+    }).join('')}</div>`;
   }
   function topicStatsList(rows=[]){
     if(!rows.length)return '<div class="empty">ยังไม่มีข้อมูลหัวข้อย่อย</div>';
