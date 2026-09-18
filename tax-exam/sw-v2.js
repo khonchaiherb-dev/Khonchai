@@ -1,5 +1,5 @@
-const CACHE='kexam-tax-v16';
-const CORE=['./','index.html','styles.css?v=16','enhancements-v8.css?v=16','polish-v9.css?v=16','positions-v10.css?v=16','cosmic-v12.css?v=16','analytics-config.js?v=16','analytics-v13.js?v=16','base64-fix.js?v=16','app-v3.js?v=16','app-v3-part1.txt','app-v3-part2.txt','app-v3-part3.txt','app-v3-part4.txt','manifest.webmanifest?v=16'];
+const CACHE='kexam-tax-v17';
+const CORE=['./','index.html','styles.css?v=17','enhancements-v8.css?v=17','polish-v9.css?v=17','positions-v10.css?v=17','cosmic-v12.css?v=17','analytics-config.js?v=17','analytics-v13.js?v=17','base64-fix.js?v=17','app-v3.js?v=17','app-v3-part1.txt','app-v3-part2.txt','app-v3-part3.txt','app-v3-part4.txt','manifest.webmanifest?v=17'];
 const BANK=[
   'bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt',
   'ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'
