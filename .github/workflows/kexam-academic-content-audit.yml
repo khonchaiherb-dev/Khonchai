@@ -55,9 +55,22 @@ jobs:
               if(exp.length<40) throw new Error(`ข้อ ${globalNo}: คำอธิบายสั้นเกินไป (${exp.length})`);
               if(wrong.length<40) throw new Error(`ข้อ ${globalNo}: เหตุผลตัวเลือกผิดสั้นเกินไป (${wrong.length})`);
               if(choices.length!==4||new Set(choices.map(norm)).size!==4) throw new Error(`ข้อ ${globalNo}: ตัวเลือกไม่ครบหรือซ้ำ`);
+              if(!Number.isInteger(r[3])||r[3]<0||r[3]>3) throw new Error(`ข้อ ${globalNo}: ดัชนีคำตอบไม่ถูกต้อง`);
+              const lens=choices.map(x=>x.length),correctLen=lens[r[3]],other=lens.filter((_,ci)=>ci!==r[3]),maxOther=Math.max(...other),minOther=Math.min(...other);
+              if(correctLen-maxOther>=35&&correctLen>maxOther*2.4) throw new Error(`ข้อ ${globalNo}: คำตอบถูกยาวเด่นกว่าตัวลวงผิดธรรมชาติ`);
+              if(minOther-correctLen>=35&&correctLen*2.4<minOther) throw new Error(`ข้อ ${globalNo}: คำตอบถูกสั้นเด่นกว่าตัวลวงผิดธรรมชาติ`);
+              const neg=(prompt.match(/ไม่|มิใช่|ยกเว้น/g)||[]).length;
+              if(neg>=3) throw new Error(`ข้อ ${globalNo}: พบคำปฏิเสธซ้อนมากเกินไป ควรแก้ถ้อยคำให้ชัดเจน`);
               prompts.push(prompt);exps.push(exp);wrongs.push(wrong);choiceSets.push(choices.map(norm).sort().join('|'));
               all.push({globalNo,si:si+1,qi:qi+1,cat,prompt,choices,answer:r[3],exp,wrong});
             });
+            if(ans.some(n=>n<22||n>28)) throw new Error(`ชุด ${si+1}: สัดส่วนคำตอบต้องอยู่ช่วง 22–28 ข้อต่อตัวเลือก แต่พบ ${ans.join('/')}`);
+            if(maxRun>4) throw new Error(`ชุด ${si+1}: พบคำตอบตัวเดียวติดกัน ${maxRun} ข้อ เกินมาตรฐาน 4 ข้อ`);
+            for(let period=2;period<=6;period++){
+              let same=0,total=0;
+              for(let i=period;i<set.length;i++){total++;if(set[i][3]===set[i-period][3])same++}
+              if(total&&same/total>=0.85) throw new Error(`ชุด ${si+1}: พบ pattern คำตอบซ้ำเชิงกล period=${period}`);
+            }
             for(const [k,v] of Object.entries(requiredPerSet)) if(cats[k]!==v) throw new Error(`ชุด ${si+1}: หมวด ${k} ต้องมี ${v} ข้อ แต่พบ ${cats[k]||0}`);
             if(Object.keys(cats).some(k=>!(k in requiredPerSet))) throw new Error(`ชุด ${si+1}: พบหมวดนอก blueprint: ${Object.keys(cats).filter(k=>!(k in requiredPerSet)).join(', ')}`);
             console.log(`SET ${si+1} categories`,JSON.stringify(cats),'answers',ans.join('/'),'max answer run',maxRun);
@@ -71,12 +84,13 @@ jobs:
           if(pd.length) throw new Error('พบคำถามซ้ำหลังปรับรูปแบบตัวอักษร/วรรคตอน');
           const ed=dupStats(exps,'EXPLANATION');
           const wd=dupStats(wrongs,'WRONG_REASON');
-          dupStats(choiceSets,'CHOICE_SET');
+          const cd=dupStats(choiceSets,'CHOICE_SET');
+          if(cd.length&&cd[0][1].length>8) throw new Error(`พบชุดตัวเลือกซ้ำมากเกินมาตรฐาน: สูงสุด ${cd[0][1].length} ข้อ`);
           const genericExp=ed.filter(([,v])=>v.length>=4).length;
           const genericWrong=wd.filter(([,v])=>v.length>=4).length;
           if(genericExp) throw new Error('พบคำอธิบายซ้ำตั้งแต่ 4 ข้อขึ้นไป');
           if(genericWrong) throw new Error('พบเหตุผลตัวเลือกผิดซ้ำตั้งแต่ 4 ข้อขึ้นไป');
 
           console.log('PASS: advanced content audit for นักวิชาการสรรพากรปฏิบัติการ');
-          console.log('Blueprint ต่อชุด 60/15/15/10, อธิบาย/เหตุผลขั้นต่ำ 40 ตัวอักษร, ไม่มีคำถามซ้ำแบบ normalized, ไม่มีข้อความชั่วคราว');
+          console.log('Blueprint 60/15/15/10; answer balance 22–28; answer run <=4; ตรวจตัวเลือกเด่น/ปฏิเสธซ้อน/ชุดตัวเลือกซ้ำ; อธิบายและเหตุผลขั้นต่ำ 40 ตัวอักษร; ไม่มีคำถามซ้ำแบบ normalized');
           NODE
