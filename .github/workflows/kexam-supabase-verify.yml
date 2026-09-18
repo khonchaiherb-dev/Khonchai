@@ -51,6 +51,7 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 -f supabase/migrations/20260918_kexam_item_analytics_v2.sql
           psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 -f supabase/migrations/20260918_kexam_item_discrimination_v3.sql
           psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 -f supabase/migrations/20260918_kexam_item_psychometrics_v4.sql
+          psql -h 127.0.0.1 -U postgres -d kexam -v ON_ERROR_STOP=1 -f supabase/migrations/20260918_kexam_quality_review_v5.sql
 
       - name: Verify centralized item analytics
         run: |
@@ -116,6 +117,22 @@ jobs:
             end if;
             if not (j->'question_reports' @> '[{"question_id":"RA-S01-Q002"}]'::jsonb) then
               raise exception 'question report missing';
+            end if;
+            if not (j->'quality_queue' @> '[{"question_id":"RA-S01-Q002","priority":"เร่งด่วน"}]'::jsonb) then
+              raise exception 'quality queue missing urgent RA-S01-Q002: %',j->'quality_queue';
+            end if;
+            if coalesce((j->'quality_summary'->>'urgent')::int,0) < 1 then
+              raise exception 'quality summary urgent count missing: %',j->'quality_summary';
+            end if;
+            if not exists (
+              select 1
+              from jsonb_array_elements(j->'quality_queue') x
+              where x->>'question_id'='RA-S01-Q002'
+                and (x->>'risk_score')::int >= 60
+                and (x->>'reports')::int >= 1
+                and x->>'psychometric_basis'='first-response-per-user'
+            ) then
+              raise exception 'quality queue risk fields invalid: %',j->'quality_queue';
             end if;
             if jsonb_array_length(j->'topic_stats') < 1 then
               raise exception 'topic_stats missing';
