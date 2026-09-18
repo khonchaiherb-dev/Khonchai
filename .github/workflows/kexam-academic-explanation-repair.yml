@@ -1,0 +1,97 @@
+name: K-EXAM Repair Academic Explanations
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-academic-explanation-repair.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 0
+      - name: Personalize repeated explanations and distractor reasons
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs'),zlib=require('zlib');
+          const files=['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'];
+          const dir='tax-exam/';
+          const joined=files.map(f=>fs.readFileSync(dir+f,'utf8').trim()).join('').replace(/\s+/g,'');
+          const d=JSON.parse(zlib.gunzipSync(Buffer.from(joined,'base64')).toString('utf8'));
+          const norm=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu,'');
+          const get=(r,i)=>String(d.s[r[i]]??'').trim();
+          const letters=['ก','ข','ค','ง'];
+          const rows=d.q.flat();
+          const expFreq=new Map(),wrongFreq=new Map();
+          for(const r of rows){
+            const e=norm(get(r,4)),w=norm(get(r,5));
+            expFreq.set(e,(expFreq.get(e)||0)+1);
+            wrongFreq.set(w,(wrongFreq.get(w)||0)+1);
+          }
+          const index=new Map(d.s.map((s,i)=>[String(s),i]));
+          const intern=s=>{s=String(s);if(index.has(s))return index.get(s);const i=d.s.length;d.s.push(s);index.set(s,i);return i};
+          const contextOf=p=>{
+            let s=String(p||'').replace(/\s+/g,' ').trim();
+            s=s.replace(/^(จาก|กรณี|ข้อใด|สถานการณ์|พิจารณา)[^:：]*[:：]?\s*/,'').trim()||s;
+            return s.length>150?s.slice(0,147)+'…':s;
+          };
+          const categoryReason=cat=>{
+            if(cat==='หลักภาษีอากรและประมวลรัษฎากร')return 'ใช้ประเภทเงินได้ ฐานภาษี อัตรา เงื่อนไข หรือหน้าที่ทางภาษีไม่ตรงกับข้อเท็จจริงและหลักตามประมวลรัษฎากรที่ใช้วินิจฉัยข้อนี้';
+            if(cat==='กรมสรรพากร')return 'ไม่สอดคล้องกับอำนาจหน้าที่ ภารกิจ โครงสร้าง หรือแนวปฏิบัติของกรมสรรพากรตามประเด็นที่ถาม';
+            if(cat==='ข้อมูลข่าวสาร/PDPA')return 'ไม่สอดคล้องกับสิทธิ หน้าที่ ฐานกฎหมาย ข้อยกเว้น หรือหลักการคุ้มครองข้อมูลที่ต้องนำมาปรับกับข้อเท็จจริง';
+            return 'อธิบายความสัมพันธ์เชิงเศรษฐกิจ สังคม หรือเทคโนโลยีไม่ตรงกับกลไกและเงื่อนไขของสถานการณ์ที่โจทย์กำหนด';
+          };
+
+          let expChanged=0,wrongChanged=0;
+          d.q.forEach((set,si)=>set.forEach((r,qi)=>{
+            const prompt=get(r,1),cat=get(r,0),choices=(r[2]||[]).map(x=>String(d.s[x]??'').trim()),ans=r[3];
+            const context=contextOf(prompt),correct=choices[ans]||'';
+            const oldExp=get(r,4),oldWrong=get(r,5);
+            if((expFreq.get(norm(oldExp))||0)>1){
+              const tailored=`${oldExp} เมื่อนำหลักดังกล่าวมาปรับกับข้อเท็จจริงของข้อนี้ว่า “${context}” จึงต้องเลือก ${letters[ans]} “${correct}” เพราะสอดคล้องกับเงื่อนไขและประเด็นที่โจทย์กำหนดโดยตรง`;
+              r[4]=intern(tailored);expChanged++;
+            }
+            if((wrongFreq.get(norm(oldWrong))||0)>1){
+              const reason=categoryReason(cat);
+              const parts=[];
+              choices.forEach((c,i)=>{if(i!==ans)parts.push(`${letters[i]}. “${c}” ไม่ถูกต้อง เพราะ${reason}; เมื่อเทียบกับข้อเท็จจริง “${context}” แล้วจึงไม่ใช่ข้อสรุปที่เหมาะสมที่สุด`)});
+              r[5]=intern(parts.join(' '));wrongChanged++;
+            }
+          }));
+          console.log('rewritten explanations',expChanged,'rewritten wrong-reasons',wrongChanged);
+
+          const out=zlib.gzipSync(Buffer.from(JSON.stringify(d),'utf8'),{level:9}).toString('base64');
+          const step=Math.ceil(out.length/files.length/4)*4;
+          files.forEach((f,i)=>{
+            const start=i*step,end=i===files.length-1?out.length:Math.min(out.length,(i+1)*step);
+            const chunk=out.slice(start,end);
+            if(!chunk)throw new Error('empty output chunk '+f);
+            fs.writeFileSync(dir+f,chunk+'\n');
+          });
+
+          const check=files.map(f=>fs.readFileSync(dir+f,'utf8').trim()).join('');
+          const x=JSON.parse(zlib.gunzipSync(Buffer.from(check,'base64')).toString('utf8'));
+          if(!Array.isArray(x.q)||x.q.length!==10||x.q.some(s=>s.length!==100))throw new Error('post-write bank shape invalid');
+          const exps=x.q.flat().map(r=>norm(String(x.s[r[4]]??''))),wrongs=x.q.flat().map(r=>norm(String(x.s[r[5]]??'')));
+          const dupMax=arr=>Math.max(...Object.values(arr.reduce((m,v)=>(m[v]=(m[v]||0)+1,m),{})));
+          console.log('max explanation reuse',dupMax(exps),'max wrong-reason reuse',dupMax(wrongs));
+          if(dupMax(exps)>3)throw new Error('explanation reuse still exceeds limit');
+          if(dupMax(wrongs)>3)throw new Error('wrong-reason reuse still exceeds limit');
+          NODE
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tax-exam/ra-bank-*.txt
+          if git diff --cached --quiet; then
+            echo 'No bank changes needed'
+            exit 0
+          fi
+          git commit -m 'Personalize revenue academic explanations and distractor reasoning'
+          git push origin HEAD:gh-pages
