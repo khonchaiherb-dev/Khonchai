@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const allowedEvents=new Set(['page_view','position_select','exam_open','exam_submit','review_open']);
+const allowedEvents=new Set(['page_view','position_select','exam_open','exam_submit','review_open','question_report']);
 const defaultOrigins=['https://khonchaiherb-dev.github.io','https://k-exam.com','https://www.k-exam.com'];
 const configured=(Deno.env.get('KEXAM_ALLOWED_ORIGINS')||'').split(',').map(x=>x.trim()).filter(Boolean);
 const allowedOrigins=new Set([...defaultOrigins,...configured]);
@@ -28,7 +28,7 @@ Deno.serve(async req=>{
 
   try{
     const raw=await req.text();
-    if(raw.length>12000)return new Response(JSON.stringify({error:'payload_too_large'}),{status:413,headers:cors(origin)});
+    if(raw.length>18000)return new Response(JSON.stringify({error:'payload_too_large'}),{status:413,headers:cors(origin)});
     const body=JSON.parse(raw);
     if(!body?.id||!body?.anonymous_id||!body?.session_id||!allowedEvents.has(body?.event_name)){
       return new Response(JSON.stringify({error:'invalid_event'}),{status:400,headers:cors(origin)});
@@ -36,7 +36,7 @@ Deno.serve(async req=>{
 
     const meta=body.metadata&&typeof body.metadata==='object'&&!Array.isArray(body.metadata)?body.metadata:{};
     const metaJson=JSON.stringify(meta);
-    if(metaJson.length>8000)return new Response(JSON.stringify({error:'metadata_too_large'}),{status:413,headers:cors(origin)});
+    if(metaJson.length>14000)return new Response(JSON.stringify({error:'metadata_too_large'}),{status:413,headers:cors(origin)});
 
     const supabase=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false}});
     const record={
