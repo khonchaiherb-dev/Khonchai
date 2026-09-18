@@ -9,7 +9,7 @@
         if('caches' in window){for(const k of await caches.keys())if(k.startsWith('kexam-tax-'))await caches.delete(k)}
         if('serviceWorker' in navigator){for(const r of await navigator.serviceWorker.getRegistrations())await r.unregister()}
       }catch(_){}
-      const u=new URL(location.href);u.searchParams.set('v','16');u.searchParams.set('reset','1');location.replace(u.toString());
+      const u=new URL(location.href);u.searchParams.set('v','17');u.searchParams.set('reset','1');location.replace(u.toString());
     });
     console.error('[K-EXAM BOOT]',err);
   };
@@ -18,7 +18,7 @@
     const files=['app-v3-part1.txt','app-v3-part2.txt','app-v3-part3.txt','app-v3-part4.txt'];
     const parts=[];
     for(const f of files){
-      const r=await fetch(`${f}?v=16`,{cache:'no-store'});
+      const r=await fetch(`${f}?v=17`,{cache:'no-store'});
       if(!r.ok)throw new Error('โหลดส่วนประกอบระบบไม่สำเร็จ: '+f);
       const text=await r.text();
       if(!text.trim())throw new Error('ส่วนประกอบระบบว่างเปล่า: '+f);
