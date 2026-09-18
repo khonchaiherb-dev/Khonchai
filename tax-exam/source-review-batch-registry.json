@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-09-18T12:19:25.138Z",
+  "batches": [
+    {
+      "batch_id": "SRB-20260918-5be16e599cec",
+      "batch_snapshot_sha256": "5be16e599cec7f242735d1cdb1ac27aa979219bba81dee5d1aa52cd818074fb0",
+      "generated_at": "2026-09-18T12:19:23.550Z",
+      "review_mode": "pending",
+      "batch_size": 50,
+      "selection_policy": "priority score first, then stratified by position and topic",
+      "selection_summary": {
+        "positions": {
+          "revenue-academic": 46,
+          "tax-auditor": 4
+        },
+        "topics": {
+          "ภาษีมูลค่าเพิ่ม (VAT)": 22,
+          "ภาษีเงินได้นิติบุคคล": 13,
+          "ภาษีเงินได้บุคคลธรรมดา": 15
+        }
+      },
+      "question_ids": [
+        "RA-S02-Q092",
+        "RA-S03-Q036",
+        "RA-S03-Q056",
+        "RA-S03-Q060",
+        "RA-S03-Q077",
+        "RA-S03-Q083",
+        "RA-S04-Q013",
+        "RA-S04-Q049",
+        "RA-S04-Q056",
+        "RA-S04-Q073",
+        "RA-S04-Q100",
+        "RA-S05-Q023",
+        "RA-S05-Q038",
+        "RA-S05-Q052",
+        "RA-S05-Q064",
+        "RA-S05-Q071",
+        "RA-S05-Q096",
+        "RA-S06-Q012",
+        "RA-S02-Q097",
+        "RA-S03-Q006",
+        "RA-S03-Q033",
+        "RA-S03-Q044",
+        "RA-S03-Q088",
+        "RA-S03-Q093",
+        "RA-S04-Q001",
+        "RA-S04-Q004",
+        "RA-S04-Q053",
+        "RA-S04-Q085",
+        "RA-S05-Q003",
+        "RA-S05-Q027",
+        "RA-S05-Q043",
+        "RA-S02-Q099",
+        "RA-S03-Q019",
+        "RA-S03-Q026",
+        "RA-S03-Q039",
+        "RA-S03-Q045",
+        "RA-S03-Q066",
+        "RA-S03-Q099",
+        "RA-S04-Q024",
+        "RA-S04-Q050",
+        "RA-S04-Q070",
+        "RA-S04-Q071",
+        "RA-S04-Q091",
+        "RA-S05-Q026",
+        "RA-S05-Q051",
+        "RA-S05-Q066",
+        "TA-S01-Q035",
+        "TA-S02-Q046",
+        "TA-S03-Q018",
+        "TA-S04-Q009"
+      ],
+      "status": "generated",
+      "created_run_id": "35344030557",
+      "applied_at": null,
+      "decision_counts": null
+    }
+  ]
+}
