@@ -1,0 +1,54 @@
+name: K-EXAM Academic Sample Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-academic-sample-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect academic repeated patterns
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages --depth=1
+          node <<'NODE'
+          const cp=require('child_process'),zlib=require('zlib');
+          const show=f=>cp.execFileSync('git',['show',`origin/gh-pages:tax-exam/${f}`],{encoding:'utf8',maxBuffer:8*1024*1024}).trim();
+          const files=['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'];
+          const d=JSON.parse(zlib.gunzipSync(Buffer.from(files.map(show).join('').replace(/\s+/g,''),'base64')).toString('utf8'));
+          const get=(r,i)=>String(d.s[r[i]]??'').trim();
+          const exactGroups=(items,keyFn)=>{
+            const m=new Map();
+            for(const x of items){const k=keyFn(x);const a=m.get(k)||[];a.push(x);m.set(k,a)}
+            return [...m.values()].filter(a=>a.length>1).sort((a,b)=>b.length-a.length);
+          };
+          const items=[];
+          d.q.forEach((set,si)=>set.forEach((r,qi)=>items.push({
+            set:si+1,q:qi+1,cat:get(r,0),prompt:get(r,1),
+            choices:(r[2]||[]).map(x=>String(d.s[x]??'').trim()),
+            answer:r[3],exp:get(r,4),wrong:get(r,5)
+          })));
+          const norm=s=>String(s).toLowerCase().replace(/[0-9๐-๙]+/g,'#').replace(/[\s\p{P}\p{S}]+/gu,'');
+          const pExact=exactGroups(items,x=>x.prompt);
+          const pNorm=exactGroups(items,x=>norm(x.prompt));
+          const cExact=exactGroups(items,x=>JSON.stringify([...x.choices].sort()));
+          const eExact=exactGroups(items,x=>x.exp);
+          const wExact=exactGroups(items,x=>x.wrong);
+          console.log('exact_prompt_groups',pExact.length);
+          console.log('normalized_prompt_groups',pNorm.length);
+          console.log('exact_choice_set_groups',cExact.length);
+          console.log('exact_explanation_groups',eExact.length);
+          console.log('exact_wrong_reason_groups',wExact.length);
+          const printGroup=(label,groups)=>{
+            console.log('=== '+label+' ===');
+            groups.slice(0,8).forEach(g=>console.log(JSON.stringify({ids:g.map(x=>x.set+'.'+x.q),size:g.length,sample:g[0]})));
+          };
+          printGroup('NORMALIZED PROMPTS',pNorm);
+          printGroup('EXACT CHOICES',cExact);
+          printGroup('EXACT EXPLANATIONS',eExact);
+          printGroup('EXACT WRONG REASONS',wExact);
+          NODE
