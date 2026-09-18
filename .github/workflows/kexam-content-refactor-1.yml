@@ -1,4 +1,5 @@
 name: K-EXAM Content Refactor Batch 1
+# Applies a validated content-quality refactor to the deployed academic bank.
 on:
   push:
     paths:
