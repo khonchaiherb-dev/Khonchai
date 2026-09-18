@@ -60,6 +60,19 @@ Workflow จะ
 - ลบออกจาก `source_verified_ids`
 - บันทึกเหตุผลและวันที่ถอน
 
+## การผูก Source Verification กับเนื้อหาที่ตรวจ
+
+สถานะ `source_state = verified` ต้องผูกกับเนื้อหาฉบับที่ผู้ตรวจใช้พิจารณาจริง ไม่ผูกกับ Question ID เพียงอย่างเดียว
+
+เมื่ออนุมัติ `decision = verified` ระบบต้องบันทึก
+- `content_hash_algorithm = sha256`
+- `content_sha256` ซึ่งต้องตรงกับ `tax-exam/question-content-integrity.json` ของ Question ID นั้น
+
+หากภายหลังสาระสำคัญของโจทย์ ตัวเลือก คำตอบ เฉลย หรือเหตุผลตัวเลือกผิดเปลี่ยนแปลง ต้องลด `source_state` กลับเป็น `pending` และดำเนินการ Source Verification ใหม่หลัง Content Review/QA เสร็จแล้ว
+
+เมื่อมี decision เป็น `needs_revision` หรือ `retired` ระบบต้องล้าง content hash binding เดิม เพื่อป้องกันการตีความว่าแหล่งอ้างอิงเดิมยังยืนยันเนื้อหาฉบับใหม่อยู่
+
+
 ## หลักความปลอดภัย
 
 - Question ID หนึ่งรายการมีคำตัดสินได้ครั้งละหนึ่งรายการในไฟล์
