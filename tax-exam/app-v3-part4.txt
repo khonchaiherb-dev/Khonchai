@@ -4,8 +4,10 @@
 
 function saveQuestionReport(q,type){
   const g=loadGlobal();g.questionReports=Array.isArray(g.questionReports)?g.questionReports:[];
-  const item={questionId:q.id||'',type:String(type||'อื่น ๆ'),prompt:q.prompt||'',category:q.category||'',position:currentPosition,set:String(currentSet),reportedAt:Date.now()};
-  g.questionReports.unshift(item);g.questionReports=g.questionReports.slice(0,100);saveGlobal(g);return item;
+  const item={questionId:q.id||'',type:String(type||'อื่น ๆ'),prompt:q.prompt||'',category:q.category||'',topic:q.topic||q.category||'',position:currentPosition,set:String(currentSet),reportedAt:Date.now()};
+  g.questionReports.unshift(item);g.questionReports=g.questionReports.slice(0,100);saveGlobal(g);
+  window.KEXAM_ANALYTICS?.track('question_report',{position:currentPosition,set_no:Number.isInteger(Number(currentSet))?Number(currentSet):null,exam_mode:isRandomSet(currentSet)?'random':isWrongSet(currentSet)?'wrong-practice':isWeakSet(currentSet)?'weak-practice':isTopicSet(currentSet)?'topic-practice':'fixed',question_id:item.questionId,report_type:item.type,category:item.category,topic:item.topic,prompt:String(item.prompt).slice(0,240)});
+  return item;
 }
 function openQuestionReport(q){
   modal(`<div class="modal-kicker">QUESTION REPORT</div><h3>แจ้งปัญหาข้อ ${esc(q.id||'')}</h3><p>เลือกประเภทปัญหาที่พบ ระบบจะบันทึกพร้อมรหัสข้อเพื่อใช้ตรวจทานภายหลัง</p><div class="report-options"><button class="ghost-btn" data-report="เฉลยอาจไม่ถูกต้อง">เฉลยอาจไม่ถูกต้อง</button><button class="ghost-btn" data-report="โจทย์หรือถ้อยคำกำกวม">โจทย์หรือถ้อยคำกำกวม</button><button class="ghost-btn" data-report="กฎหมายหรือข้อมูลอาจเปลี่ยน">กฎหมายหรือข้อมูลอาจเปลี่ยน</button><button class="ghost-btn" data-report="ตัวเลือกหรือข้อความพิมพ์ผิด">ตัวเลือกหรือข้อความพิมพ์ผิด</button></div><div class="modal-actions"><button class="ghost-btn" id="reportCancel">ยกเลิก</button></div>`);
