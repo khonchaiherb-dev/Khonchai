@@ -194,7 +194,7 @@ jobs:
           }
 
           // Full tax-auditor structural and content QA after all edits.
-          const all=[],promptNormCounts=new Map();
+          const all=[],promptNormCounts=new Map(),choiceSetCounts=new Map(),expNormCounts=new Map(),wrongNormCounts=new Map();
           bank.q.forEach((set,si)=>{
             if(set.length!==100)throw new Error('set '+(si+1)+' must contain 100 questions');
             set.forEach((r,qi)=>{
@@ -215,12 +215,19 @@ jobs:
                 for(let ci=0;ci<4;ci++)if(ci!==answer&&!wrong.includes(choices[ci]))throw new Error(id+' remediated wrong reason missing choice '+(ci+1));
               }
               const key=norm(prompt);promptNormCounts.set(key,(promptNormCounts.get(key)||0)+1);
-              all.push({id,category,prompt,choices,answer,exp,wrong});
+              const choiceKey=JSON.stringify([...choices].map(norm).sort());choiceSetCounts.set(choiceKey,(choiceSetCounts.get(choiceKey)||0)+1);
+              const expKey=norm(exp);expNormCounts.set(expKey,(expNormCounts.get(expKey)||0)+1);
+              const wrongKey=norm(wrong);wrongNormCounts.set(wrongKey,(wrongNormCounts.get(wrongKey)||0)+1);
+              all.push({id,category,prompt,choices,answer,exp,wrong,choiceKey,expKey,wrongKey});
             });
           });
           if(all.length!==1000)throw new Error('tax-auditor bank must remain exactly 1,000 questions');
           for(const x of changed){
             if((promptNormCounts.get(x.newPromptNorm)||0)!==1)throw new Error(x.id+' new prompt is not unique after normalization');
+            const item=all.find(y=>y.id===x.id);if(!item)throw new Error('changed item missing after QA '+x.id);
+            if((choiceSetCounts.get(item.choiceKey)||0)!==1)throw new Error(x.id+' remediated choice set is still duplicated');
+            if((expNormCounts.get(item.expKey)||0)!==1)throw new Error(x.id+' remediated explanation is still duplicated');
+            if((wrongNormCounts.get(item.wrongKey)||0)!==1)throw new Error(x.id+' remediated wrong-reason text is still duplicated');
           }
 
           // Verify every integrity hash matches final bank.
