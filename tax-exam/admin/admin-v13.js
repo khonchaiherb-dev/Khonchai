@@ -7,7 +7,7 @@
   const endpoint=()=>{const b=String(CFG.supabaseUrl||'').replace(/\/$/,'');return b&&CFG.dashboardFunction?`${b}/functions/v1/${CFG.dashboardFunction}`:''};
   const connected=()=>Boolean(endpoint()&&CFG.supabaseAnonKey);
   let days=30,qualityRowsCache=[];
-  let publicationCoverageCache=null,sourceBacklogCache=null,contentIntegrityCache=null;
+  let publicationCoverageCache=null,sourceBacklogCache=null,contentIntegrityCache=null,sourceFreshnessCache=null;
 
   function localEvents(){try{return JSON.parse(localStorage.getItem('kexam_analytics_local_v1')||'[]')||[]}catch{return[]}}
   function localQuestionReports(){
@@ -95,6 +95,13 @@
       return contentIntegrityCache;
     }catch{return{total:0,algorithm:'',schema:0,fields:[],generatedAt:null,byPosition:{},error:true}}
   }
+  async function sourceFreshnessWatchlist(){
+    if(sourceFreshnessCache)return sourceFreshnessCache;
+    try{
+      const r=await fetch('../source-reverification-watchlist.json',{cache:'no-store'});if(!r.ok)throw new Error('freshness');
+      const data=await r.json();sourceFreshnessCache=data;return data;
+    }catch{return{summary:{total_verified:0,overdue:0,due_soon:0,fresh:0,positions:{}},rows:[],error:true}}
+  }
   async function sourceVerificationBacklog(){
     if(sourceBacklogCache)return sourceBacklogCache;
     try{
@@ -125,6 +132,32 @@
     const header=['question_id','position','set','question','priority','priority_score','category','topic','reasons','prompt','source_state'];
     const lines=[header.join(',')];for(const r of rows)lines.push([r.question_id,r.position,r.set,r.question,r.priority,r.priority_score,r.category,r.topic,(r.reasons||[]).join(' | '),r.prompt,r.source_state].map(csvCell).join(','));
     const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`kexam-source-verification-backlog-${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0);
+  }
+
+  function sourceFreshnessSummaryHtml(summary={}){
+    return `<div class="metrics"><div class="panel metric"><div class="label">Source Verified</div><strong>${fmt(summary.total_verified||0)}</strong><small>รายการที่อยู่ในรอบทบทวน</small></div><div class="panel metric"><div class="label">เกินกำหนด</div><strong>${fmt(summary.overdue||0)}</strong><small>ควรตรวจแหล่งทางการซ้ำ</small></div><div class="panel metric"><div class="label">ใกล้ครบกำหนด</div><strong>${fmt(summary.due_soon||0)}</strong><small>เหลือไม่เกิน 30 วัน</small></div><div class="panel metric"><div class="label">ยังสดใหม่</div><strong>${fmt(summary.fresh||0)}</strong><small>ยังไม่ถึงรอบทบทวน</small></div></div>`;
+  }
+  function syncFreshnessPositionOptions(rows=[]){
+    const el=$('#freshnessPosition');if(!el)return;
+    const keep=el.value,values=[...new Set(rows.map(r=>String(r.position||'')).filter(Boolean))].sort();
+    el.innerHTML='<option value="">ทุกตำแหน่ง</option>'+values.map(v=>`<option value="${esc(v)}">${v==='revenue-academic'?'นักวิชาการสรรพากรปฏิบัติการ':v==='tax-auditor'?'นักตรวจสอบภาษีปฏิบัติการ':esc(v)}</option>`).join('');
+    if(values.includes(keep))el.value=keep;
+  }
+  function filteredFreshnessRows(){
+    const data=sourceFreshnessCache||{rows:[]},status=$('#freshnessStatus')?.value||'',pos=$('#freshnessPosition')?.value||'';
+    return (data.rows||[]).filter(r=>(!status||r.status===status)&&(!pos||r.position===pos));
+  }
+  function freshnessListHtml(rows=[]){
+    if(!rows.length)return '<div class="empty">ไม่พบรายการตามตัวกรอง</div>';
+    return `<div class="list">${rows.slice(0,100).map(r=>{const pos=r.position==='revenue-academic'?'นักวิชาการสรรพากรฯ':r.position==='tax-auditor'?'นักตรวจสอบภาษีฯ':r.position||'-';const d=Number(r.days_until_due)||0,remain=d<0?`เกิน ${Math.abs(d)} วัน`:`เหลือ ${d} วัน`;return `<div class="row"><div><div class="name">${esc(r.question_id||'ไม่มีรหัส')} · ${esc(r.status||'-')} · ${esc(remain)}</div><div class="meta">${esc(pos)} · ${esc(r.freshness_tier||'')} · ตรวจล่าสุด ${esc(r.checked_at||'-')} · ครบกำหนด ${esc(r.due_at||'-')} · รอบ ${fmt(r.review_interval_days)} วัน${r.prompt?`<br>${esc(String(r.prompt).slice(0,180))}`:''}</div></div><div class="val">${esc(r.status||'-')}</div></div>`}).join('')}</div>`;
+  }
+  function refreshFreshness(){if($('#freshnessList'))$('#freshnessList').innerHTML=freshnessListHtml(filteredFreshnessRows())}
+  function exportFreshnessCsv(){
+    const rows=filteredFreshnessRows();if(!rows.length)return;
+    const header=['question_id','position','status','checked_at','due_at','days_until_due','review_interval_days','freshness_tier','category','prompt'];
+    const lines=[header.join(',')];
+    for(const r of rows)lines.push([r.question_id,r.position,r.status,r.checked_at,r.due_at,r.days_until_due,r.review_interval_days,r.freshness_tier,r.category,r.prompt].map(csvCell).join(','));
+    const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`kexam-source-reverification-${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0);
   }
 
   function publicationCoverageHtml(x){
@@ -264,12 +297,15 @@
   }
 
   async function load(){
-    const [pub,sourceBacklog,integrity]=await Promise.all([publicationCoverage(),sourceVerificationBacklog(),contentIntegrityCoverage()]);
+    const [pub,sourceBacklog,integrity,freshness]=await Promise.all([publicationCoverage(),sourceVerificationBacklog(),contentIntegrityCoverage(),sourceFreshnessWatchlist()]);
     $('#publicationCoverage').innerHTML=publicationCoverageHtml(pub);
     if($('#contentIntegrityCoverage'))$('#contentIntegrityCoverage').innerHTML=contentIntegrityCoverageHtml(integrity);
     if($('#sourceBacklogSummary'))$('#sourceBacklogSummary').innerHTML=sourceBacklogSummaryHtml(sourceBacklog.summary||{});
     syncSourcePositionOptions(sourceBacklog.rows||[]);
     refreshSourceBacklog();
+    if($('#freshnessSummary'))$('#freshnessSummary').innerHTML=sourceFreshnessSummaryHtml(freshness.summary||{});
+    syncFreshnessPositionOptions(freshness.rows||[]);
+    refreshFreshness();
     $('#refresh').disabled=true;
     try{
       if(!connected()){
@@ -291,6 +327,9 @@
     }finally{$('#refresh').disabled=false}
   }
 
+  $('#freshnessStatus').onchange=refreshFreshness;
+  $('#freshnessPosition').onchange=refreshFreshness;
+  $('#exportFreshness').onclick=exportFreshnessCsv;
   $('#sourcePriority').onchange=refreshSourceBacklog;
   $('#sourcePosition').onchange=refreshSourceBacklog;
   $('#sourceSearch').oninput=refreshSourceBacklog;
