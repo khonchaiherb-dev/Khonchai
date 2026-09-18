@@ -62,18 +62,23 @@ jobs:
             if(sortedKey(choices)===targetKey)matches.push({r,si,qi,choices});
           }));
           if(matches.length!==19)throw new Error('คาดว่าจะพบชุดตัวเลือก VAT ซ้ำ 19 ข้อ แต่พบ '+matches.length);
-          if(matches.some(x=>x.r[3]!==0))throw new Error('พบคำตอบของกลุ่ม VAT ที่ไม่ได้อยู่ตัวเลือก ก. จึงยุติเพื่อความปลอดภัย');
+          if(matches.some(x=>x.choices[x.r[3]]!==old[0]))throw new Error('พบคำตอบของกลุ่ม VAT ที่ไม่ตรงข้อความคำตอบหลัก จึงยุติเพื่อความปลอดภัย');
 
           let changed=0;
           matches.slice(10).forEach((m,idx)=>{
             const v=variants[idx%variants.length];
             const oldChoices=m.choices;
+            const newChoices=oldChoices.map(text=>{
+              const semanticIndex=old.indexOf(text);
+              if(semanticIndex<0)throw new Error('จับคู่ความหมายตัวเลือกเดิมไม่ได้');
+              return v[semanticIndex];
+            });
             const newIdx=[];
-            for(let i=0;i<4;i++){s.push(v[i]);newIdx.push(s.length-1)}
+            for(const text of newChoices){s.push(text);newIdx.push(s.length-1)}
             m.r[2]=newIdx;
             for(const field of [4,5]){
               let t=String(s[m.r[field]]??'');
-              for(let i=0;i<4;i++)t=t.split(oldChoices[i]).join(v[i]);
+              for(let i=0;i<4;i++)t=t.split(oldChoices[i]).join(newChoices[i]);
               s.push(t);m.r[field]=s.length-1;
             }
             changed++;
