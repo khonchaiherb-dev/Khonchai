@@ -64,6 +64,22 @@ jobs:
             queue=JSON.parse(show('tax-exam/source-reverification-watchlist.json'));
             if(queue.schema_version!==1||!Array.isArray(queue.rows))throw new Error('source re-verification watchlist invalid');
           }
+          let registry={schema_version:1,batches:[]};
+          try{registry=JSON.parse(show('tax-exam/source-review-batch-registry.json'))}catch{}
+          if(registry.schema_version!==1||!Array.isArray(registry.batches))throw new Error('source review batch registry invalid');
+          const now=Date.now(),RESERVATION_DAYS=30;
+          const reservationExpiry=b=>{
+            const explicit=Date.parse(String(b.reservation_expires_at||''));
+            if(Number.isFinite(explicit))return explicit;
+            const generated=Date.parse(String(b.generated_at||''));
+            return Number.isFinite(generated)?generated+RESERVATION_DAYS*86400000:0;
+          };
+          const activeReserved=new Set();
+          for(const b of registry.batches){
+            if(String(b.status||'')!=='generated'||String(b.review_mode||'')!==mode)continue;
+            if(reservationExpiry(b)<=now)continue;
+            for(const id of b.question_ids||[])activeReserved.add(String(id));
+          }
 
           const configs={
             'tax-auditor':{
@@ -84,9 +100,12 @@ jobs:
           }
 
           const parseId=id=>{const m=/^(RA|TA)-S(\d{2})-Q(\d{3})$/.exec(String(id||''));if(!m)throw new Error('invalid Question ID '+id);return{set:Number(m[2]),question:Number(m[3])}};
-          const pendingRows=mode==='pending'
+          const candidateRows=mode==='pending'
             ? queue.rows
             : queue.rows.filter(r=>r.status==='เกินกำหนด'||r.status==='ใกล้ครบกำหนด');
+          const pendingRows=candidateRows.filter(r=>!activeReserved.has(String(r.question_id||'')));
+          const reservedSkipped=candidateRows.length-pendingRows.length;
+          if(candidateRows.length&&pendingRows.length===0)throw new Error('all eligible source review rows are reserved by active generated batches');
 
           const allocate=(groups,target)=>{
             const entries=Object.entries(groups).map(([key,rows])=>({key,rows,size:rows.length,raw:0,quota:0}));
@@ -217,6 +236,7 @@ jobs:
             batch_size:batch.length,
             selection_policy:mode==='pending'?'priority score first, then stratified by position and topic':'freshness priority first, then stratified by position and topic',
             selection_summary:{positions:selectionPositions,topics:selectionTopics},
+            reservation_policy:{days:RESERVATION_DAYS,reserved_skipped:reservedSkipped},
             note:mode==='reverify'&&batch.length===0?'ยังไม่มี source-verified ที่ใกล้หรือเกินกำหนดทบทวน':null,
             warning:'ไฟล์นี้มีคำตอบและคำอธิบาย ใช้สำหรับการตรวจภายใน ไม่ควรเผยแพร่เป็นไฟล์สาธารณะ',
             questions:batch
@@ -264,7 +284,7 @@ jobs:
             const maxTopic=Math.max(...Object.values(topics));
             if(Object.keys(topics).length>=3&&maxTopic>Math.ceil(batch.length*0.60))throw new Error('stratified batch is too concentrated in one topic: '+maxTopic+'/'+batch.length);
           }
-          console.log('SOURCE REVIEW BATCH',JSON.stringify({batch_id:batchId,batch_snapshot_sha256:batchSnapshotSha256,mode,size:batch.length,priority:counts,positions,topics,first:batch[0]?.question_id||null,last:batch.at(-1)?.question_id||null}));
+          console.log('SOURCE REVIEW BATCH',JSON.stringify({batch_id:batchId,batch_snapshot_sha256:batchSnapshotSha256,mode,size:batch.length,reserved_skipped:reservedSkipped,active_reserved:activeReserved.size,priority:counts,positions,topics,first:batch[0]?.question_id||null,last:batch.at(-1)?.question_id||null}));
           NODE
 
       - name: Upload private review artifact
@@ -291,6 +311,21 @@ jobs:
           if(!Array.isArray(batch.questions)||batch.questions.length!==Number(batch.batch_size||0))throw new Error('batch question count mismatch');
           const questionIds=batch.questions.map(q=>String(q.question_id||''));
           if(new Set(questionIds).size!==questionIds.length||questionIds.some(id=>!qidRe.test(id)))throw new Error('invalid/duplicate registry Question IDs');
+          let liveRegistry={schema_version:1,batches:[]};
+          try{
+            const raw=require('child_process').execFileSync('git',['show','origin/gh-pages:tax-exam/source-review-batch-registry.json'],{encoding:'utf8',maxBuffer:8*1024*1024});
+            liveRegistry=JSON.parse(raw);
+          }catch{}
+          const now=Date.now(),activeReserved=new Set();
+          for(const b of liveRegistry.batches||[]){
+            if(b.status!=='generated'||b.review_mode!==batch.review_mode)continue;
+            const expires=Date.parse(String(b.reservation_expires_at||''))||((Date.parse(String(b.generated_at||''))||0)+30*86400000);
+            if(expires<=now)continue;
+            for(const id of b.question_ids||[])activeReserved.add(String(id));
+          }
+          const overlap=questionIds.filter(id=>activeReserved.has(id));
+          if(overlap.length)throw new Error('new source review batch overlaps active reservation: '+overlap.slice(0,20).join(','));
+          console.log('RESERVATION OVERLAP PASS',JSON.stringify({active_reserved:activeReserved.size,new_batch:questionIds.length,overlap:overlap.length}));
           const entry={
             batch_id:batch.batch_id,
             batch_snapshot_sha256:batch.batch_snapshot_sha256,
@@ -302,6 +337,7 @@ jobs:
             question_ids:questionIds,
             status:'generated',
             created_run_id:String(process.env.GITHUB_RUN_ID||''),
+            reservation_expires_at:new Date(Date.parse(batch.generated_at)+30*86400000).toISOString(),
             applied_at:null,
             decision_counts:null
           };
@@ -327,11 +363,17 @@ jobs:
           let registry={schema_version:1,updated_at:new Date().toISOString(),batches:[]};
           if(fs.existsSync(path))registry=JSON.parse(fs.readFileSync(path,'utf8'));
           if(registry.schema_version!==1||!Array.isArray(registry.batches))throw new Error('invalid source review batch registry');
+          for(const b of registry.batches){
+            if(b.status==='generated'&&!b.reservation_expires_at){
+              const t=Date.parse(String(b.generated_at||''));if(Number.isFinite(t))b.reservation_expires_at=new Date(t+30*86400000).toISOString();
+            }
+          }
           const existing=registry.batches.find(x=>x.batch_id===entry.batch_id);
           if(existing){
             if(existing.batch_snapshot_sha256!==entry.batch_snapshot_sha256)throw new Error('batch_id collision with different snapshot '+entry.batch_id);
             if(JSON.stringify(existing.question_ids||[])!==JSON.stringify(entry.question_ids||[]))throw new Error('batch_id collision with different Question IDs '+entry.batch_id);
             if(!existing.created_run_id)existing.created_run_id=entry.created_run_id;
+            if(!existing.reservation_expires_at&&existing.status==='generated')existing.reservation_expires_at=entry.reservation_expires_at;
             console.log('REGISTRY IDEMPOTENT',entry.batch_id,existing.status);
           }else{
             registry.batches.unshift(entry);
