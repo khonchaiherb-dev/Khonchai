@@ -160,3 +160,20 @@ Registry **ห้าม** เก็บ prompt, choices, คำตอบ, explana
 - หาก batch เดิมถูก apply แล้วแต่จำนวน decision ไม่ตรง ต้องหยุดการทำงาน
 
 ไฟล์ review artifact ที่มีคำถามและคำตอบยังคงเป็น private GitHub Actions artifact และไม่ถูกย้ายเข้า Registry
+
+
+## Batch Reservation
+
+เมื่อ Source Review Batch ถูกสร้างและลงทะเบียนด้วยสถานะ `generated` ระบบจะจอง Question ID ใน batch นั้นเป็นเวลา **30 วัน** ซึ่งสอดคล้องกับอายุของ private GitHub Actions artifact
+
+ระหว่างที่ reservation ยังมีผล:
+- batch ใหม่ในโหมดเดียวกันต้องข้าม Question ID ที่ถูกจอง
+- ระบบต้องตรวจว่า intersection ระหว่าง batch ใหม่กับ active reservations เท่ากับ 0
+- ช่วยป้องกันทีมตรวจได้รับข้อเดิมซ้ำก่อน batch เดิมจะถูก apply
+
+เมื่อ batch ถูก apply สถานะจะเปลี่ยนเป็น `applied` และ backlog/lifecycle จะเป็นตัวกำหนดการปรากฏของ Question ID ต่อไป
+
+หาก batch ไม่ถูก apply และครบ 30 วัน:
+- reservation ถือว่าหมดอายุ
+- Question ID สามารถกลับมาอยู่ใน batch ใหม่ได้ หากยังคงอยู่ใน Source Verification Backlog
+- Registry ยังคงเก็บประวัติ batch เดิมไว้ ไม่ลบย้อนหลัง
