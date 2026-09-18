@@ -1,5 +1,5 @@
   $('#app').innerHTML=`${header(extra)}<main class="page"><section class="home-hero position-selected-hero"><div><div class="eyebrow">ตำแหน่งที่เลือก</div><h1>${esc(p.title)}<br>กรมสรรพากร</h1><p>${esc(p.description)}</p><div class="hero-chips"><span class="chip">10 ชุด × 100 ข้อ</span><span class="chip">ตอบครบก่อนส่ง</span><span class="chip">ดูเฉลยย้อนหลัง</span><span class="chip">บันทึกความคืบหน้าอัตโนมัติ</span></div></div><div class="hero-stat"><span>ทำเสร็จแล้ว</span><strong>${completed}<small>/10</small></strong><span>ชุดข้อสอบ</span></div></section><div class="section-title">เลือกชุดข้อสอบ</div><section class="sets">${cards}</section><div class="section-title practice-title">ฝึกแบบสุ่มจากคลัง</div><section class="random-practice-wrap">${randomHtml}</section><div class="section-title insight-title">วิเคราะห์ผลการทำข้อสอบ</div>${weaknessHtml}${topicInsightHtml}<div class="section-title insight-title">ฝึกตามผลการทำข้อสอบ</div>${personalPracticeHtml}</main>${footer()}`;
-  bindBrand();$('#changePosition').onclick=()=>{persist();renderPositionHome()};document.querySelectorAll('.set-card').forEach(el=>el.onclick=()=>openSet(+el.dataset.set));$('#randomPractice').onclick=()=>openSet(RANDOM_SET);$('#wrongPractice').onclick=()=>beginPractice(WRONG_SET,null,true,false);const weakBtn=$('#weakPractice');if(weakBtn&&weak.length)weakBtn.onclick=()=>beginPractice(WEAK_SET,weak[0].name,true,false);const topicBtn=$('#topicPractice');if(topicBtn&&weakTopic.length)topicBtn.onclick=()=>beginPractice(TOPIC_SET,weakTopic[0].name,true,false);
+  bindBrand();$('#changePosition').onclick=()=>{persist();renderPositionHome()};document.querySelectorAll('.set-card').forEach(el=>el.onclick=()=>openSet(+el.dataset.set));$('#randomPractice').onclick=()=>openSet(RANDOM_SET);$('#wrongPractice').onclick=()=>beginPractice(WRONG_SET,null,true,false);const weakBtn=$('#weakPractice');if(weakBtn&&weak.length)weakBtn.onclick=()=>beginPractice(WEAK_SET,weak[0].name,true,false);const topicBtn=$('#topicPractice');if(topicBtn&&weakTopic.length)topicBtn.onclick=()=>beginPractice(TOPIC_SET,weakTopic[0].name,true,false);const repeatBtn=$('#repeatPractice');if(repeatBtn&&repeatWeak.length)repeatBtn.onclick=()=>beginPractice(REPEAT_SET,null,true,false);
 }
 
 async function loadCompactBank(key=currentPosition){
@@ -70,7 +70,7 @@ async function loadRandomSet(savedIds=null){
 function questionFromId(c,id){const p=parseQuestionId(id);return p&&c.q?.[p.si]?.[p.qi]?decodeQuestion(c,c.q[p.si][p.qi],p.si,p.qi):null}
 function collectHistoryWrongIds(){
   const out=[];
-  [...Array(SETS).keys()].map(i=>i+1).concat([RANDOM_SET,WRONG_SET,WEAK_SET,TOPIC_SET]).forEach(n=>getHistory(n).forEach(h=>{if(Array.isArray(h?.wrongIds))out.push(...h.wrongIds)}));
+  [...Array(SETS).keys()].map(i=>i+1).concat([RANDOM_SET,WRONG_SET,WEAK_SET,TOPIC_SET,REPEAT_SET]).forEach(n=>getHistory(n).forEach(h=>{if(Array.isArray(h?.wrongIds))out.push(...h.wrongIds)}));
   return out;
 }
 async function collectWrongIds(c){
@@ -82,7 +82,7 @@ async function collectWrongIds(c){
   }
   const rs=getSetState(RANDOM_SET);
   if(rs?.submitted&&Array.isArray(rs.randomIds))rs.randomIds.forEach((raw,i)=>{const m=/^(\d+):(\d+)$/.exec(String(raw));if(!m)return;const si=+m[1],qi=+m[2],r=c.q?.[si]?.[qi];if(r&&rs.answers?.[i]!==r[3])ids.add(questionId(si,qi))});
-  for(const kind of [WRONG_SET,WEAK_SET,TOPIC_SET]){
+  for(const kind of [WRONG_SET,WEAK_SET,TOPIC_SET,REPEAT_SET]){
     const st=getSetState(kind);if(!st?.submitted||!Array.isArray(st.practiceIds))continue;
     st.practiceIds.forEach((id,i)=>{const q=questionFromId(c,id);if(q&&st.answers?.[i]!==q.answer)ids.add(q.id)});
   }
@@ -97,6 +97,19 @@ function buildTopicPlan(c,topic,limit=40){
   const ids=[];c.q.forEach((set,si)=>set.forEach((r,qi)=>{const cat=String(c.s[r[0]]||''),prompt=String(c.s[r[1]]||'');if(deriveTopic(cat,prompt)===String(topic))ids.push(questionId(si,qi))}));
   if(!ids.length)throw new Error('ไม่พบข้อสอบในหัวข้อย่อยที่เลือก');
   return randomize(ids).slice(0,Math.min(limit,ids.length));
+}
+function buildRepeatPlan(c,limit=40){
+  const stats=loadGlobal().itemStats||{},rows=[];
+  for(const [id,x] of Object.entries(stats)){
+    if(!questionFromId(c,id))continue;
+    const attempts=Number(x?.attempts)||0,correct=Number(x?.correct)||0,wrong=Math.max(0,attempts-correct),accuracy=attempts?correct/attempts:1;
+    if(attempts<2||wrong<1)continue;
+    rows.push({id,attempts,correct,wrong,accuracy,score:wrong*100+(1-accuracy)*40+Math.min(attempts,10)});
+  }
+  rows.sort((a,b)=>b.score-a.score||b.wrong-a.wrong||a.accuracy-b.accuracy||b.attempts-a.attempts||a.id.localeCompare(b.id));
+  const ids=rows.slice(0,Math.min(limit,rows.length)).map(x=>x.id);
+  if(!ids.length)throw new Error('ยังไม่มีข้อที่พลาดซ้ำเพียงพอ กรุณาทำข้อสอบอย่างน้อย 2 ครั้ง');
+  return ids;
 }
 async function loadPracticeSet(kind,{category=null,topic=null,savedIds=null}={}){
   const c=await loadCompactBank();let ids=Array.isArray(savedIds)?savedIds.map(String).filter(id=>questionFromId(c,id)):null;
@@ -115,11 +128,15 @@ async function loadPracticeSet(kind,{category=null,topic=null,savedIds=null}={})
     if(!ids?.length)ids=buildTopicPlan(c,topic,40);
     return{set:TOPIC_SET,title:`ฝึกหัวข้อย่อยที่ควรทบทวน · ${topic}`,questions:ids.map(id=>questionFromId(c,id)),practiceIds:ids,practiceTopic:topic};
   }
+  if(kind===REPEAT_SET){
+    if(!ids?.length)ids=buildRepeatPlan(c,40);
+    return{set:REPEAT_SET,title:`ฝึกข้อที่พลาดบ่อย · ${ids.length} ข้อ`,questions:ids.map(id=>questionFromId(c,id)),practiceIds:ids};
+  }
   throw new Error('ไม่รู้จักโหมดฝึกนี้');
 }
 async function beginPractice(kind,focus=null,reset=false,showResult=false){
   try{
-    const mode=kind===WRONG_SET?'wrong-practice':kind===TOPIC_SET?'topic-practice':'weak-practice';
+    const mode=kind===WRONG_SET?'wrong-practice':kind===TOPIC_SET?'topic-practice':kind===REPEAT_SET?'repeat-practice':'weak-practice';
     window.KEXAM_ANALYTICS?.track('exam_open',{position:currentPosition,set_no:null,exam_mode:mode,focus:focus||null,reset:!!reset,show_result:!!showResult});
     currentSet=kind;showLoading('กำลังเตรียมชุดฝึกเฉพาะบุคคล...');
     let st=getSetState(kind);
