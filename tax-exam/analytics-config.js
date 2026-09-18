@@ -1,5 +1,5 @@
 window.KEXAM_ANALYTICS_CONFIG=Object.freeze({
-  version:'16',
+  version:'17',
   supabaseUrl:'',
   supabaseAnonKey:'',
   ingestFunction:'kexam-ingest',
