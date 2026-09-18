@@ -185,18 +185,18 @@ jobs:
           else
             git commit -m "Apply source review decisions"
             for attempt in 1 2 3 4 5; do
-  git fetch origin gh-pages
-  if git rebase origin/gh-pages; then
-    if git push origin HEAD:gh-pages; then
-      exit 0
-    fi
-  else
-    git rebase --abort || true
-  fi
-  sleep $((attempt * 2))
-done
-echo "Unable to update gh-pages after 5 attempts" >&2
-exit 1
+            git fetch origin gh-pages
+            if git rebase origin/gh-pages; then
+              if git push origin HEAD:gh-pages; then
+                exit 0
+              fi
+            else
+              git rebase --abort || true
+            fi
+            sleep $((attempt * 2))
+          done
+          echo "Unable to update gh-pages after 5 attempts" >&2
+          exit 1
           fi
 
       - name: Refresh source backlog and lifecycle verification
