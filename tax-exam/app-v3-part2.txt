@@ -37,11 +37,11 @@ async function loadRandomSet(savedIds=null){
 function openSet(n){
   currentSet=n;const old=getSetState(n),hist=getHistory(n),p=position(),label=setLabel(n);
   if(old?.submitted){
-    modal(`<div class="modal-kicker">${esc(p.short)}</div><h3>ชุดที่ ${n} ทำเสร็จแล้ว</h3><p>คะแนนล่าสุด <strong>${old.score}/100</strong>${hist.length?` · คะแนนสูงสุด <strong>${Math.max(...hist.map(x=>x.score))}/100</strong>`:''}</p><div class="modal-actions wrap"><button class="ghost-btn" id="mClose">ยกเลิก</button><button class="ghost-btn" id="mHistory">ประวัติคะแนน</button><button class="primary-btn" id="mResult">ดูผลและเฉลย</button><button class="danger-btn" id="mRestart">${isRandomSet(n)?'สุ่มชุดใหม่':'เริ่มทำใหม่'}</button></div>`);
+    modal(`<div class="modal-kicker">${esc(p.short)}</div><h3>${esc(label)} ทำเสร็จแล้ว</h3><p>คะแนนล่าสุด <strong>${old.score}/100</strong>${hist.length?` · คะแนนสูงสุด <strong>${Math.max(...hist.map(x=>x.score))}/100</strong>`:''}</p><div class="modal-actions wrap"><button class="ghost-btn" id="mClose">ยกเลิก</button><button class="ghost-btn" id="mHistory">ประวัติคะแนน</button><button class="primary-btn" id="mResult">ดูผลและเฉลย</button><button class="danger-btn" id="mRestart">${isRandomSet(n)?'สุ่มชุดใหม่':'เริ่มทำใหม่'}</button></div>`);
     $('#mClose').onclick=()=>$('#modal').remove();$('#mHistory').onclick=()=>{$('#modal').remove();renderHistory(n)};$('#mResult').onclick=()=>{$('#modal').remove();beginExam(n,false,true)};$('#mRestart').onclick=()=>{$('#modal').remove();beginExam(n,true,false)};
   }else{
     const answered=old?Object.keys(old.answers||{}).length:0;
-    modal(`<div class="modal-kicker">${esc(p.short)}</div><h3>${old?'ทำต่อจากครั้งก่อน':'เริ่มทำข้อสอบ'} · ชุดที่ ${n}</h3><p>${old?`มีคำตอบที่บันทึกไว้ ${answered} ข้อ ระบบจะเปิดต่อจากเดิม`:'ระบบจะไม่แสดงเฉลยระหว่างทำข้อสอบ และจะเปิดให้ส่งคำตอบเมื่อทำครบ 100 ข้อ'}</p><div class="modal-actions"><button class="ghost-btn" id="mClose">ยกเลิก</button><button class="primary-btn" id="mStart">${old?'ทำต่อ':'เริ่มทำข้อสอบ'}</button></div>`);
+    modal(`<div class="modal-kicker">${esc(p.short)}</div><h3>${old?'ทำต่อจากครั้งก่อน':'เริ่มทำข้อสอบ'} · ${esc(label)}</h3><p>${old?`มีคำตอบที่บันทึกไว้ ${answered} ข้อ ระบบจะเปิดต่อจากเดิม`:'ระบบจะไม่แสดงเฉลยระหว่างทำข้อสอบ และจะเปิดให้ส่งคำตอบเมื่อทำครบ 100 ข้อ'}</p><div class="modal-actions"><button class="ghost-btn" id="mClose">ยกเลิก</button><button class="primary-btn" id="mStart">${old?'ทำต่อ':'เริ่มทำข้อสอบ'}</button></div>`);
     $('#mClose').onclick=()=>$('#modal').remove();$('#mStart').onclick=()=>{$('#modal').remove();beginExam(n,false,false)};
   }
 }
@@ -78,4 +78,4 @@ function renderExam(){
   if(!bank||!state){renderSetHome();return}startTimer();const p=position(),q=bank.questions[currentIndex],answered=answeredCount(),flags=flagCount(),complete=answered===100;
   const choices=q.choices.map((c,i)=>`<button class="choice ${state.answers[currentIndex]===i?'selected':''}" data-choice="${i}" aria-pressed="${state.answers[currentIndex]===i}"><span class="choice-letter">${LETTERS[i]}</span><span>${esc(c)}</span></button>`).join('');
   const cats=categoryProgress();const catHtml=Object.entries(cats).map(([k,v])=>`<div class="cat-row"><div class="label"><span>${esc(k)}</span><span>${v.answered}/${v.total}</span></div><div class="bar"><span style="width:${pct(v.answered,v.total)}%"></span></div></div>`).join('');
-  const extra=`<span class="chip position-chip">${esc(p.short)}</span><span class="chip">ชุดที่ ${currentSet}</span><span class="timer" data-time>${fmtTime((state.elapsed||0)+(Date.now()-startTimestamp)/1000)}</span>`;
+  const extra=`<span class="chip position-chip">${esc(p.short)}</span><span class="chip">${esc(setLabel(currentSet))}</span><span class="timer" data-time>${fmtTime((state.elapsed||0)+(Date.now()-startTimestamp)/1000)}</span>`;
