@@ -1,0 +1,128 @@
+name: K-EXAM Answer Conspicuousness Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-answer-conspicuousness-audit.yml'
+      - 'docs/KEXAM_QUESTION_STANDARD.md'
+  workflow_dispatch:
+
+concurrency:
+  group: kexam-answer-conspicuousness-writer
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 1
+
+      - name: Audit answer conspicuousness
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs'),zlib=require('zlib');
+          const configs={
+            'tax-auditor':{
+              prefix:'TA',
+              files:['bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt']
+            },
+            'revenue-academic':{
+              prefix:'RA',
+              files:['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt']
+            }
+          };
+          const median=a=>{const x=[...a].sort((m,n)=>m-n);return x.length%2?x[(x.length-1)/2]:(x[x.length/2-1]+x[x.length/2])/2};
+          const round=n=>Math.round(n*1000)/1000;
+          const rows=[];
+          const summary={total:0,strong:0,moderate:0,watch:0,positions:{}};
+
+          for(const [position,cfg] of Object.entries(configs)){
+            const b64=cfg.files.map(f=>fs.readFileSync('tax-exam/'+f,'utf8').trim()).join('').replace(/\s+/g,'');
+            const data=JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8'));
+            if(!Array.isArray(data.q)||data.q.length!==10||data.q.some(s=>!Array.isArray(s)||s.length!==100))throw new Error(position+' bank invalid');
+            const ps={total:0,strong:0,moderate:0,watch:0,correct_longest:0,correct_shortest:0};
+            data.q.forEach((set,si)=>set.forEach((r,qi)=>{
+              const choices=(r[2]||[]).map(i=>String(data.s[i]||''));
+              const ans=Number(r[3]);
+              if(choices.length!==4||!Number.isInteger(ans)||ans<0||ans>3)throw new Error(position+' bad question '+(si+1)+'/'+(qi+1));
+              const lens=choices.map(x=>x.trim().length),correct=lens[ans],others=lens.filter((_,i)=>i!==ans);
+              const maxOther=Math.max(...others),minOther=Math.min(...others),medOther=median(others);
+              const above=Math.max(0,correct-maxOther),below=Math.max(0,minOther-correct);
+              const ratio=medOther?correct/medOther:1;
+              const longest=correct>maxOther,shortest=correct<minOther;
+              const tieLongest=correct===Math.max(...lens),tieShortest=correct===Math.min(...lens);
+              const strong=(above>=18&&ratio>=1.55)||(below>=18&&ratio<=0.65);
+              const moderate=!strong&&((above>=12&&ratio>=1.35)||(below>=12&&ratio<=0.74));
+              const watch=!strong&&!moderate&&((above>=8&&ratio>=1.25)||(below>=8&&ratio<=0.80));
+              let level='ok';if(strong)level='strong';else if(moderate)level='moderate';else if(watch)level='watch';
+              const id=`${cfg.prefix}-S${String(si+1).padStart(2,'0')}-Q${String(qi+1).padStart(3,'0')}`;
+              if(level!=='ok')rows.push({
+                question_id:id,position,set:si+1,question:qi+1,
+                level,correct_length:correct,distractor_min:minOther,distractor_max:maxOther,distractor_median:medOther,
+                outside_by:Math.max(above,below),ratio_to_distractor_median:round(ratio),
+                correct_strictly_longest:longest,correct_strictly_shortest:shortest
+              });
+              summary.total++;ps.total++;
+              if(strong){summary.strong++;ps.strong++}
+              else if(moderate){summary.moderate++;ps.moderate++}
+              else if(watch){summary.watch++;ps.watch++}
+              if(tieLongest){ps.correct_longest++}
+              if(tieShortest){ps.correct_shortest++}
+            }));
+            summary.positions[position]=ps;
+          }
+
+          rows.sort((a,b)=>{
+            const rank={strong:3,moderate:2,watch:1};
+            return rank[b.level]-rank[a.level]||b.outside_by-a.outside_by||Math.abs(Math.log(b.ratio_to_distractor_median))-Math.abs(Math.log(a.ratio_to_distractor_median))||a.question_id.localeCompare(b.question_id);
+          });
+          const report={
+            schema_version:1,
+            generated_at:new Date().toISOString(),
+            audit_model:'answer-conspicuousness-v1',
+            policy:{
+              note:'Public-safe QA signal only. A flag does not prove a question is invalid; it identifies answer-length patterns for human review.',
+              strong:'correct answer is outside distractor range by >=18 chars and ratio to distractor median >=1.55 or <=0.65',
+              moderate:'outside by >=12 chars and ratio >=1.35 or <=0.74',
+              watch:'outside by >=8 chars and ratio >=1.25 or <=0.80'
+            },
+            summary,
+            rows
+          };
+          if(summary.total!==2000)throw new Error('audit total must be 2000');
+          if(new Set(rows.map(x=>x.question_id)).size!==rows.length)throw new Error('duplicate Question ID in audit rows');
+          fs.writeFileSync('tax-exam/answer-conspicuousness-audit.json',JSON.stringify(report,null,2)+'\n');
+          console.log('ANSWER CONSPICUOUSNESS',JSON.stringify(summary));
+          NODE
+
+      - name: Publish audit to gh-pages
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tax-exam/answer-conspicuousness-audit.json
+          if git diff --cached --quiet; then
+            echo "Answer conspicuousness audit unchanged"
+            exit 0
+          fi
+          git commit -m "Update answer conspicuousness audit"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin gh-pages
+            if git rebase origin/gh-pages; then
+              if git push origin HEAD:gh-pages; then exit 0; fi
+            else
+              git rebase --abort || true
+            fi
+            sleep $((attempt * 2))
+          done
+          echo "Unable to publish answer conspicuousness audit" >&2
+          exit 1
