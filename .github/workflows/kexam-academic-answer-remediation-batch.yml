@@ -1,0 +1,218 @@
+name: K-EXAM Academic Answer Remediation Batch
+on:
+  workflow_dispatch:
+    inputs:
+      batch_size:
+        description: 'จำนวนข้อในชุดตรวจแก้ความเด่นของคำตอบ'
+        required: false
+        default: '30'
+      include_levels:
+        description: 'strong หรือ strong+moderate หรือ all'
+        required: false
+        type: choice
+        options:
+          - strong
+          - strong+moderate
+          - all
+        default: strong
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Build private academic answer remediation batch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages --depth=1
+          SIZE="${{ github.event.inputs.batch_size || '30' }}"
+          LEVELS="${{ github.event.inputs.include_levels || 'strong' }}"
+          if ! [[ "$SIZE" =~ ^[0-9]+$ ]] || [ "$SIZE" -lt 1 ] || [ "$SIZE" -gt 100 ]; then
+            echo "batch_size must be 1..100" >&2
+            exit 1
+          fi
+          if [ "$LEVELS" != "strong" ] && [ "$LEVELS" != "strong+moderate" ] && [ "$LEVELS" != "all" ]; then
+            echo "include_levels invalid" >&2
+            exit 1
+          fi
+          BATCH_SIZE="$SIZE" INCLUDE_LEVELS="$LEVELS" node <<'NODE'
+          const cp=require('child_process'),zlib=require('zlib'),fs=require('fs'),crypto=require('crypto');
+          const show=p=>cp.execFileSync('git',['show','origin/gh-pages:'+p],{encoding:'utf8',maxBuffer:64*1024*1024});
+          const backlog=JSON.parse(show('tax-exam/academic-answer-remediation-backlog.json'));
+          const manifest=JSON.parse(show('tax-exam/question-publication-manifest.json'));
+          const integrity=JSON.parse(show('tax-exam/question-content-integrity.json'));
+          if(backlog.schema_version!==1||backlog.backlog_model!=='academic-answer-remediation-v1'||!Array.isArray(backlog.rows))throw new Error('academic answer remediation backlog invalid');
+          if(integrity.schema_version!==1||integrity.algorithm!=='sha256')throw new Error('content integrity invalid');
+
+          const files=['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'];
+          const b64=files.map(f=>show('tax-exam/'+f).trim()).join('').replace(/\s+/g,'');
+          const d=JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8'));
+          if(!Array.isArray(d.q)||d.q.length!==10||d.q.some(s=>!Array.isArray(s)||s.length!==100))throw new Error('revenue-academic bank invalid');
+
+          const size=Number(process.env.BATCH_SIZE||30),levels=String(process.env.INCLUDE_LEVELS||'strong');
+          const allowed=levels==='strong'?new Set(['strong']):levels==='strong+moderate'?new Set(['strong','moderate']):new Set(['strong','moderate','watch']);
+          const rank={strong:3,moderate:2,watch:1};
+          const eligible=backlog.rows.filter(r=>allowed.has(r.signal_level));
+          if(!eligible.length)throw new Error('no eligible remediation rows');
+
+          const byLevel=new Map();
+          for(const r of eligible)(byLevel.get(r.signal_level)??byLevel.set(r.signal_level,[]).get(r.signal_level)).push(r);
+
+          const takeBalancedSets=(rows,target)=>{
+            if(rows.length<=target)return [...rows];
+            const bySet={};for(const r of rows)(bySet[String(r.set)]??=[]).push(r);
+            const keys=Object.keys(bySet).sort((a,b)=>Number(a)-Number(b)),out=[];
+            let cursor=0,guard=0;
+            while(out.length<target&&guard++<10000){
+              let advanced=false;
+              for(let step=0;step<keys.length&&out.length<target;step++){
+                const k=keys[(cursor+step)%keys.length],arr=bySet[k];
+                if(arr.length){out.push(arr.shift());advanced=true}
+              }
+              cursor=(cursor+1)%Math.max(keys.length,1);
+              if(!advanced)break;
+            }
+            return out.slice(0,target);
+          };
+
+          const selected=[];
+          for(const level of ['strong','moderate','watch']){
+            const tier=byLevel.get(level)||[],left=size-selected.length;if(left<=0)break;
+            selected.push(...takeBalancedSets(tier,Math.min(left,tier.length)));
+          }
+
+          const p=manifest.positions?.['revenue-academic'];if(!p)throw new Error('manifest missing revenue-academic');
+          const sourceVerified=new Set(p.source_verified_ids||[]);
+          const letters=['ก','ข','ค','ง'];
+          const questions=selected.map((row,idx)=>{
+            const si=Number(row.set)-1,qi=Number(row.question)-1,r=d.q?.[si]?.[qi];
+            if(!r)throw new Error('bank row missing '+row.question_id);
+            const category=String(d.s[r[0]]||''),prompt=String(d.s[r[1]]||'');
+            const choices=(r[2]||[]).map(i=>String(d.s[i]||'')),answer=Number(r[3]);
+            const explanation=String(d.s[r[4]]||''),wrongReasons=String(d.s[r[5]]||'');
+            if(choices.length!==4||answer<0||answer>3)throw new Error('invalid question '+row.question_id);
+            const currentHash=integrity.questions?.[row.question_id]?.sha256||null;
+            if(currentHash!==row.content_sha256)throw new Error('backlog/content integrity SHA mismatch '+row.question_id);
+            const override=manifest.source_overrides?.[row.question_id]||{};
+            const sourceState=sourceVerified.has(row.question_id)||override.source_state==='verified'?'verified':(override.source_state||'pending');
+            return{
+              review_order:idx+1,
+              question_id:row.question_id,
+              set:Number(row.set),
+              question:Number(row.question),
+              category,
+              signal_level:row.signal_level,
+              current_metrics:{
+                correct_length:row.correct_length,
+                distractor_min:row.distractor_min,
+                distractor_max:row.distractor_max,
+                distractor_median:row.distractor_median,
+                outside_by:row.outside_by,
+                ratio_to_distractor_median:row.ratio_to_distractor_median,
+                correct_strictly_longest:row.correct_strictly_longest,
+                correct_strictly_shortest:row.correct_strictly_shortest
+              },
+              content_sha256:currentHash,
+              source_state:sourceState,
+              prompt,
+              choices,
+              correct_answer:{index:answer,letter:letters[answer],text:choices[answer]},
+              explanation,
+              wrong_reasons:wrongReasons,
+              remediation_guidance:[
+                'ทำให้คำตอบถูกไม่เด่นจากความยาวหรือระดับรายละเอียดเมื่อเทียบกับตัวลวง โดยรักษาความเป็นธรรมชาติของภาษา',
+                'ตัวลวงทั้งสามต้องยังอยู่ในประเด็นเดียวกันและเป็นความเข้าใจผิดที่สมเหตุผล ห้ามเติมถ้อยคำไร้สาระเพียงเพื่อเพิ่มความยาว',
+                'พยายามรักษาคำตอบเดิมและสาระเดิม หากจำเป็นต้องเปลี่ยนคำตอบหรือหลักกฎหมาย ต้องทบทวนโจทย์ ตัวเลือก เฉลย และเหตุผลทั้งหมด',
+                'ห้ามใช้วิธีทำทุกตัวเลือกให้ยาวเท่ากันแบบกลไก ให้สมดุลระดับรายละเอียดตามธรรมชาติ',
+                'หากข้อ source-verified ถูกแก้สาระสำคัญ ต้อง reset source verification และตรวจแหล่งทางการใหม่'
+              ],
+              remediation_form:{
+                action:'',
+                new_prompt:prompt,
+                new_choices:['','','',''],
+                new_answer:answer,
+                new_explanation:explanation,
+                new_wrong_reasons:wrongReasons,
+                reviewed_at:'',
+                review_note:'',
+                substantive_change:false,
+                reset_source_verification:false
+              }
+            };
+          });
+
+          const generatedAt=new Date().toISOString();
+          const snapshotPayload=questions.map(q=>({question_id:q.question_id,content_sha256:q.content_sha256})).sort((a,b)=>a.question_id.localeCompare(b.question_id));
+          const snapshot=crypto.createHash('sha256').update(JSON.stringify(snapshotPayload),'utf8').digest('hex');
+          const batchId='RA-ANS-'+generatedAt.slice(0,10).replace(/-/g,'')+'-'+snapshot.slice(0,12);
+          const summary={
+            batch_id:batchId,batch_snapshot_sha256:snapshot,batch_size:questions.length,
+            levels:questions.reduce((m,q)=>(m[q.signal_level]=(m[q.signal_level]||0)+1,m),{}),
+            sets:questions.reduce((m,q)=>(m[q.set]=(m[q.set]||0)+1,m),{}),
+            source_verified:questions.filter(q=>q.source_state==='verified').length
+          };
+          const output={
+            schema_version:1,
+            generated_at:generatedAt,
+            batch_id:batchId,
+            batch_snapshot_sha256:snapshot,
+            batch_model:'academic-answer-remediation-batch-v1',
+            selection_policy:'highest signal level first, balanced across sets within each level',
+            warning:'Private remediation artifact. Contains answers and explanations. Do not publish directly.',
+            summary,
+            questions
+          };
+          fs.writeFileSync('/tmp/kexam-academic-answer-remediation-batch.json',JSON.stringify(output,null,2)+'\n');
+
+          const decisions={
+            schema_version:1,
+            updated_at:generatedAt.slice(0,10),
+            batch_id:batchId,
+            batch_snapshot_sha256:snapshot,
+            records:questions.map(q=>({
+              remediation_id:'RA-ANS-REM-'+q.question_id+'-'+q.content_sha256.slice(0,12),
+              question_id:q.question_id,
+              expected_content_sha256:q.content_sha256,
+              action:'',
+              new_prompt:q.prompt,
+              new_choices:['','','',''],
+              new_answer:q.correct_answer.index,
+              new_explanation:q.explanation,
+              new_wrong_reasons:q.wrong_reasons,
+              reviewed_at:'',
+              review_note:'',
+              substantive_change:false,
+              reset_source_verification:false
+            }))
+          };
+          fs.writeFileSync('/tmp/kexam-academic-answer-remediation-decisions-template.json',JSON.stringify(decisions,null,2)+'\n');
+
+          const csvCell=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+          const header=['batch_id','review_order','question_id','set','question','signal_level','source_state','content_sha256','correct_length','distractor_min','distractor_max','distractor_median','outside_by','ratio_to_distractor_median','prompt','correct_letter','correct_answer','action','review_note'];
+          const lines=[header.join(',')];
+          for(const q of questions)lines.push([
+            batchId,q.review_order,q.question_id,q.set,q.question,q.signal_level,q.source_state,q.content_sha256,
+            q.current_metrics.correct_length,q.current_metrics.distractor_min,q.current_metrics.distractor_max,q.current_metrics.distractor_median,q.current_metrics.outside_by,q.current_metrics.ratio_to_distractor_median,
+            q.prompt,q.correct_answer.letter,q.correct_answer.text,'',''
+          ].map(csvCell).join(','));
+          fs.writeFileSync('/tmp/kexam-academic-answer-remediation-batch.csv','\ufeff'+lines.join('\r\n'));
+
+          if(questions.length!==Math.min(size,eligible.length))throw new Error('batch size mismatch');
+          if(new Set(questions.map(q=>q.question_id)).size!==questions.length)throw new Error('duplicate Question ID in batch');
+          console.log('ACADEMIC ANSWER REMEDIATION BATCH',JSON.stringify(summary));
+          NODE
+
+      - name: Upload private remediation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kexam-academic-answer-remediation-batch
+          path: |
+            /tmp/kexam-academic-answer-remediation-batch.json
+            /tmp/kexam-academic-answer-remediation-batch.csv
+            /tmp/kexam-academic-answer-remediation-decisions-template.json
+          if-no-files-found: error
+          retention-days: 30
