@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow" />
   <meta name="theme-color" content="#050b16" />
   <title>K-EXAM Analytics Dashboard</title>
-  <link rel="stylesheet" href="admin-v13.css?v=25" />
+  <link rel="stylesheet" href="admin-v13.css?v=26" />
 </head>
 <body>
   <main class="shell">
@@ -25,6 +25,12 @@
     </section>
 
     <div id="dataMode" class="notice" style="margin-top:16px">กำลังโหลดข้อมูล...</div>
+
+
+    <section class="panel section qa-health-panel" style="margin-top:16px">
+      <div class="section-head"><div><h3>ความพร้อมข้อมูลตรวจคุณภาพ</h3><div class="section-sub">ตรวจความสอดคล้องระหว่างวงจรสถานะข้อสอบ, fingerprint เนื้อหา, คิวตรวจแหล่งอ้างอิง, รอบทบทวน และ Batch Registry เพื่อป้องกันการตีความค่า 0 จากไฟล์ว่างหรือข้อมูลไม่ครบว่าเป็น “ตรวจครบแล้ว”</div></div></div>
+      <div id="qaDataHealth"></div>
+    </section>
 
     <section class="metrics" id="metrics"></section>
 
@@ -115,6 +121,6 @@
     <div class="footer">K-EXAM · ติวสอบราชการ อาจารย์คิม · www.k-exam.com</div>
   </main>
   <script src="../analytics-config.js?v=25"></script>
-  <script src="admin-v13.js?v=30"></script>
+  <script src="admin-v13.js?v=31"></script>
 </body>
 </html>
