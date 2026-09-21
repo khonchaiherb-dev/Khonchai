@@ -105,6 +105,17 @@
       <div id="qualityQueue" style="margin-top:12px"></div>
     </section>
 
+    <section class="panel section" style="margin-top:16px">
+      <div class="section-head"><div><h3>ความเด่นของคำตอบจากความยาวตัวเลือก</h3><div class="section-sub">ตรวจ Question ID ที่คำตอบถูกอาจยาวหรือสั้นเด่นกว่าตัวลวงผิดธรรมชาติ ใช้เป็นสัญญาณ QA เพื่อส่งตรวจมนุษย์ ไม่ถือว่าเป็นข้อผิดโดยอัตโนมัติ</div></div></div>
+      <div class="top-actions" style="margin:8px 0 14px">
+        <select class="btn" id="answerLengthLevel" aria-label="ระดับสัญญาณ"><option value="">ทุกระดับ</option><option value="strong">Strong</option><option value="moderate">Moderate</option><option value="watch">Watch</option></select>
+        <select class="btn" id="answerLengthPosition" aria-label="ตำแหน่ง"><option value="">ทุกตำแหน่ง</option><option value="revenue-academic">นักวิชาการสรรพากรปฏิบัติการ</option><option value="tax-auditor">นักตรวจสอบภาษีปฏิบัติการ</option></select>
+        <button class="btn" id="exportAnswerLength">ส่งออก CSV</button>
+      </div>
+      <div id="answerConspicuousnessSummary"></div>
+      <div id="answerConspicuousnessList" style="margin-top:12px"></div>
+    </section>
+
     <section class="panel section" style="margin-top:16px"><div class="section-head"><div><h3>ข้อที่ใช้เวลานาน</h3><div class="section-sub">เรียงจากมัธยฐานเวลาต่อข้อของคำตอบครั้งแรกต่อผู้ใช้ ใช้ช่วยตรวจโจทย์ที่อาจซับซ้อนหรือใช้เวลาอ่านมากผิดปกติ</div></div></div><div id="slowItems"></div></section>
 
     <section class="panel section" style="margin-top:16px"><div class="section-head"><div><h3>สถิติคุณภาพรายข้อ</h3><div class="section-sub">สรุปด้วย Question ID: p = สัดส่วนตอบถูก, D = อำนาจจำแนก, DE = ประสิทธิภาพตัวลวง พร้อมเวลาเฉลี่ย/มัธยฐานต่อข้อ โดยใช้คำตอบครั้งแรกต่อผู้ใช้</div></div></div><div id="itemStats"></div></section>
@@ -127,6 +138,6 @@
     <div class="footer">K-EXAM · ติวสอบราชการ อาจารย์คิม · www.k-exam.com</div>
   </main>
   <script src="../analytics-config.js?v=25"></script>
-  <script src="admin-v13.js?v=32"></script>
+  <script src="admin-v13.js?v=33"></script>
 </body>
 </html>
