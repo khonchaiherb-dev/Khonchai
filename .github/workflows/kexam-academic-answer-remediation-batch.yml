@@ -50,12 +50,14 @@ jobs:
           const cp=require('child_process'),zlib=require('zlib'),fs=require('fs'),crypto=require('crypto');
           const show=p=>cp.execFileSync('git',['show','origin/gh-pages:'+p],{encoding:'utf8',maxBuffer:64*1024*1024});
           const backlog=JSON.parse(show('tax-exam/academic-answer-remediation-backlog.json'));
+          const sourceBacklog=JSON.parse(show('tax-exam/source-verification-backlog.json'));
           const manifest=JSON.parse(show('tax-exam/question-publication-manifest.json'));
           const integrity=JSON.parse(show('tax-exam/question-content-integrity.json'));
           const decisions=JSON.parse(fs.readFileSync('data/kexam-academic-answer-remediation-decisions.json','utf8'));
           let registry={schema_version:1,batches:[]};
           try{registry=JSON.parse(show('tax-exam/academic-answer-remediation-batch-registry.json'))}catch{}
           if(backlog.schema_version!==1||backlog.backlog_model!=='academic-answer-remediation-v1'||!Array.isArray(backlog.rows))throw new Error('academic answer remediation backlog invalid');
+          if(sourceBacklog.schema_version!==1||sourceBacklog.risk_model!=='source-risk-v2'||!Array.isArray(sourceBacklog.rows))throw new Error('source verification backlog invalid');
           if(integrity.schema_version!==1||integrity.algorithm!=='sha256')throw new Error('content integrity invalid');
           if(decisions.schema_version!==1||!Array.isArray(decisions.records))throw new Error('academic remediation decisions invalid');
           if(registry.schema_version!==1||!Array.isArray(registry.batches))throw new Error('academic remediation batch registry invalid');
@@ -113,6 +115,7 @@ jobs:
 
           const p=manifest.positions?.['revenue-academic'];if(!p)throw new Error('manifest missing revenue-academic');
           const sourceVerified=new Set(p.source_verified_ids||[]);
+          const sourceRiskMap=new Map(sourceBacklog.rows.filter(r=>r.position==='revenue-academic').map(r=>[String(r.question_id),r]));
           const letters=['ก','ข','ค','ง'];
           const questions=selected.map((row,idx)=>{
             const si=Number(row.set)-1,qi=Number(row.question)-1,r=d.q?.[si]?.[qi];
@@ -125,6 +128,7 @@ jobs:
             if(currentHash!==row.content_sha256)throw new Error('backlog/content integrity SHA mismatch '+row.question_id);
             const override=manifest.source_overrides?.[row.question_id]||{};
             const sourceState=sourceVerified.has(row.question_id)||override.source_state==='verified'?'verified':(override.source_state||'pending');
+            const sourceRisk=sourceRiskMap.get(row.question_id)||null;
             return{
               review_order:idx+1,
               question_id:row.question_id,
@@ -144,6 +148,17 @@ jobs:
               },
               content_sha256:currentHash,
               source_state:sourceState,
+              source_risk:sourceRisk?{
+                priority:sourceRisk.priority||'ปกติ',
+                priority_score:Number(sourceRisk.priority_score)||0,
+                reasons:Array.isArray(sourceRisk.reasons)?sourceRisk.reasons:[]
+              }:null,
+              current_source_verification:sourceState==='verified'?{
+                source_refs:Array.isArray(override.source_refs)?override.source_refs:[],
+                reviewed_at:override.reviewed_at||null,
+                review_note:override.review_note||null,
+                content_sha256:override.content_sha256||null
+              }:null,
               prompt,
               choices,
               correct_answer:{index:answer,letter:letters[answer],text:choices[answer]},
@@ -154,7 +169,9 @@ jobs:
                 'ตัวลวงทั้งสามต้องยังอยู่ในประเด็นเดียวกันและเป็นความเข้าใจผิดที่สมเหตุผล ห้ามเติมถ้อยคำไร้สาระเพียงเพื่อเพิ่มความยาว',
                 'พยายามรักษาคำตอบเดิมและสาระเดิม หากจำเป็นต้องเปลี่ยนคำตอบหรือหลักกฎหมาย ต้องทบทวนโจทย์ ตัวเลือก เฉลย และเหตุผลทั้งหมด',
                 'ห้ามใช้วิธีทำทุกตัวเลือกให้ยาวเท่ากันแบบกลไก ให้สมดุลระดับรายละเอียดตามธรรมชาติ',
-                'หากข้อ source-verified ถูกแก้สาระสำคัญ ต้อง reset source verification และตรวจแหล่งทางการใหม่'
+                'หากข้อ source-verified ถูกแก้ ต้อง reset และยืนยันแหล่งอ้างอิงใหม่ก่อน Atomic Apply',
+                'หากเป็น substantive change และ Source Risk ตั้งแต่ 70 คะแนนขึ้นไป ต้องแนบ source_refs ที่ตรวจแล้วใน Decision',
+                'กรณีระบุ substantive_change=false ระบบจะอนุญาตเฉพาะเมื่อโจทย์ คำตอบที่ถูก และตำแหน่งคำตอบเดิมไม่เปลี่ยน'
               ],
               remediation_form:{
                 action:'',
@@ -166,7 +183,8 @@ jobs:
                 reviewed_at:'',
                 review_note:'',
                 substantive_change:false,
-                reset_source_verification:false
+                reset_source_verification:sourceState==='verified',
+                source_refs:[]
               }
             };
           });
@@ -180,6 +198,7 @@ jobs:
             levels:questions.reduce((m,q)=>(m[q.signal_level]=(m[q.signal_level]||0)+1,m),{}),
             sets:questions.reduce((m,q)=>(m[q.set]=(m[q.set]||0)+1,m),{}),
             source_verified:questions.filter(q=>q.source_state==='verified').length,
+            source_risk_gate:questions.filter(q=>(Number(q.source_risk?.priority_score)||0)>=70).length,
             skipped,
             active_reserved:activeReserved.size,
             existing_decisions:decisionIds.size,
@@ -216,7 +235,8 @@ jobs:
               reviewed_at:'',
               review_note:'',
               substantive_change:false,
-              reset_source_verification:false
+              reset_source_verification:q.source_state==='verified',
+              source_refs:[]
             }))
           };
           fs.writeFileSync('/tmp/kexam-academic-answer-remediation-decisions-template.json',JSON.stringify(decisions,null,2)+'\n');
