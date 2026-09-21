@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-21T19:19:35.458Z",
+  "generated_at": "2026-09-21T19:22:04.677Z",
   "status_model": "academic-answer-remediation-status-v1",
   "source_audit_generated_at": "2026-09-21T19:19:16.299Z",
   "regression_guard": {
@@ -400,6 +400,105 @@
         "outside_by": 35,
         "source_state": "pending",
         "source_risk_score": 30
+      }
+    ]
+  },
+  "pilot_preview": {
+    "mode": "low-source-risk-pilot",
+    "size": 10,
+    "selection_policy": "Strong only, source pending, source risk <70, balanced across sets",
+    "sets": {
+      "1": 1,
+      "2": 1,
+      "3": 1,
+      "4": 1,
+      "5": 1,
+      "6": 1,
+      "7": 1,
+      "8": 1,
+      "9": 1,
+      "10": 1
+    },
+    "question_ids": [
+      {
+        "question_id": "RA-S01-Q088",
+        "set": 1,
+        "question": 88,
+        "signal": "strong",
+        "outside_by": 33,
+        "source_risk_score": 30
+      },
+      {
+        "question_id": "RA-S02-Q035",
+        "set": 2,
+        "question": 35,
+        "signal": "strong",
+        "outside_by": 38,
+        "source_risk_score": 50
+      },
+      {
+        "question_id": "RA-S03-Q070",
+        "set": 3,
+        "question": 70,
+        "signal": "strong",
+        "outside_by": 50,
+        "source_risk_score": 65
+      },
+      {
+        "question_id": "RA-S04-Q041",
+        "set": 4,
+        "question": 41,
+        "signal": "strong",
+        "outside_by": 31,
+        "source_risk_score": 20
+      },
+      {
+        "question_id": "RA-S05-Q013",
+        "set": 5,
+        "question": 13,
+        "signal": "strong",
+        "outside_by": 50,
+        "source_risk_score": 65
+      },
+      {
+        "question_id": "RA-S06-Q062",
+        "set": 6,
+        "question": 62,
+        "signal": "strong",
+        "outside_by": 34,
+        "source_risk_score": 65
+      },
+      {
+        "question_id": "RA-S07-Q024",
+        "set": 7,
+        "question": 24,
+        "signal": "strong",
+        "outside_by": 35,
+        "source_risk_score": 50
+      },
+      {
+        "question_id": "RA-S08-Q014",
+        "set": 8,
+        "question": 14,
+        "signal": "strong",
+        "outside_by": 38,
+        "source_risk_score": 60
+      },
+      {
+        "question_id": "RA-S09-Q039",
+        "set": 9,
+        "question": 39,
+        "signal": "strong",
+        "outside_by": 38,
+        "source_risk_score": 30
+      },
+      {
+        "question_id": "RA-S10-Q004",
+        "set": 10,
+        "question": 4,
+        "signal": "strong",
+        "outside_by": 50,
+        "source_risk_score": 65
       }
     ]
   },
