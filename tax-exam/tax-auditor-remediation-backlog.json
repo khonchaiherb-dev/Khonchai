@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-18T12:07:53.576Z",
+  "generated_at": "2026-09-21T05:17:12.504Z",
   "policy": {
     "note": "Backlog only. Items remain governed by Publication Lifecycle and Content Integrity. Do not rewrite Published content directly.",
     "remediation_rule": "Use batch review; preserve Question ID; update bank+integrity+lifecycle atomically after QA."
