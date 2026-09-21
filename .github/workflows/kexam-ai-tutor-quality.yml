@@ -1,0 +1,55 @@
+name: K-EXAM AI Tutor Quality
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '25 2 * * *'
+  push:
+    paths:
+      - '.github/workflows/kexam-ai-tutor-quality.yml'
+      - 'docs/KEXAM_QUESTION_STANDARD.md'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Verify AI Tutor integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages --depth=1
+          git show origin/gh-pages:tax-exam/ai-tutor-v26.js > /tmp/ai-tutor.js
+          git show origin/gh-pages:tax-exam/ai-tutor-v26.css > /tmp/ai-tutor.css
+          git show origin/gh-pages:tax-exam/index.html > /tmp/index.html
+          git show origin/gh-pages:tax-exam/sw-v2.js > /tmp/sw.js
+          git show origin/gh-pages:tax-exam/manifest.webmanifest > /tmp/manifest.json
+          node --check /tmp/ai-tutor.js
+          node --check /tmp/sw.js
+          node <<'NODE'
+          const fs=require('fs'),cp=require('child_process'),zlib=require('zlib');
+          const js=fs.readFileSync('/tmp/ai-tutor.js','utf8');
+          const css=fs.readFileSync('/tmp/ai-tutor.css','utf8');
+          const html=fs.readFileSync('/tmp/index.html','utf8');
+          const sw=fs.readFileSync('/tmp/sw.js','utf8');
+          const manifest=JSON.parse(fs.readFileSync('/tmp/manifest.json','utf8'));
+          for(const token of ['kexam_ai_tutor_v1','easy','standard','hard','adaptive','AI TUTOR SCORE','p.xp+=xp','p.coins+=coin','p.stars+=stars','ประวัติคะแนน AI Tutor'])if(!js.includes(token))throw new Error('AI Tutor missing '+token);
+          for(const token of ['.ait-launch','.ait-back','.ait-answers','.ait-shelf','.ait-history'])if(!css.includes(token))throw new Error('AI Tutor CSS missing '+token);
+          if(!html.includes('ai-tutor-v26.js?v=26')||!html.includes('ai-tutor-v26.css?v=26'))throw new Error('AI Tutor assets missing from index');
+          if(!sw.includes("kexam-tax-v26")||!sw.includes("ai-tutor-v26.js?v=26")||!sw.includes("ai-tutor-v26.css?v=26"))throw new Error('AI Tutor assets missing from service worker');
+          if(manifest.start_url!=='./?v=26')throw new Error('PWA start URL not v26');
+          const configs={
+            ta:['bank-01.txt','bank-02-03.txt','bank-04-05.txt','bank-06-07.txt','bank-08-09.txt','bank-10-11.txt','bank-12-13.txt','bank-14-15.txt','bank-16-17.txt','bank-18.txt'],
+            ra:['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt']
+          };
+          for(const [key,files] of Object.entries(configs)){
+            const b64=files.map(f=>cp.execFileSync('git',['show','origin/gh-pages:tax-exam/'+f],{encoding:'utf8',maxBuffer:64*1024*1024}).trim()).join('').replace(/\s+/g,'');
+            const d=JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8'));
+            if(!Array.isArray(d.q)||d.q.length!==10||d.q.some(s=>!Array.isArray(s)||s.length!==100))throw new Error(key+' bank is not 10x100');
+            let count=0;
+            d.q.forEach(set=>set.forEach(r=>{if(!Array.isArray(r[2])||r[2].length!==4||!Number.isInteger(r[3])||r[3]<0||r[3]>3)throw new Error(key+' invalid question row');count++}));
+            if(count!==1000)throw new Error(key+' bank count '+count);
+          }
+          console.log('AI TUTOR QUALITY PASS: syntax, UI, PWA, rewards, score history, 2 x 1,000 question banks');
+          NODE
