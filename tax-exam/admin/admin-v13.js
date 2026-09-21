@@ -108,9 +108,14 @@
   async function sourceVerificationBacklog(){
     if(sourceBacklogCache)return sourceBacklogCache;
     try{
-      const r=await fetch('../source-verification-backlog.json',{cache:'no-store'});if(!r.ok)throw new Error('backlog');
-      const data=await r.json();sourceBacklogCache=data;return data;
-    }catch{return{summary:{total_pending:0,urgent:0,high:0,normal:0,positions:{}},rows:[],error:true}}
+      const r=await fetch('../source-verification-backlog.json',{cache:'no-store'});if(!r.ok)throw new Error('backlog-http-'+r.status);
+      const raw=await r.text();if(!raw.trim())throw new Error('backlog-empty');
+      const data=JSON.parse(raw);
+      if(Number(data?.schema_version)!==1||!data?.summary||!Array.isArray(data?.rows))throw new Error('backlog-schema');
+      sourceBacklogCache=data;return data;
+    }catch(e){
+      return{schema_version:1,generation_mode:'unavailable',summary:{total_pending:0,urgent:0,high:0,normal:0,positions:{}},rows:[],error:true,error_message:String(e?.message||e||'backlog-error')};
+    }
   }
   async function sourceReviewBatchRegistry(){
     if(sourceBatchRegistryCache)return sourceBatchRegistryCache;
@@ -121,9 +126,32 @@
       sourceBatchRegistryCache=data;return data;
     }catch{return{schema_version:1,updated_at:null,batches:[],error:true}}
   }
+  function qaDataHealthHtml(pub={},backlog={},integrity={},freshness={},registry={}){
+    const checks=[];
+    const add=(label,state,value,note)=>checks.push({label,state,value,note});
+    const published=Number(pub?.published)||0,pending=Number(pub?.pending)||0,sourceVerified=Number(pub?.sourceVerified)||0;
+    const fingerprint=Number(integrity?.total)||0,backlogTotal=Number(backlog?.summary?.total_pending)||0,freshVerified=Number(freshness?.summary?.total_verified)||0;
+    add('วงจรสถานะข้อสอบ',pub?.error?'bad':published>0?'ok':'warn',fmt(published),pub?.error?'อ่าน publication manifest ไม่สำเร็จ':`Published ${fmt(published)} · Source verified ${fmt(sourceVerified)} · Pending ${fmt(pending)}`);
+    add('Fingerprint เนื้อหา',integrity?.error?'bad':fingerprint===published?'ok':'warn',fmt(fingerprint),integrity?.error?'อ่าน content integrity ไม่สำเร็จ':`ควรตรงกับ Published ${fmt(published)} ข้อ`);
+    const backlogState=backlog?.error?'bad':backlogTotal===pending?'ok':'warn';
+    const backlogMode=String(backlog?.generation_mode||'')==='integrity-baseline'?'คิวฐานจาก Content Integrity':'คิวจัดลำดับตรวจ';
+    add('คิวตรวจแหล่งอ้างอิง',backlogState,fmt(backlogTotal),backlog?.error?`ไฟล์คิวใช้งานไม่ได้: ${backlog.error_message||'ไม่ทราบสาเหตุ'}`:`${backlogMode} · ควรตรงกับ Pending ${fmt(pending)} ข้อ`);
+    add('รอบทบทวน Source',freshness?.error?'bad':freshVerified===sourceVerified?'ok':'warn',fmt(freshVerified),freshness?.error?'อ่าน re-verification watchlist ไม่สำเร็จ':`ควรตรงกับ Source verified ${fmt(sourceVerified)} ข้อ`);
+    const batchCount=Array.isArray(registry?.batches)?registry.batches.length:0;
+    add('Source Review Batch',registry?.error?'warn':'ok',fmt(batchCount),registry?.error?'อ่าน Batch Registry ไม่สำเร็จ':'ทะเบียนชุดตรวจพร้อมใช้งาน');
+    const bad=checks.filter(x=>x.state==='bad').length,warn=checks.filter(x=>x.state==='warn').length;
+    const overall=bad?'พบข้อมูล QA ที่ใช้งานไม่ได้':warn?'พบข้อมูลที่ควรตรวจความสอดคล้อง':'ข้อมูล QA สอดคล้องกัน';
+    const cls=bad?'bad':warn?'warn':'ok';
+    return `<div class="qa-health-head ${cls}"><strong>${esc(overall)}</strong><span>${bad?bad+' รายการผิดปกติ':warn?warn+' รายการควรตรวจ':'พร้อมติดตามต่อ'}</span></div><div class="qa-health-grid">${checks.map(x=>`<div class="qa-health-card ${x.state}"><div class="qa-health-label">${esc(x.label)}</div><strong>${esc(x.value)}</strong><div class="qa-health-note">${esc(x.note)}</div></div>`).join('')}</div>`;
+  }
+  function resetQaCaches(){
+    publicationCoverageCache=null;sourceBacklogCache=null;contentIntegrityCache=null;sourceFreshnessCache=null;sourceBatchRegistryCache=null;sourceReservationMap=new Map();
+  }
+
   function sourceBacklogSummaryHtml(summary={},reservedCount=0){
     const total=Number(summary.total_pending||0),available=Math.max(0,total-Number(reservedCount||0));
-    return `<div class="metrics"><div class="panel metric"><div class="label">รอตรวจทั้งหมด</div><strong>${fmt(total)}</strong><small>source_state = pending</small></div><div class="panel metric"><div class="label">ว่างสำหรับ Batch</div><strong>${fmt(available)}</strong><small>ยังไม่อยู่ใน active reservation</small></div><div class="panel metric"><div class="label">อยู่ใน Batch</div><strong>${fmt(reservedCount)}</strong><small>Question ID ที่ถูกจองชั่วคราว</small></div><div class="panel metric"><div class="label">เร่งด่วน</div><strong>${fmt(summary.urgent||0)}</strong><small>มาตรา/อัตรา/กำหนดเวลาหลายสัญญาณ</small></div><div class="panel metric"><div class="label">สูง</div><strong>${fmt(summary.high||0)}</strong><small>ควรตรวจเป็นลำดับต้น</small></div><div class="panel metric"><div class="label">ปกติ</div><strong>${fmt(summary.normal||0)}</strong><small>ตรวจตามลำดับ backlog</small></div></div>`;
+    const baseline=String(sourceBacklogCache?.generation_mode||'')==='integrity-baseline'?'<div class="notice qa-baseline">คิวนี้กู้คืนจาก Content Integrity เพื่อให้ Question ID ที่ยัง pending กลับมาอยู่ในระบบครบถ้วน ขณะนี้ลำดับความสำคัญใช้ระดับปกติจนกว่าจะสร้างคะแนนความเร่งด่วนจากเนื้อหาใหม่</div>':'';
+    return baseline+`<div class="metrics"><div class="panel metric"><div class="label">รอตรวจทั้งหมด</div><strong>${fmt(total)}</strong><small>source_state = pending</small></div><div class="panel metric"><div class="label">ว่างสำหรับ Batch</div><strong>${fmt(available)}</strong><small>ยังไม่อยู่ใน active reservation</small></div><div class="panel metric"><div class="label">อยู่ใน Batch</div><strong>${fmt(reservedCount)}</strong><small>Question ID ที่ถูกจองชั่วคราว</small></div><div class="panel metric"><div class="label">เร่งด่วน</div><strong>${fmt(summary.urgent||0)}</strong><small>มาตรา/อัตรา/กำหนดเวลาหลายสัญญาณ</small></div><div class="panel metric"><div class="label">สูง</div><strong>${fmt(summary.high||0)}</strong><small>ควรตรวจเป็นลำดับต้น</small></div><div class="panel metric"><div class="label">ปกติ</div><strong>${fmt(summary.normal||0)}</strong><small>ตรวจตามลำดับ backlog</small></div></div>`;
   }
   function buildSourceReservationMap(registry={}){
     const map=new Map(),now=Date.now();
@@ -347,6 +375,7 @@
 
   async function load(){
     const [pub,sourceBacklog,integrity,freshness,batchRegistry]=await Promise.all([publicationCoverage(),sourceVerificationBacklog(),contentIntegrityCoverage(),sourceFreshnessWatchlist(),sourceReviewBatchRegistry()]);
+    if($('#qaDataHealth'))$('#qaDataHealth').innerHTML=qaDataHealthHtml(pub,sourceBacklog,integrity,freshness,batchRegistry);
     $('#publicationCoverage').innerHTML=publicationCoverageHtml(pub);
     if($('#lifecycleDecisions'))$('#lifecycleDecisions').innerHTML=lifecycleDecisionList(pub.decisionLog||[]);
     if($('#contentIntegrityCoverage'))$('#contentIntegrityCoverage').innerHTML=contentIntegrityCoverageHtml(integrity);
@@ -391,7 +420,7 @@
   $('#qualityPriority').onchange=refreshQualityQueue;
   $('#qualityPosition').onchange=refreshQualityQueue;
   $('#exportQuality').onclick=exportQualityCsv;
-  $('#refresh').onclick=load;
+  $('#refresh').onclick=()=>{resetQaCaches();load()};
   $('#days').onchange=e=>{days=Number(e.target.value)||30;load()};
   $('#loginBtn').onclick=()=>{const v=$('#adminKey').value.trim();if(!v)return;sessionStorage.setItem('kexam_admin_key',v);$('#adminKey').value='';load()};
   $('#logout').onclick=()=>{sessionStorage.removeItem('kexam_admin_key');load()};
