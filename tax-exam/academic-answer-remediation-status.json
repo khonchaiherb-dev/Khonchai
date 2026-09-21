@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-21T19:09:57.205Z",
+  "generated_at": "2026-09-21T19:13:49.981Z",
   "status_model": "academic-answer-remediation-status-v1",
   "source_audit_generated_at": "2026-09-21T19:09:43.867Z",
   "regression_guard": {
@@ -18,7 +18,8 @@
     "result": "pass"
   },
   "policy": {
-    "waiting_review": "ยังไม่มี remediation decision",
+    "waiting_review": "ยังไม่อยู่ใน Batch และยังไม่มี remediation decision",
+    "reserved_for_review": "ถูกจองอยู่ใน Private Remediation Batch ที่ยังไม่หมดอายุ",
     "decision_incomplete": "มี decision record แต่ยังไม่พร้อม apply",
     "ready_to_apply": "มี replace decision พร้อมเข้าสู่ atomic apply",
     "applied_watch": "ผ่าน atomic gate แล้ว แต่ audit ยังอยู่ระดับ Watch",
@@ -29,6 +30,7 @@
     "scope_total": 588,
     "current_flagged": 588,
     "waiting_review": 588,
+    "reserved_for_review": 0,
     "decision_incomplete": 0,
     "ready_to_apply": 0,
     "applied_watch": 0,
@@ -43,6 +45,11 @@
     "source_verified_current": 8,
     "applied_question_ids": 0,
     "decision_records": 0,
+    "active_reserved_question_ids": 0,
+    "active_generated_batches": 0,
+    "applied_batches": 0,
+    "expired_generated_batches": 0,
+    "latest_batch_id": null,
     "sets": {
       "1": {
         "scope": 65,
