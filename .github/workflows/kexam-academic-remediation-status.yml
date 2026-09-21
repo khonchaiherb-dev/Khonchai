@@ -195,6 +195,22 @@ jobs:
               source_risk_score:r.source_risk_score
             }))
           };
+          const pilotCandidates=waiting.filter(r=>r.current_signal==='strong'&&r.source_state!=='verified'&&Number(r.source_risk_score)<70);
+          const pilotRows=takeBalancedSets(pilotCandidates,Math.min(10,pilotCandidates.length));
+          const pilotPreview={
+            mode:'low-source-risk-pilot',
+            size:pilotRows.length,
+            selection_policy:'Strong only, source pending, source risk <70, balanced across sets',
+            sets:pilotRows.reduce((m,r)=>(m[r.set]=(m[r.set]||0)+1,m),{}),
+            question_ids:pilotRows.map(r=>({
+              question_id:r.question_id,
+              set:r.set,
+              question:r.question,
+              signal:r.current_signal,
+              outside_by:r.current_outside_by,
+              source_risk_score:r.source_risk_score
+            }))
+          };
           if(summary.current_flagged!==summary.strong_remaining+summary.moderate_remaining+summary.watch_remaining)throw new Error('current flagged count mismatch');
           if(new Set(rows.map(x=>x.question_id)).size!==rows.length)throw new Error('duplicate Question ID in remediation status');
           if(summary.needs_rework>0)throw new Error('applied academic remediation regressed to Strong/Moderate for '+summary.needs_rework+' question(s)');
@@ -216,6 +232,7 @@ jobs:
             },
             summary,
             next_batch_preview:nextBatchPreview,
+            pilot_preview:pilotPreview,
             rows
           };
           fs.writeFileSync('tax-exam/academic-answer-remediation-status.json',JSON.stringify(output,null,2)+'\n');
