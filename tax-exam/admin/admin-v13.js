@@ -364,6 +364,14 @@
     const max=Math.max(...rows.map(x=>Number(x.value)||0),1);
     return `<div class="list">${rows.slice(0,12).map(x=>`<div class="row"><div><div class="name">${esc(x.name??'ไม่ระบุ')}</div><div class="meta"><span style="display:inline-block;width:${Math.max(6,Math.round((Number(x.value)||0)/max*100))}%;height:4px;border-radius:8px;background:linear-gradient(90deg,#2563eb,#38bdf8);vertical-align:middle"></span></div></div><div class="val">${fmt(x.value)}</div></div>`).join('')}</div>`
   }
+  function academicNextBatchPreviewHtml(preview={}){
+    const rows=Array.isArray(preview?.question_ids)?preview.question_ids:[];
+    if(!rows.length)return '<div class="remediation-next"><h4>Batch ถัดไป</h4><div class="empty">ยังไม่มี Question ID ว่างสำหรับจัด Batch</div></div>';
+    const ids=rows.slice(0,15).map(r=>`<span class="batch-id">${esc(r.question_id)} · ${esc(String(r.signal||'').toUpperCase())}${Number(r.source_risk_score)>=70?' · SRC '+fmt(r.source_risk_score):''}</span>`).join('');
+    const sets=Object.entries(preview.sets||{}).sort((a,b)=>Number(a[0])-Number(b[0])).map(([k,v])=>`ชุด ${k}: ${v}`).join(' · ');
+    return `<div class="remediation-next"><div class="remediation-next-head"><h4>Batch ถัดไป · ${fmt(preview.size||rows.length)} ข้อ</h4><span>${esc(String(preview.recommended_level||'').toUpperCase())}</span></div><div class="meta">กระจาย ${esc(sets||'-')} · Source-sensitive ${fmt(preview.source_sensitive||0)} ข้อ</div><div class="batch-id-wrap">${ids}</div></div>`;
+  }
+
   function academicRemediationProgressHtml(data={}){
     if(data?.error)return `<div class="notice">ยังไม่สามารถอ่าน Progress Ledger ได้: ${esc(data.error_message||'ไม่ทราบสาเหตุ')}</div>`;
     const s=data.summary||{},g=data.regression_guard||{},pct=Math.max(0,Math.min(100,Number(s.progress_percent)||0));
@@ -388,6 +396,7 @@
       <div class="meta" style="margin-top:5px">Batch ที่กำลังจอง ${fmt(s.active_generated_batches||0)} ชุด / ${fmt(s.active_reserved_question_ids||0)} ข้อ · Applied Batch ${fmt(s.applied_batches||0)} · Batch หมดอายุ ${fmt(s.expired_generated_batches||0)}${s.latest_batch_id?' · ล่าสุด '+esc(String(s.latest_batch_id)):''}</div>
       <div class="meta" style="margin-top:5px">Audit เทียบรอบก่อน: ดีขึ้น ${fmt(g.improved||0)} · Resolved ${fmt(g.resolved||0)} · แย่ลง ${fmt(g.worsened||0)} · Flag ใหม่ ${fmt(g.new_flags||0)}</div>
       <div class="remediation-sets">${setRows}</div>
+      ${academicNextBatchPreviewHtml(data.next_batch_preview)}
     </div>`;
   }
   function academicRemediationSummaryHtml(data={}){
