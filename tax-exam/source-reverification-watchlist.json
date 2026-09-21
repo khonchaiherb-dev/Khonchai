@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-18T12:28:04.096Z",
+  "generated_at": "2026-09-21T04:58:02.068Z",
   "policy": {
     "note": "Watchlist only. Overdue status does not automatically make a question incorrect or retire it.",
     "fast_change_days": 90,
@@ -36,7 +36,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "72d2ef3ab6f6b42f66b09e3edbd1b70e7856945817848bfe934f5893afe77639"
@@ -50,7 +50,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "e9ab92582828c45ea01096900f1cd14b403f274ba54551e30a74b8de68e5d06d"
@@ -64,7 +64,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "3709a500a5f62693590fee623dee25bd50dd553ff9681656fb999eb0f7e01320"
@@ -78,7 +78,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "071c4f5348f5b0bf9d482fc2bb0e76efea0b2202001c1c6cfd38d99a9d848168"
@@ -92,7 +92,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "ca8299b48dc3ced4bae8b7b4f06205b9abb14cdd80e53f1c8d2d0196ac647705"
@@ -106,7 +106,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "b227d0f045d538c353b4ae8f48e1e60dfd64c22e2460c2f1fd5f029b8192912a"
@@ -120,7 +120,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "85b23f9a12608430d499dea552af6b9fc2a233d62c6aadcde151ae3814042456"
@@ -134,7 +134,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "ab53136d9b5e2ade0fd3986dca1d84d1b91ca7699e6c2a6c97ceca63ee39ba08"
@@ -148,7 +148,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "3537f32be93cb76baf46a7a0903a11c998e223cab67aa04c4329c7d866c958d5"
@@ -162,7 +162,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 2,
       "content_sha256": "c1fb28b054cedcc0a953b6e36fef48bda427182ed0866ae25d8fc5c9f3716c77"
@@ -176,7 +176,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 2,
       "content_sha256": "d29b086060020ef584b612a43d655be5ce65254033cac2436e39788b82ce6580"
@@ -190,7 +190,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "e8f066fb9b4589e379f893cf175ef672e7361f6ac3a31b9425d7e08d33b709ac"
@@ -204,7 +204,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 2,
       "content_sha256": "c236bbef05d8eb774dd1263a9c20af5a53a651c4adf3049de802d643e33dd0d0"
@@ -218,7 +218,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 2,
       "content_sha256": "215c39da584f309889ad20ebfd86adcaa88ee02b8604f7e2cedeef3cecb3ba6d"
@@ -232,7 +232,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 2,
       "content_sha256": "534480aa14f52d678086df928d479333ea935eed391bddb2211d5768ff9af163"
@@ -246,7 +246,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 2,
       "content_sha256": "7beb12030111766a3a082ea0893e556764d91ad6b791c65edd515b09de2571c4"
@@ -260,7 +260,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 2,
       "content_sha256": "d58f385d55404f088c3bc0e7ee09a5911ba70375f96737556ce5f46fc9e881f4"
@@ -274,7 +274,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "8a1b9d5e3678c58e73115e5ca3b6ca6127587ad727b6624066e99a5686539810"
@@ -288,7 +288,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "888de5e50c19cc8796301281e484ea3af435574e29ad14287473b31be3de14e3"
@@ -302,7 +302,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "41f9517b833ea45eb661116cdb97bec3445fa4e0e62114b64fae4e1575a47c49"
@@ -316,7 +316,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 2,
       "content_sha256": "f2923becf49bcf083b0f2d2c4eebfcda4ca74873b49930b3315b3e5cfb848ab6"
@@ -330,7 +330,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "13a4e9ee775e56afcdea2047e347b9a28b7408746eb26e8bb9d7f9e9c4e8cdfb"
@@ -344,7 +344,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "b13576d26ac5adc5993b2048858a4dd8c213822e467fa9713951c0c94e47e355"
@@ -358,7 +358,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "c5c8c6dfc5cb08c43a3d6ac5f74db564bfe85828b749dadb9a0e69bf733583f2"
@@ -372,7 +372,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "1c3477a361d5f44371e1bf90ac1ef166ebee6665be15a5443720359192d004bc"
@@ -386,7 +386,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "29e2d4ab0e59db06ca92918c9bf29d00b72fa4206d19243983b30f0179d7118e"
@@ -400,7 +400,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 2,
       "content_sha256": "5580ef8bbf3a070166b93f9c0e0a3326bc346642bf44b7b9f8f63ca6b77587f6"
@@ -414,7 +414,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "718c76b592ba128bc7fe85efd56afd77d87d2abf9627a353bc3c53bcc6d45d7c"
@@ -428,7 +428,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "616eea70160c798b47e68985f181370d0019b09d538ed4f4101cbf6d414877af"
@@ -442,7 +442,7 @@
       "review_interval_days": 90,
       "freshness_tier": "เปลี่ยนแปลงเร็ว",
       "due_at": "2026-12-17",
-      "days_until_due": 90,
+      "days_until_due": 87,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "6810477a1934de4270a98358a073a9f2651d7411734c66dbdd629cd2bbd50dcd"
@@ -456,7 +456,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 2,
       "content_sha256": "2ac4e068abb3c95d064f74d0ed85d7fe5ac04cbb24a3854aa3b4cda9cc0bceaa"
@@ -470,7 +470,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "83a38a48660be813893f216671d9a8906b7c479b992d411e40aea97ff1f94cf4"
@@ -484,7 +484,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 2,
       "content_sha256": "299340d5916e3e75ff4165743b1a06d32c71dc15c37a033751e9a42b61e22cbc"
@@ -498,7 +498,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "123b87c543e3676c703fa6f6dd23542271377f7f85cc517ab4cf1b79f7d46393"
@@ -512,7 +512,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "065a1de0f6f122e553f30e77aa0643a1eff13e8908fe0949ebd8dfbfeb598d9f"
@@ -526,7 +526,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 2,
       "content_sha256": "662f8f375e14d6bac832dc7db49fd6140b50072f3646a9485771e74fba100580"
@@ -540,7 +540,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 2,
       "content_sha256": "a46ef848daf9b2a83d51f43d3f4bab9d6609de31f66aab59194dae7d31a9b0de"
@@ -554,7 +554,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 2,
       "content_sha256": "c0664b583bda43cc339af074225c1874024670ef87c4551dc5750ef2c0d9468f"
@@ -568,7 +568,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "93e120da42e5bb8f1c08295a22be5cdacfe9feb274561e73c7b491cb4f4362bc"
@@ -582,7 +582,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 2,
       "content_sha256": "281d84141d3042d40b243488bcfa6223daf83513b6d264c9eb57b47e797a98b5"
@@ -596,7 +596,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "6efb72a00286827aa1f0e98d5b294e7396e50b14cf871279e0ab06846323924b"
@@ -610,7 +610,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "39b94f6d7b3f2a8220289b056e45047400601c7add009de35af1a2e9d3247059"
@@ -624,7 +624,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "d75a81171f78a2a76a928b4c722d7aeafc18bdc927efb2265fbf79ddb1e08927"
@@ -638,7 +638,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "5578a9f74785e78571e920bdf0e316415d76ed38b8a0181deb89960ba49b91e6"
@@ -652,7 +652,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "9816e6dbb440ca2fff7b503ba6e9dac3eb6a0f1c5adcc95f04ca2ef921119d67"
@@ -666,7 +666,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "39b94f6d7b3f2a8220289b056e45047400601c7add009de35af1a2e9d3247059"
@@ -680,7 +680,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "5578a9f74785e78571e920bdf0e316415d76ed38b8a0181deb89960ba49b91e6"
@@ -694,7 +694,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "d75a81171f78a2a76a928b4c722d7aeafc18bdc927efb2265fbf79ddb1e08927"
@@ -708,7 +708,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "1326c621dc9c0531a14c59c87e8d7c0881b7bbb4a9a90cce17901517c6146f43"
@@ -722,7 +722,7 @@
       "review_interval_days": 180,
       "freshness_tier": "ต้องทบทวนเป็นระยะ",
       "due_at": "2027-03-17",
-      "days_until_due": 180,
+      "days_until_due": 177,
       "status": "ยังสดใหม่",
       "source_count": 1,
       "content_sha256": "5578a9f74785e78571e920bdf0e316415d76ed38b8a0181deb89960ba49b91e6"
