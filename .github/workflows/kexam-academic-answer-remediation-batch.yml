@@ -15,6 +15,15 @@ on:
           - strong+moderate
           - all
         default: strong
+      selection_mode:
+        description: 'balanced = ตามความรุนแรง, low-source-risk-pilot = Pilot เสี่ยงแหล่งอ้างอิงต่ำ, source-sensitive = กลุ่มที่ต้องระวัง source'
+        required: false
+        type: choice
+        options:
+          - balanced
+          - low-source-risk-pilot
+          - source-sensitive
+        default: balanced
 
 concurrency:
   group: kexam-academic-answer-remediation-batch-writer
@@ -38,6 +47,7 @@ jobs:
           git fetch origin gh-pages --depth=1
           SIZE="${{ github.event.inputs.batch_size || '30' }}"
           LEVELS="${{ github.event.inputs.include_levels || 'strong' }}"
+          MODE="${{ github.event.inputs.selection_mode || 'balanced' }}"
           if ! [[ "$SIZE" =~ ^[0-9]+$ ]] || [ "$SIZE" -lt 1 ] || [ "$SIZE" -gt 100 ]; then
             echo "batch_size must be 1..100" >&2
             exit 1
@@ -46,7 +56,11 @@ jobs:
             echo "include_levels invalid" >&2
             exit 1
           fi
-          BATCH_SIZE="$SIZE" INCLUDE_LEVELS="$LEVELS" node <<'NODE'
+          if [ "$MODE" != "balanced" ] && [ "$MODE" != "low-source-risk-pilot" ] && [ "$MODE" != "source-sensitive" ]; then
+            echo "selection_mode invalid" >&2
+            exit 1
+          fi
+          BATCH_SIZE="$SIZE" INCLUDE_LEVELS="$LEVELS" SELECTION_MODE="$MODE" node <<'NODE'
           const cp=require('child_process'),zlib=require('zlib'),fs=require('fs'),crypto=require('crypto');
           const show=p=>cp.execFileSync('git',['show','origin/gh-pages:'+p],{encoding:'utf8',maxBuffer:64*1024*1024});
           const backlog=JSON.parse(show('tax-exam/academic-answer-remediation-backlog.json'));
@@ -67,9 +81,13 @@ jobs:
           const d=JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8'));
           if(!Array.isArray(d.q)||d.q.length!==10||d.q.some(s=>!Array.isArray(s)||s.length!==100))throw new Error('revenue-academic bank invalid');
 
-          const size=Number(process.env.BATCH_SIZE||30),levels=String(process.env.INCLUDE_LEVELS||'strong');
+          const size=Number(process.env.BATCH_SIZE||30),levels=String(process.env.INCLUDE_LEVELS||'strong'),selectionMode=String(process.env.SELECTION_MODE||'balanced');
           const allowed=levels==='strong'?new Set(['strong']):levels==='strong+moderate'?new Set(['strong','moderate']):new Set(['strong','moderate','watch']);
           const rank={strong:3,moderate:2,watch:1};
+          const p=manifest.positions?.['revenue-academic'];if(!p)throw new Error('manifest missing revenue-academic');
+          const sourceVerified=new Set(p.source_verified_ids||[]);
+          const sourceRiskMap=new Map(sourceBacklog.rows.filter(r=>r.position==='revenue-academic').map(r=>[String(r.question_id),r]));
+          const sourceStateOf=id=>sourceVerified.has(id)||manifest.source_overrides?.[id]?.source_state==='verified'?'verified':(manifest.source_overrides?.[id]?.source_state||'pending');
           const now=Date.now(),RESERVATION_DAYS=14;
           const reservationExpiry=b=>{
             const explicit=Date.parse(String(b.reservation_expires_at||''));if(Number.isFinite(explicit))return explicit;
@@ -83,9 +101,20 @@ jobs:
           const decisionIds=new Set((decisions.records||[]).map(r=>String(r.question_id||'')).filter(Boolean));
           const appliedIds=new Set((manifest.remediation_log||[]).filter(x=>x.position==='revenue-academic'&&x.remediation_type==='answer-conspicuousness').map(x=>String(x.question_id||'')));
           const candidates=backlog.rows.filter(r=>allowed.has(r.signal_level));
-          const eligible=candidates.filter(r=>!activeReserved.has(String(r.question_id||''))&&!decisionIds.has(String(r.question_id||''))&&!appliedIds.has(String(r.question_id||'')));
-          const skipped={reserved:candidates.filter(r=>activeReserved.has(String(r.question_id||''))).length,decision:candidates.filter(r=>decisionIds.has(String(r.question_id||''))).length,applied:candidates.filter(r=>appliedIds.has(String(r.question_id||''))).length};
-          if(!eligible.length)throw new Error('no unreserved remediation rows remain for the selected levels');
+          const modeCandidates=candidates.filter(r=>{
+            const id=String(r.question_id||''),risk=Number(sourceRiskMap.get(id)?.priority_score)||0,state=sourceStateOf(id);
+            if(selectionMode==='low-source-risk-pilot')return state!=='verified'&&risk<70;
+            if(selectionMode==='source-sensitive')return state==='verified'||risk>=70;
+            return true;
+          });
+          const eligible=modeCandidates.filter(r=>!activeReserved.has(String(r.question_id||''))&&!decisionIds.has(String(r.question_id||''))&&!appliedIds.has(String(r.question_id||'')));
+          const skipped={
+            mode_filtered:candidates.length-modeCandidates.length,
+            reserved:modeCandidates.filter(r=>activeReserved.has(String(r.question_id||''))).length,
+            decision:modeCandidates.filter(r=>decisionIds.has(String(r.question_id||''))).length,
+            applied:modeCandidates.filter(r=>appliedIds.has(String(r.question_id||''))).length
+          };
+          if(!eligible.length)throw new Error('no unreserved remediation rows remain for the selected levels/mode');
 
           const byLevel=new Map();
           for(const r of eligible)(byLevel.get(r.signal_level)??byLevel.set(r.signal_level,[]).get(r.signal_level)).push(r);
@@ -113,9 +142,6 @@ jobs:
             selected.push(...takeBalancedSets(tier,Math.min(left,tier.length)));
           }
 
-          const p=manifest.positions?.['revenue-academic'];if(!p)throw new Error('manifest missing revenue-academic');
-          const sourceVerified=new Set(p.source_verified_ids||[]);
-          const sourceRiskMap=new Map(sourceBacklog.rows.filter(r=>r.position==='revenue-academic').map(r=>[String(r.question_id),r]));
           const letters=['ก','ข','ค','ง'];
           const questions=selected.map((row,idx)=>{
             const si=Number(row.set)-1,qi=Number(row.question)-1,r=d.q?.[si]?.[qi];
@@ -198,7 +224,8 @@ jobs:
             levels:questions.reduce((m,q)=>(m[q.signal_level]=(m[q.signal_level]||0)+1,m),{}),
             sets:questions.reduce((m,q)=>(m[q.set]=(m[q.set]||0)+1,m),{}),
             source_verified:questions.filter(q=>q.source_state==='verified').length,
-            source_risk_gate:questions.filter(q=>(Number(q.source_risk?.priority_score)||0)>=70).length,
+            source_risk_gate:questions.filter(q=>q.source_state==='verified'||(Number(q.source_risk?.priority_score)||0)>=70).length,
+            selection_mode:selectionMode,
             skipped,
             active_reserved:activeReserved.size,
             existing_decisions:decisionIds.size,
@@ -210,7 +237,8 @@ jobs:
             batch_id:batchId,
             batch_snapshot_sha256:snapshot,
             batch_model:'academic-answer-remediation-batch-v1',
-            selection_policy:'highest signal level first, balanced across sets within each level',
+            selection_mode:selectionMode,
+            selection_policy:selectionMode==='low-source-risk-pilot'?'highest signal level first, pending source risk <70, balanced across sets':selectionMode==='source-sensitive'?'highest signal level first, source-verified or source risk >=70, balanced across sets':'highest signal level first, balanced across sets within each level',
             warning:'Private remediation artifact. Contains answers and explanations. Do not publish directly.',
             summary,
             questions
@@ -258,6 +286,7 @@ jobs:
             reservation_expires_at:new Date(Date.parse(generatedAt)+RESERVATION_DAYS*86400000).toISOString(),
             status:'generated',
             include_levels:levels,
+            selection_mode:selectionMode,
             batch_size:questions.length,
             levels:summary.levels,
             sets:summary.sets,
