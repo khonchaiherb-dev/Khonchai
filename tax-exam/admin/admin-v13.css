@@ -15,3 +15,20 @@
 .qa-baseline{margin-bottom:12px;border-color:rgba(251,191,36,.28)!important;background:rgba(120,53,15,.16)!important}
 @media(max-width:1100px){.qa-health-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:640px){.qa-health-head{align-items:flex-start;flex-direction:column}.qa-health-grid{grid-template-columns:1fr}}
+
+
+/* Source verification planning */
+.source-model-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.source-model-strip>div{padding:11px 12px;border:1px solid rgba(148,163,184,.18);border-radius:11px;background:rgba(15,23,42,.32);min-width:0}
+.source-model-strip span{display:block;font-size:11px;color:#94a3b8;margin-bottom:5px}
+.source-model-strip strong{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.source-planning-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.source-planning-card{border:1px solid rgba(148,163,184,.18);border-radius:12px;background:rgba(15,23,42,.28);padding:14px;min-width:0}
+.source-planning-card h4{margin:0 0 10px;font-size:13px}
+.compact-bars{display:grid;gap:8px}.compact-bar-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+.compact-bar-row>div{min-width:0}.compact-bar-row span{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.compact-bar-row i{display:block;height:4px;border-radius:99px;background:linear-gradient(90deg,#2563eb,#38bdf8);margin-top:5px}
+.compact-bar-row strong{font-size:12px}
+.batch-preview-stats{display:flex;gap:8px;flex-wrap:wrap}.batch-preview-stats span{font-size:11px;padding:6px 8px;border-radius:8px;background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.16)}
+.batch-id-wrap{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.batch-id{font-size:10px;padding:5px 7px;border-radius:7px;background:rgba(37,99,235,.12);border:1px solid rgba(56,189,248,.17)}
+@media(max-width:900px){.source-model-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.source-planning-grid{grid-template-columns:1fr}}
+@media(max-width:560px){.source-model-strip{grid-template-columns:1fr}}
