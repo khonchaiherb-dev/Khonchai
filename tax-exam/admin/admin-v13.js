@@ -160,9 +160,44 @@
     const max=Math.max(...rows.map(x=>Number(x.count)||0),1);
     return `<div class="compact-bars">${rows.slice(0,8).map(x=>`<div class="compact-bar-row"><div><span>${esc(x.name||'ไม่ระบุ')}</span><i style="width:${Math.max(5,Math.round((Number(x.count)||0)/max*100))}%"></i></div><strong>${fmt(x.count)}</strong></div>`).join('')}</div>`;
   }
+  function sourceBatchAllocate(groups,target){
+    const entries=Object.entries(groups).map(([key,rows])=>({key,rows,size:rows.length,raw:0,quota:0}));
+    const total=entries.reduce((n,x)=>n+x.size,0);if(!total||target<=0)return new Map();
+    for(const x of entries){x.raw=x.size/total*target;x.quota=Math.floor(x.raw)}
+    if(target>=entries.length)for(const x of entries)if(x.size>0&&x.quota===0)x.quota=1;
+    let used=entries.reduce((n,x)=>n+x.quota,0);
+    if(used>target){
+      entries.sort((a,b)=>(a.raw-a.quota)-(b.raw-b.quota)||a.size-b.size);
+      for(const x of entries){while(used>target&&x.quota>0&&(target<entries.length||x.quota>1)){x.quota--;used--}}
+    }else if(used<target){
+      entries.sort((a,b)=>(b.raw-b.quota)-(a.raw-a.quota)||b.size-a.size||a.key.localeCompare(b.key,'th'));
+      let guard=0;while(used<target&&guard++<10000){let advanced=false;for(const x of entries){if(used>=target)break;if(x.quota<x.size){x.quota++;used++;advanced=true}}if(!advanced)break}
+    }
+    return new Map(entries.map(x=>[x.key,Math.min(x.quota,x.size)]));
+  }
+  function sourceBatchStratifyTier(rows,target){
+    if(rows.length<=target)return [...rows];
+    const byPos={};for(const r of rows)(byPos[r.position]??=[]).push(r);
+    const posQuota=sourceBatchAllocate(byPos,target),out=[];
+    for(const [position,pRows] of Object.entries(byPos)){
+      const pq=posQuota.get(position)||0;if(!pq)continue;
+      const byTopic={};for(const r of pRows)(byTopic[r.topic||r.category||'อื่น ๆ']??=[]).push(r);
+      const topicQuota=sourceBatchAllocate(byTopic,pq);
+      for(const [topic,tRows] of Object.entries(byTopic)){const tq=topicQuota.get(topic)||0;out.push(...tRows.slice(0,tq))}
+      const have=out.filter(x=>x.position===position).length;
+      if(have<pq){const usedIds=new Set(out.map(x=>x.question_id));out.push(...pRows.filter(x=>!usedIds.has(x.question_id)).slice(0,pq-have))}
+    }
+    if(out.length<target){const usedIds=new Set(out.map(x=>x.question_id));out.push(...rows.filter(x=>!usedIds.has(x.question_id)).slice(0,target-out.length))}
+    return out.slice(0,target);
+  }
   function nextSourceBatchRows(){
     const rows=(sourceBacklogCache?.rows||[]).filter(r=>!sourceReservationMap.has(String(r.question_id||'')));
-    return [...rows].sort((a,b)=>(Number(b.priority_score)||0)-(Number(a.priority_score)||0)||String(a.question_id||'').localeCompare(String(b.question_id||''))).slice(0,50);
+    if(rows.length<=50)return [...rows];
+    const tiers=new Map();
+    for(const r of rows){const score=Number(r.priority_score)||0;(tiers.get(score)??tiers.set(score,[]).get(score)).push(r)}
+    const out=[];
+    for(const score of [...tiers.keys()].sort((a,b)=>b-a)){const tier=tiers.get(score),left=50-out.length;if(left<=0)break;out.push(...sourceBatchStratifyTier(tier,Math.min(left,tier.length)))}
+    return out.slice(0,50);
   }
   function sourceNextBatchHtml(rows=[]){
     if(!rows.length)return '<div class="empty">ไม่มี Question ID ว่างสำหรับจัด Batch</div>';
