@@ -116,6 +116,17 @@
       <div id="answerConspicuousnessList" style="margin-top:12px"></div>
     </section>
 
+    <section class="panel section" style="margin-top:16px">
+      <div class="section-head"><div><h3>คิวปรับปรุงตัวเลือก · นักวิชาการสรรพากร</h3><div class="section-sub">คิว public-safe สำหรับ Question ID ที่ต้องปรับสมดุลความยาวและระดับรายละเอียดของตัวเลือก โดยคง Question ID และผ่าน Atomic Remediation ก่อนแก้คลังจริง</div></div></div>
+      <div class="top-actions" style="margin:8px 0 14px">
+        <select class="btn" id="academicRemediationLevel" aria-label="ระดับสัญญาณ"><option value="">ทุกระดับ</option><option value="strong">Strong</option><option value="moderate">Moderate</option><option value="watch">Watch</option></select>
+        <select class="btn" id="academicRemediationSet" aria-label="ชุดข้อสอบ"><option value="">ทุกชุด</option><option value="1">ชุด 1</option><option value="2">ชุด 2</option><option value="3">ชุด 3</option><option value="4">ชุด 4</option><option value="5">ชุด 5</option><option value="6">ชุด 6</option><option value="7">ชุด 7</option><option value="8">ชุด 8</option><option value="9">ชุด 9</option><option value="10">ชุด 10</option></select>
+        <button class="btn" id="exportAcademicRemediation">ส่งออก CSV</button>
+      </div>
+      <div id="academicRemediationSummary"></div>
+      <div id="academicRemediationList" style="margin-top:12px"></div>
+    </section>
+
     <section class="panel section" style="margin-top:16px"><div class="section-head"><div><h3>ข้อที่ใช้เวลานาน</h3><div class="section-sub">เรียงจากมัธยฐานเวลาต่อข้อของคำตอบครั้งแรกต่อผู้ใช้ ใช้ช่วยตรวจโจทย์ที่อาจซับซ้อนหรือใช้เวลาอ่านมากผิดปกติ</div></div></div><div id="slowItems"></div></section>
 
     <section class="panel section" style="margin-top:16px"><div class="section-head"><div><h3>สถิติคุณภาพรายข้อ</h3><div class="section-sub">สรุปด้วย Question ID: p = สัดส่วนตอบถูก, D = อำนาจจำแนก, DE = ประสิทธิภาพตัวลวง พร้อมเวลาเฉลี่ย/มัธยฐานต่อข้อ โดยใช้คำตอบครั้งแรกต่อผู้ใช้</div></div></div><div id="itemStats"></div></section>
@@ -138,6 +149,6 @@
     <div class="footer">K-EXAM · ติวสอบราชการ อาจารย์คิม · www.k-exam.com</div>
   </main>
   <script src="../analytics-config.js?v=25"></script>
-  <script src="admin-v13.js?v=33"></script>
+  <script src="admin-v13.js?v=34"></script>
 </body>
 </html>
