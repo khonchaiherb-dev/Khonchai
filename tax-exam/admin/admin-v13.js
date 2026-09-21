@@ -148,6 +148,35 @@
     publicationCoverageCache=null;sourceBacklogCache=null;contentIntegrityCache=null;sourceFreshnessCache=null;sourceBatchRegistryCache=null;sourceReservationMap=new Map();
   }
 
+  function sourceBacklogModelHtml(data={}){
+    if(data?.error)return '<div class="notice">ไม่สามารถอ่านรายละเอียด Risk Model ของ backlog ได้</div>';
+    const mode=String(data?.generation_mode||'ไม่ระบุ'),model=String(data?.risk_model||'ไม่ระบุ'),t=data?.risk_thresholds||{};
+    const gate=Number(t.publication_gate);
+    return `<div class="source-model-strip"><div><span>Generation</span><strong>${esc(mode)}</strong></div><div><span>Risk Model</span><strong>${esc(model)}</strong></div><div><span>เร่งด่วน</span><strong>${Number.isFinite(Number(t.urgent))?'≥ '+fmt(t.urgent):'–'}</strong></div><div><span>สูง</span><strong>${Number.isFinite(Number(t.high))?fmt(t.high)+'–'+fmt((Number(t.urgent)||0)-1):'–'}</strong></div><div><span>Publication Gate</span><strong>${Number.isFinite(gate)?'≥ '+fmt(gate):'–'}</strong></div></div>`;
+  }
+  function sourceTopTopicsHtml(summary={}){
+    const rows=Array.isArray(summary?.top_topics)?summary.top_topics:[];
+    if(!rows.length)return '<div class="empty">ยังไม่มีข้อมูลหัวข้อจาก Risk Model</div>';
+    const max=Math.max(...rows.map(x=>Number(x.count)||0),1);
+    return `<div class="compact-bars">${rows.slice(0,8).map(x=>`<div class="compact-bar-row"><div><span>${esc(x.name||'ไม่ระบุ')}</span><i style="width:${Math.max(5,Math.round((Number(x.count)||0)/max*100))}%"></i></div><strong>${fmt(x.count)}</strong></div>`).join('')}</div>`;
+  }
+  function nextSourceBatchRows(){
+    const rows=(sourceBacklogCache?.rows||[]).filter(r=>!sourceReservationMap.has(String(r.question_id||'')));
+    return [...rows].sort((a,b)=>(Number(b.priority_score)||0)-(Number(a.priority_score)||0)||String(a.question_id||'').localeCompare(String(b.question_id||''))).slice(0,50);
+  }
+  function sourceNextBatchHtml(rows=[]){
+    if(!rows.length)return '<div class="empty">ไม่มี Question ID ว่างสำหรับจัด Batch</div>';
+    const counts={urgent:0,high:0,normal:0},pos={},topics={};
+    for(const r of rows){
+      if(r.priority==='เร่งด่วน')counts.urgent++;else if(r.priority==='สูง')counts.high++;else counts.normal++;
+      pos[r.position]=(pos[r.position]||0)+1;const t=r.topic||r.category||'ไม่ระบุ';topics[t]=(topics[t]||0)+1;
+    }
+    const topTopics=Object.entries(topics).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>`${k} ${v}`).join(' · ');
+    const posText=Object.entries(pos).map(([k,v])=>`${k==='revenue-academic'?'นักวิชาการฯ':k==='tax-auditor'?'นักตรวจสอบฯ':k} ${v}`).join(' · ');
+    const sample=rows.slice(0,8).map(r=>`<span class="batch-id">${esc(r.question_id)} · ${fmt(r.priority_score)}</span>`).join('');
+    return `<div class="batch-preview-stats"><span>เร่งด่วน <strong>${fmt(counts.urgent)}</strong></span><span>สูง <strong>${fmt(counts.high)}</strong></span><span>ปกติ <strong>${fmt(counts.normal)}</strong></span></div><div class="meta" style="margin-top:8px">${esc(posText||'-')}<br>${esc(topTopics||'-')}</div><div class="batch-id-wrap">${sample}</div>`;
+  }
+
   function sourceBacklogSummaryHtml(summary={},reservedCount=0){
     const total=Number(summary.total_pending||0),available=Math.max(0,total-Number(reservedCount||0));
     const baseline=String(sourceBacklogCache?.generation_mode||'')==='integrity-baseline'?'<div class="notice qa-baseline">คิวนี้กู้คืนจาก Content Integrity เพื่อให้ Question ID ที่ยัง pending กลับมาอยู่ในระบบครบถ้วน ขณะนี้ลำดับความสำคัญใช้ระดับปกติจนกว่าจะสร้างคะแนนความเร่งด่วนจากเนื้อหาใหม่</div>':'';
@@ -200,6 +229,14 @@
     return `<div class="list">${rows.slice(0,100).map(r=>{const pos=r.position==='revenue-academic'?'นักวิชาการสรรพากรฯ':r.position==='tax-auditor'?'นักตรวจสอบภาษีฯ':r.position||'-';const reasons=Array.isArray(r.reasons)?r.reasons.join(' · '):'',reservation=sourceReservationMap.get(String(r.question_id||''));const reserveText=reservation?`<br>อยู่ใน Batch ${esc(reservation.batch_id)} · จองถึง ${esc(new Intl.DateTimeFormat('th-TH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(reservation.reservation_expires_at)))}`:'';return `<div class="row"><div><div class="name">${esc(r.question_id||'ไม่มีรหัส')} · ${esc(r.priority||'ปกติ')} · Priority ${fmt(r.priority_score||0)}</div><div class="meta">${esc(pos)} · ชุด ${fmt(r.set)} ข้อ ${fmt(r.question)} · ${esc(r.topic||r.category||'ไม่ระบุ')}${reserveText}${reasons?`<br>เหตุผลจัดคิว: ${esc(reasons)}`:''}${r.prompt?`<br>${esc(String(r.prompt).slice(0,190))}`:''}</div></div><div class="val">${reservation?'อยู่ใน Batch':esc(r.priority||'ปกติ')}</div></div>`}).join('')}</div>`;
   }
   function refreshSourceBacklog(){if($('#sourceBacklog'))$('#sourceBacklog').innerHTML=sourceBacklogList(filteredSourceRows())}
+  function exportNextSourceBatchCsv(){
+    const rows=nextSourceBatchRows();if(!rows.length)return;
+    const header=['question_id','position','set','question','priority','priority_score','category','topic','reasons','prompt','source_state'];
+    const lines=[header.join(',')];
+    for(const r of rows)lines.push([r.question_id,r.position,r.set,r.question,r.priority,r.priority_score,r.category,r.topic,(r.reasons||[]).join(' | '),r.prompt,r.source_state].map(csvCell).join(','));
+    const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);a.download=`kexam-source-review-next-50-${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0);
+  }
   function exportSourceBacklogCsv(){
     const rows=filteredSourceRows();if(!rows.length)return;
     const header=['question_id','position','set','question','priority','priority_score','category','topic','reservation_batch_id','reservation_expires_at','reasons','prompt','source_state'];
@@ -381,6 +418,9 @@
     if($('#contentIntegrityCoverage'))$('#contentIntegrityCoverage').innerHTML=contentIntegrityCoverageHtml(integrity);
     sourceReservationMap=buildSourceReservationMap(batchRegistry);
     if($('#sourceBacklogSummary'))$('#sourceBacklogSummary').innerHTML=sourceBacklogSummaryHtml(sourceBacklog.summary||{},sourceReservationMap.size);
+    if($('#sourceBacklogModel'))$('#sourceBacklogModel').innerHTML=sourceBacklogModelHtml(sourceBacklog);
+    if($('#sourceTopTopics'))$('#sourceTopTopics').innerHTML=sourceTopTopicsHtml(sourceBacklog.summary||{});
+    if($('#sourceNextBatch'))$('#sourceNextBatch').innerHTML=sourceNextBatchHtml(nextSourceBatchRows());
     if($('#sourceBatchSummary'))$('#sourceBatchSummary').innerHTML=sourceBatchSummaryHtml(batchRegistry);
     if($('#sourceBatchHistory'))$('#sourceBatchHistory').innerHTML=sourceBatchHistoryHtml(batchRegistry);
     syncSourcePositionOptions(sourceBacklog.rows||[]);
@@ -417,6 +457,7 @@
   $('#sourceReservation').onchange=refreshSourceBacklog;
   $('#sourceSearch').oninput=refreshSourceBacklog;
   $('#exportSourceBacklog').onclick=exportSourceBacklogCsv;
+  $('#exportNextSourceBatch').onclick=exportNextSourceBatchCsv;
   $('#qualityPriority').onchange=refreshQualityQueue;
   $('#qualityPosition').onchange=refreshQualityQueue;
   $('#exportQuality').onclick=exportQualityCsv;
