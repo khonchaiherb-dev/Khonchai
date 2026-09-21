@@ -77,7 +77,7 @@ jobs:
             if(/ปัจจุบัน|ล่าสุด|ในปี|พ\.ศ\.|พ.ศ.|สถานการณ์|แนวโน้ม|อัตราดอกเบี้ย|เงินเฟ้อ|gdp|อัตราแลกเปลี่ยน/i.test(full))add(20,'ข้อมูลอาจเปลี่ยนตามเวลา');
             if(/ภาษีมูลค่าเพิ่ม|ภาษีเงินได้|ภาษีธุรกิจเฉพาะ|อากรแสตมป์|หัก\s*ณ\s*ที่จ่าย/i.test(topic))add(10,'หัวข้อภาษีที่ต้องตรวจฐานกฎหมาย');
             if(/คำนวณ|คำนวณได้|จำนวนภาษี|ภาษีที่ต้องชำระ|ยอดภาษี/i.test(primary))add(15,'ข้อคำนวณที่อิงอัตรา/ฐานภาษี');
-            return{score,priority:score>=70?'เร่งด่วน':score>=40?'สูง':'ปกติ',reasons:[...new Set(reasons)],risk_model:RISK_MODEL};
+            return{score,priority:score>=120?'เร่งด่วน':score>=70?'สูง':'ปกติ',reasons:[...new Set(reasons)],risk_model:RISK_MODEL};
           };
 
           const rows=[];const summary={total_pending:0,urgent:0,high:0,normal:0,positions:{}};
@@ -122,7 +122,7 @@ jobs:
             generated_at:new Date().toISOString(),
             generation_mode:'content-risk-ranked',
             risk_model:RISK_MODEL,
-            risk_thresholds:{urgent:70,high:40},
+            risk_thresholds:{urgent:120,high:70,publication_gate:70},
             note:'รายการนี้เป็นคิวสำหรับตรวจแหล่งอ้างอิง ไม่ได้หมายความว่าข้อใดผิดหรือถูก และไม่ใช่สถานะ source verified',
             summary,
             rows
