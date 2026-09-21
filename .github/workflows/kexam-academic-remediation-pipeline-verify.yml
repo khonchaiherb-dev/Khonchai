@@ -1,0 +1,147 @@
+name: K-EXAM Academic Remediation Pipeline Verify
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '10 2 * * *'
+  push:
+    paths:
+      - '.github/workflows/kexam-academic-remediation-*.yml'
+      - '.github/workflows/kexam-apply-academic-answer-remediation.yml'
+      - '.github/workflows/kexam-answer-conspicuousness-audit.yml'
+      - 'data/kexam-academic-answer-remediation-decisions.json'
+      - 'docs/KEXAM_QUESTION_STANDARD.md'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify academic remediation pipeline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages --depth=1
+          node <<'NODE'
+          const cp=require('child_process'),crypto=require('crypto'),fs=require('fs');
+          const show=(ref,path)=>cp.execFileSync('git',['show',ref+':'+path],{encoding:'utf8',maxBuffer:64*1024*1024});
+          const gh=p=>show('origin/gh-pages',p);
+          const main=p=>show('HEAD',p);
+          const sha256=s=>crypto.createHash('sha256').update(s,'utf8').digest('hex');
+          const qidRe=/^RA-S(0[1-9]|10)-Q(0[0-9]{2}|100)$/;
+
+          const audit=JSON.parse(gh('tax-exam/answer-conspicuousness-audit.json'));
+          const backlog=JSON.parse(gh('tax-exam/academic-answer-remediation-backlog.json'));
+          const status=JSON.parse(gh('tax-exam/academic-answer-remediation-status.json'));
+          const registry=JSON.parse(gh('tax-exam/academic-answer-remediation-batch-registry.json'));
+          const manifest=JSON.parse(gh('tax-exam/question-publication-manifest.json'));
+          const integrity=JSON.parse(gh('tax-exam/question-content-integrity.json'));
+          const sourceBacklog=JSON.parse(gh('tax-exam/source-verification-backlog.json'));
+          const decisions=JSON.parse(main('data/kexam-academic-answer-remediation-decisions.json'));
+
+          if(audit.schema_version!==1||audit.audit_model!=='answer-conspicuousness-v1'||Number(audit.summary?.total)!==2000||!Array.isArray(audit.rows))throw new Error('answer audit invalid');
+          if(audit.regression_guard?.comparable&&audit.regression_guard?.result!=='pass')throw new Error('answer audit regression guard is not PASS');
+          const raAudit=audit.rows.filter(r=>r.position==='revenue-academic');
+          const raSummary=audit.summary?.positions?.['revenue-academic'];
+          if(Number(raSummary?.total)!==1000)throw new Error('academic audit total must be 1000');
+          for(const level of ['strong','moderate','watch'])if(raAudit.filter(r=>r.level===level).length!==Number(raSummary[level]||0))throw new Error('academic audit level mismatch '+level);
+          if(new Set(audit.rows.map(r=>r.question_id)).size!==audit.rows.length)throw new Error('duplicate Question ID in answer audit');
+
+          if(backlog.schema_version!==1||backlog.backlog_model!=='academic-answer-remediation-v1'||!Array.isArray(backlog.rows))throw new Error('academic remediation backlog invalid');
+          const auditIds=new Set(raAudit.map(r=>String(r.question_id)));
+          const backlogIds=new Set(backlog.rows.map(r=>String(r.question_id)));
+          if(auditIds.size!==backlogIds.size||[...auditIds].some(id=>!backlogIds.has(id)))throw new Error('academic remediation backlog does not exactly match current academic audit flags');
+          if(backlog.rows.some(r=>!qidRe.test(String(r.question_id))))throw new Error('invalid Question ID in academic remediation backlog');
+          if(new Set(backlog.rows.map(r=>r.question_id)).size!==backlog.rows.length)throw new Error('duplicate Question ID in academic remediation backlog');
+          if(backlog.rows.some(r=>!/^[a-f0-9]{64}$/.test(String(r.content_sha256||''))))throw new Error('invalid content SHA in academic remediation backlog');
+          for(const r of backlog.rows){
+            if(integrity.questions?.[r.question_id]?.sha256!==r.content_sha256)throw new Error('backlog/content integrity mismatch '+r.question_id);
+          }
+
+          if(status.schema_version!==1||status.status_model!=='academic-answer-remediation-status-v1'||!Array.isArray(status.rows))throw new Error('academic remediation status invalid');
+          if(Number(status.summary?.current_flagged)!==raAudit.length)throw new Error('remediation status current_flagged mismatch');
+          if(Number(status.summary?.needs_rework)!==0)throw new Error('academic remediation status contains needs_rework');
+          if(new Set(status.rows.map(r=>r.question_id)).size!==status.rows.length)throw new Error('duplicate Question ID in remediation status');
+          const statusCurrent=new Set(status.rows.filter(r=>r.current_signal!=='ok').map(r=>r.question_id));
+          if(statusCurrent.size!==auditIds.size||[...auditIds].some(id=>!statusCurrent.has(id)))throw new Error('status current signals do not match audit');
+          const scope=Number(status.summary?.scope_total)||0,passed=Number(status.summary?.gate_passed)||0,pct=scope?Math.round(passed*1000/scope)/10:0;
+          if(Number(status.summary?.progress_percent)!==pct)throw new Error('remediation progress percent mismatch');
+          const preview=status.next_batch_preview||{};
+          const previewIds=(preview.question_ids||[]).map(x=>String(x.question_id||''));
+          if(previewIds.length>30||new Set(previewIds).size!==previewIds.length)throw new Error('next batch preview invalid/duplicate');
+          const waiting=new Set(status.rows.filter(r=>r.status==='waiting_review').map(r=>r.question_id));
+          if(previewIds.some(id=>!waiting.has(id)))throw new Error('next batch preview contains non-waiting Question ID');
+
+          if(registry.schema_version!==1||!Array.isArray(registry.batches))throw new Error('academic remediation registry invalid');
+          const batchIds=new Set(),activeQuestions=new Set(),now=Date.now();
+          for(const b of registry.batches){
+            const bid=String(b.batch_id||'');
+            if(!/^RA-ANS-\d{8}-[a-f0-9]{12}$/.test(bid))throw new Error('invalid remediation batch ID '+bid);
+            if(batchIds.has(bid))throw new Error('duplicate remediation batch ID '+bid);batchIds.add(bid);
+            if(!/^[a-f0-9]{64}$/.test(String(b.batch_snapshot_sha256||'')))throw new Error('invalid batch snapshot '+bid);
+            if(!Array.isArray(b.question_ids)||new Set(b.question_ids).size!==b.question_ids.length||b.question_ids.some(id=>!qidRe.test(String(id))))throw new Error('invalid Question IDs in registry '+bid);
+            const json=JSON.stringify(b);
+            for(const forbidden of ['prompt','choices','correct_answer','explanation','wrong_reasons','source_refs'])if(json.includes('"'+forbidden+'"'))throw new Error('private remediation content leaked into registry '+bid+' field '+forbidden);
+            if(b.status==='generated'){
+              const exp=Date.parse(String(b.reservation_expires_at||''))||0;
+              if(exp>now){
+                for(const id of b.question_ids){if(activeQuestions.has(id))throw new Error('active remediation reservations overlap at '+id);activeQuestions.add(id)}
+              }
+            }
+          }
+
+          if(sourceBacklog.schema_version!==1||sourceBacklog.risk_model!=='source-risk-v2'||Number(sourceBacklog.risk_thresholds?.publication_gate)!==70)throw new Error('source risk model/gate mismatch');
+
+          if(decisions.schema_version!==1||!Array.isArray(decisions.records))throw new Error('academic remediation decisions invalid');
+          if(decisions.records.length){
+            if(!/^RA-ANS-\d{8}-[a-f0-9]{12}$/.test(String(decisions.batch_id||'')))throw new Error('decision batch_id invalid');
+            if(!/^[a-f0-9]{64}$/.test(String(decisions.batch_snapshot_sha256||'')))throw new Error('decision batch snapshot invalid');
+            const rb=registry.batches.find(b=>b.batch_id===decisions.batch_id);if(!rb)throw new Error('decision batch not found in registry');
+            if(rb.batch_snapshot_sha256!==decisions.batch_snapshot_sha256)throw new Error('decision/registry snapshot mismatch');
+            const decisionIds=decisions.records.map(r=>String(r.question_id||'')).sort(),registryIds=[...(rb.question_ids||[])].map(String).sort();
+            if(JSON.stringify(decisionIds)!==JSON.stringify(registryIds))throw new Error('decision IDs do not exactly match registry batch');
+            const calc=sha256(JSON.stringify(decisions.records.map(r=>({question_id:String(r.question_id),content_sha256:String(r.expected_content_sha256)})).sort((a,b)=>a.question_id.localeCompare(b.question_id))));
+            if(calc!==decisions.batch_snapshot_sha256)throw new Error('decision snapshot calculation mismatch');
+            if(rb.status==='generated'){
+              for(const r of decisions.records)if(integrity.questions?.[r.question_id]?.sha256!==r.expected_content_sha256)throw new Error('decision expected hash is stale '+r.question_id);
+            }else if(rb.status==='applied'){
+              const logIds=new Set((manifest.remediation_log||[]).filter(x=>x.position==='revenue-academic'&&x.remediation_type==='answer-conspicuousness').map(x=>String(x.remediation_id||'')));
+              for(const r of decisions.records)if(!logIds.has(String(r.remediation_id||'')))throw new Error('applied batch decision missing remediation log '+r.remediation_id);
+            }
+          }
+
+          const applyWorkflow=main('.github/workflows/kexam-apply-academic-answer-remediation.yml');
+          for(const required of [
+            'style-only remediation cannot change the prompt',
+            'requires verified source_refs for this remediation',
+            'decision Question IDs must exactly match the registered batch',
+            "registryEntry.status='applied'",
+            'remediation still leaves answer conspicuous'
+          ])if(!applyWorkflow.includes(required))throw new Error('apply workflow missing required guard: '+required);
+
+          const batchWorkflow=main('.github/workflows/kexam-academic-answer-remediation-batch.yml');
+          for(const required of ['activeReserved','decisionIds','appliedIds','source_risk','reservation_expires_at'])if(!batchWorkflow.includes(required))throw new Error('batch workflow missing required guard: '+required);
+
+          const adminIndex=gh('tax-exam/admin/index.html'),adminJs=gh('tax-exam/admin/admin-v13.js');
+          for(const required of ['academicRemediationSummary','academicRemediationProgress'])if(!adminIndex.includes(required))throw new Error('Admin index missing '+required);
+          for(const required of ['academicRemediationStatus','academicNextBatchPreviewHtml','Regression Guard'])if(!adminJs.includes(required))throw new Error('Admin JS missing '+required);
+          fs.writeFileSync('/tmp/admin-v13.js',adminJs);
+          cp.execFileSync('node',['--check','/tmp/admin-v13.js'],{stdio:'inherit'});
+
+          console.log('ACADEMIC REMEDIATION PIPELINE PASS',JSON.stringify({
+            audit_flagged:raAudit.length,
+            strong:raSummary.strong,
+            moderate:raSummary.moderate,
+            watch:raSummary.watch,
+            progress_percent:status.summary.progress_percent,
+            waiting_review:status.summary.waiting_review,
+            reserved_for_review:status.summary.reserved_for_review,
+            ready_to_apply:status.summary.ready_to_apply,
+            active_batches:status.summary.active_generated_batches,
+            preview:previewIds.length,
+            registry_batches:registry.batches.length,
+            decisions:decisions.records.length
+          }));
+          NODE
