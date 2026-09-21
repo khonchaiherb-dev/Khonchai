@@ -34,11 +34,13 @@ jobs:
           node <<'NODE'
           const fs=require('fs');
           const audit=JSON.parse(fs.readFileSync('tax-exam/answer-conspicuousness-audit.json','utf8'));
+          const sourceBacklog=JSON.parse(fs.readFileSync('tax-exam/source-verification-backlog.json','utf8'));
           const manifest=JSON.parse(fs.readFileSync('tax-exam/question-publication-manifest.json','utf8'));
           const integrity=JSON.parse(fs.readFileSync('tax-exam/question-content-integrity.json','utf8'));
           const registry=JSON.parse(fs.readFileSync('tax-exam/academic-answer-remediation-batch-registry.json','utf8'));
           const decisions=JSON.parse(fs.readFileSync('/tmp/academic-remediation-decisions.json','utf8'));
           if(audit.schema_version!==1||audit.audit_model!=='answer-conspicuousness-v1'||!Array.isArray(audit.rows))throw new Error('answer audit invalid');
+          if(sourceBacklog.schema_version!==1||sourceBacklog.risk_model!=='source-risk-v2'||!Array.isArray(sourceBacklog.rows))throw new Error('source verification backlog invalid');
           if(manifest.schema_version!==1)throw new Error('publication manifest invalid');
           if(integrity.schema_version!==1||integrity.algorithm!=='sha256')throw new Error('content integrity invalid');
           if(registry.schema_version!==1||!Array.isArray(registry.batches))throw new Error('academic remediation batch registry invalid');
@@ -74,6 +76,7 @@ jobs:
 
           const pos=manifest.positions?.['revenue-academic'];if(!pos)throw new Error('manifest missing revenue-academic');
           const sourceVerified=new Set(pos.source_verified_ids||[]);
+          const sourceRiskMap=new Map(sourceBacklog.rows.filter(r=>r.position==='revenue-academic').map(r=>[String(r.question_id),r]));
           const ids=new Set([...current.keys(),...appliedMap.keys()]);
           const statusRank={needs_rework:7,decision_incomplete:6,ready_to_apply:5,reserved_for_review:4,waiting_review:3,applied_watch:2,resolved:1};
           const levelRank={strong:3,moderate:2,watch:1,ok:0};
@@ -142,6 +145,8 @@ jobs:
               current_outside_by:cur?Number(cur.outside_by):null,
               current_ratio:cur?Number(cur.ratio_to_distractor_median):null,
               source_state:sourceVerified.has(id)||manifest.source_overrides?.[id]?.source_state==='verified'?'verified':(manifest.source_overrides?.[id]?.source_state||'pending'),
+              source_risk_score:Number(sourceRiskMap.get(id)?.priority_score)||0,
+              source_risk_priority:sourceRiskMap.get(id)?.priority||null,
               current_content_sha256:currentHash,
               has_decision:!!dec,
               decision_action:dec?String(dec.action||''):null,
@@ -153,6 +158,43 @@ jobs:
           }
           summary.progress_percent=summary.scope_total?Math.round(summary.gate_passed*1000/summary.scope_total)/10:0;
           rows.sort((a,b)=>(statusRank[b.status]||0)-(statusRank[a.status]||0)||(levelRank[b.current_signal]||0)-(levelRank[a.current_signal]||0)||(Number(b.current_outside_by)||0)-(Number(a.current_outside_by)||0)||a.question_id.localeCompare(b.question_id));
+
+          const takeBalancedSets=(items,target)=>{
+            if(items.length<=target)return [...items];
+            const bySet={};for(const r of items)(bySet[String(r.set)]??=[]).push(r);
+            const keys=Object.keys(bySet).sort((a,b)=>Number(a)-Number(b)),out=[];
+            let cursor=0,guard=0;
+            while(out.length<target&&guard++<10000){
+              let advanced=false;
+              for(let step=0;step<keys.length&&out.length<target;step++){
+                const k=keys[(cursor+step)%keys.length],arr=bySet[k];
+                if(arr.length){out.push(arr.shift());advanced=true}
+              }
+              cursor=(cursor+1)%Math.max(keys.length,1);
+              if(!advanced)break;
+            }
+            return out.slice(0,target);
+          };
+          const waiting=rows.filter(r=>r.status==='waiting_review');
+          const recommendedLevel=waiting.some(r=>r.current_signal==='strong')?'strong':waiting.some(r=>r.current_signal==='moderate')?'moderate':waiting.some(r=>r.current_signal==='watch')?'watch':null;
+          const previewCandidates=recommendedLevel?waiting.filter(r=>r.current_signal===recommendedLevel):[];
+          const previewRows=takeBalancedSets(previewCandidates,Math.min(30,previewCandidates.length));
+          const nextBatchPreview={
+            recommended_level:recommendedLevel,
+            size:previewRows.length,
+            selection_policy:'highest remaining signal level, balanced across sets; excludes active reservations, decisions and applied IDs',
+            source_sensitive:previewRows.filter(r=>r.source_state==='verified'||Number(r.source_risk_score)>=70).length,
+            sets:previewRows.reduce((m,r)=>(m[r.set]=(m[r.set]||0)+1,m),{}),
+            question_ids:previewRows.map(r=>({
+              question_id:r.question_id,
+              set:r.set,
+              question:r.question,
+              signal:r.current_signal,
+              outside_by:r.current_outside_by,
+              source_state:r.source_state,
+              source_risk_score:r.source_risk_score
+            }))
+          };
           if(summary.current_flagged!==summary.strong_remaining+summary.moderate_remaining+summary.watch_remaining)throw new Error('current flagged count mismatch');
           if(new Set(rows.map(x=>x.question_id)).size!==rows.length)throw new Error('duplicate Question ID in remediation status');
           if(summary.needs_rework>0)throw new Error('applied academic remediation regressed to Strong/Moderate for '+summary.needs_rework+' question(s)');
@@ -173,6 +215,7 @@ jobs:
               needs_rework:'เคย apply แล้วแต่กลับเป็น Strong/Moderate; ระบบต้องถือเป็น regression'
             },
             summary,
+            next_batch_preview:nextBatchPreview,
             rows
           };
           fs.writeFileSync('tax-exam/academic-answer-remediation-status.json',JSON.stringify(output,null,2)+'\n');
