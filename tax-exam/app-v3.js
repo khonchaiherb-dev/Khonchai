@@ -18,7 +18,7 @@
     const files=['app-v3-part1.txt','app-v3-part2.txt','app-v3-part3.txt','app-v3-part4.txt'];
     const parts=[];
     for(const f of files){
-      const r=await fetch(`${f}?v=25`,{cache:'no-store'});
+      const r=await fetch(`${f}?v=26`,{cache:'no-store'});
       if(!r.ok)throw new Error('โหลดส่วนประกอบระบบไม่สำเร็จ: '+f);
       const text=await r.text();
       if(!text.trim())throw new Error('ส่วนประกอบระบบว่างเปล่า: '+f);
