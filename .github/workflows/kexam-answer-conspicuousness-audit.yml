@@ -5,6 +5,8 @@ on:
       - '.github/workflows/kexam-answer-conspicuousness-audit.yml'
       - 'docs/KEXAM_QUESTION_STANDARD.md'
   workflow_dispatch:
+  schedule:
+    - cron: '20 1 * * *'
 
 concurrency:
   group: kexam-answer-conspicuousness-writer
@@ -28,6 +30,12 @@ jobs:
           set -euo pipefail
           node <<'NODE'
           const fs=require('fs'),zlib=require('zlib');
+          const auditPath='tax-exam/answer-conspicuousness-audit.json';
+          let previous=null;
+          try{
+            const raw=fs.readFileSync(auditPath,'utf8').trim();
+            if(raw)previous=JSON.parse(raw);
+          }catch{}
           const configs={
             'tax-auditor':{
               prefix:'TA',
@@ -83,23 +91,63 @@ jobs:
             const rank={strong:3,moderate:2,watch:1};
             return rank[b.level]-rank[a.level]||b.outside_by-a.outside_by||Math.abs(Math.log(b.ratio_to_distractor_median))-Math.abs(Math.log(a.ratio_to_distractor_median))||a.question_id.localeCompare(b.question_id);
           });
+          const generatedAt=new Date().toISOString();
+          const policy={
+            note:'Public-safe QA signal only. A flag does not prove a question is invalid; it identifies answer-length patterns for human review.',
+            strong:'correct answer is outside distractor range by >=18 chars and ratio to distractor median >=1.55 or <=0.65',
+            moderate:'outside by >=12 chars and ratio >=1.35 or <=0.74',
+            watch:'outside by >=8 chars and ratio >=1.25 or <=0.80'
+          };
+          const rank={ok:0,watch:1,moderate:2,strong:3};
+          const regression={
+            compared_to_generated_at:null,
+            comparable:false,
+            previous_flagged:0,
+            current_flagged:rows.length,
+            resolved:0,
+            improved:0,
+            unchanged:0,
+            worsened:0,
+            new_flags:0,
+            worsened_ids:[],
+            new_flag_ids:[],
+            result:'baseline'
+          };
+          if(previous?.schema_version===1&&previous?.audit_model==='answer-conspicuousness-v1'&&Array.isArray(previous?.rows)&&Number(previous?.summary?.total)===2000){
+            regression.comparable=true;
+            regression.compared_to_generated_at=previous.generated_at||null;
+            regression.previous_flagged=previous.rows.length;
+            const before=new Map(previous.rows.map(r=>[String(r.question_id),r]));
+            const after=new Map(rows.map(r=>[String(r.question_id),r]));
+            for(const [id,oldRow] of before){
+              const now=after.get(id),oldRank=rank[String(oldRow.level)]??0,newRank=now?(rank[String(now.level)]??0):0;
+              if(!now){regression.resolved++;regression.improved++;continue}
+              if(newRank<oldRank)regression.improved++;
+              else if(newRank>oldRank){regression.worsened++;regression.worsened_ids.push(id)}
+              else regression.unchanged++;
+            }
+            for(const [id] of after)if(!before.has(id)){regression.new_flags++;regression.new_flag_ids.push(id)}
+            regression.result=(regression.worsened||regression.new_flags)?'fail':'pass';
+          }
           const report={
             schema_version:1,
-            generated_at:new Date().toISOString(),
+            generated_at:generatedAt,
             audit_model:'answer-conspicuousness-v1',
-            policy:{
-              note:'Public-safe QA signal only. A flag does not prove a question is invalid; it identifies answer-length patterns for human review.',
-              strong:'correct answer is outside distractor range by >=18 chars and ratio to distractor median >=1.55 or <=0.65',
-              moderate:'outside by >=12 chars and ratio >=1.35 or <=0.74',
-              watch:'outside by >=8 chars and ratio >=1.25 or <=0.80'
-            },
+            policy,
+            regression_guard:regression,
             summary,
             rows
           };
           if(summary.total!==2000)throw new Error('audit total must be 2000');
           if(new Set(rows.map(x=>x.question_id)).size!==rows.length)throw new Error('duplicate Question ID in audit rows');
-          fs.writeFileSync('tax-exam/answer-conspicuousness-audit.json',JSON.stringify(report,null,2)+'\n');
+          fs.writeFileSync(auditPath,JSON.stringify(report,null,2)+'\n');
           console.log('ANSWER CONSPICUOUSNESS',JSON.stringify(summary));
+          console.log('ANSWER CONSPICUOUSNESS REGRESSION',JSON.stringify(regression));
+          if(regression.comparable&&(regression.worsened||regression.new_flags)){
+            console.error('WORSENED IDS',regression.worsened_ids.slice(0,50).join(','));
+            console.error('NEW FLAG IDS',regression.new_flag_ids.slice(0,50).join(','));
+            throw new Error('answer conspicuousness regression detected: worsened='+regression.worsened+' new_flags='+regression.new_flags);
+          }
           NODE
 
       - name: Publish audit to gh-pages
