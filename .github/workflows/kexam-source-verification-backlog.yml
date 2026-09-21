@@ -59,19 +59,25 @@ jobs:
             for(const [name,re] of rules)if(re.test(x))return name;
             return String(category||'อื่น ๆ');
           };
-          const rank=(category,prompt,topic)=>{
-            let score=0;const reasons=[];const t=String(prompt||''),c=String(category||''),x=c+' '+t;
+          const RISK_MODEL='source-risk-v2';
+          const rank=(category,prompt,topic,choices=[],explanation='',wrongReasons='')=>{
+            let score=0;const reasons=[];
+            const p=String(prompt||''),c=String(category||''),ch=(Array.isArray(choices)?choices:[]).map(String).join(' '),ex=String(explanation||''),wr=String(wrongReasons||'');
+            const primary=c+' '+p,full=primary+' '+ch+' '+ex+' '+wr;
             const add=(n,reason)=>{score+=n;reasons.push(reason)};
-            if(/มาตรา\s*\d+|พ\.ร\.บ\.|พระราชบัญญัติ|พระราชกฤษฎีกา|กฎกระทรวง|ประกาศ|คำสั่ง/i.test(x))add(35,'อ้างกฎหมาย/มาตรา/ประกาศ');
-            if(/อัตรา|ร้อยละ|เปอร์เซ็นต์|%|บาท|รายรับ|รายได้|ฐานภาษี|เกณฑ์/i.test(x))add(30,'มีอัตรา/จำนวนเงิน/เกณฑ์');
-            if(/ภายใน\s*\d+|\d+\s*(วัน|เดือน|ปี)|กำหนดเวลา|ระยะเวลา|นับแต่|นับจาก/i.test(x))add(25,'มีกำหนดเวลา');
-            if(/เบี้ยปรับ|เงินเพิ่ม|โทษ|ยกเว้น|จดทะเบียน|หัก\s*ณ\s*ที่จ่าย|อุทธรณ์|คืนภาษี/i.test(x))add(20,'มีเงื่อนไขสิทธิ/หน้าที่/โทษ');
-            if(/กรมสรรพากร|อธิบดี|รัฐมนตรี|คณะกรรมการ|เจ้าพนักงาน/i.test(x))add(10,'อำนาจหน้าที่/หน่วยงาน');
-            if(/[0-9๐-๙]/.test(t))add(10,'มีตัวเลขในโจทย์');
-            if(/หลักภาษีอากร|ประมวลรัษฎากร|ข้อมูลข่าวสาร|PDPA/i.test(c))add(15,'หมวดกฎหมาย/ภาษี');
-            if(/ปัจจุบัน|ล่าสุด|ในปี|พ\.ศ\.|พ.ศ.|สถานการณ์|แนวโน้ม/i.test(x))add(20,'ข้อมูลอาจเปลี่ยนตามเวลา');
+            if(/มาตรา\s*[0-9๐-๙]+|พ\.ร\.บ\.|พระราชบัญญัติ|พระราชกฤษฎีกา|กฎกระทรวง|ประกาศ|คำสั่ง/i.test(full))add(35,'อ้างกฎหมาย/มาตรา/ประกาศ');
+            if(/อัตรา|ร้อยละ|เปอร์เซ็นต์|%|บาท|รายรับ|รายได้|ฐานภาษี|วงเงิน|เกณฑ์|ลดหย่อน/i.test(full))add(30,'มีอัตรา/จำนวนเงิน/เกณฑ์');
+            if(/ภายใน\s*[0-9๐-๙]+|[0-9๐-๙]+\s*(วัน|เดือน|ปี)|กำหนดเวลา|ระยะเวลา|นับแต่|นับจาก|ภายในเวลา/i.test(full))add(25,'มีกำหนดเวลา');
+            if(/เบี้ยปรับ|เงินเพิ่ม|โทษ|ยกเว้น|จดทะเบียน|หัก\s*ณ\s*ที่จ่าย|อุทธรณ์|คืนภาษี|สิทธิ|หน้าที่/i.test(full))add(20,'มีเงื่อนไขสิทธิ/หน้าที่/โทษ');
+            if(/กรมสรรพากร|อธิบดี|รัฐมนตรี|คณะกรรมการ|เจ้าพนักงาน|ผู้มีอำนาจ/i.test(full))add(10,'อำนาจหน้าที่/หน่วยงาน');
+            if(/[0-9๐-๙]/.test(p))add(10,'มีตัวเลขในโจทย์');
+            const numericChoices=(Array.isArray(choices)?choices:[]).filter(x=>/[0-9๐-๙]|%|บาท|วัน|เดือน|ปี/.test(String(x))).length;
+            if(numericChoices>=2)add(15,'ตัวเลือกมีตัวเลข/อัตรา/ระยะเวลา');
+            if(/หลักภาษีอากร|ประมวลรัษฎากร|ข้อมูลข่าวสาร|PDPA|พระราชบัญญัติ/i.test(c))add(15,'หมวดกฎหมาย/ภาษี');
+            if(/ปัจจุบัน|ล่าสุด|ในปี|พ\.ศ\.|พ.ศ.|สถานการณ์|แนวโน้ม|อัตราดอกเบี้ย|เงินเฟ้อ|gdp|อัตราแลกเปลี่ยน/i.test(full))add(20,'ข้อมูลอาจเปลี่ยนตามเวลา');
             if(/ภาษีมูลค่าเพิ่ม|ภาษีเงินได้|ภาษีธุรกิจเฉพาะ|อากรแสตมป์|หัก\s*ณ\s*ที่จ่าย/i.test(topic))add(10,'หัวข้อภาษีที่ต้องตรวจฐานกฎหมาย');
-            return{score,priority:score>=70?'เร่งด่วน':score>=40?'สูง':'ปกติ',reasons:[...new Set(reasons)]};
+            if(/คำนวณ|คำนวณได้|จำนวนภาษี|ภาษีที่ต้องชำระ|ยอดภาษี/i.test(primary))add(15,'ข้อคำนวณที่อิงอัตรา/ฐานภาษี');
+            return{score,priority:score>=70?'เร่งด่วน':score>=40?'สูง':'ปกติ',reasons:[...new Set(reasons)],risk_model:RISK_MODEL};
           };
 
           const rows=[];const summary={total_pending:0,urgent:0,high:0,normal:0,positions:{}};
@@ -87,10 +93,11 @@ jobs:
               if(!published.has(id)||verified.has(id))return;
               const override=manifest.source_overrides?.[id];
               if(override?.source_state==='verified'||override?.source_state==='not-applicable')return;
-              const category=String(data.s[r[0]]||''),prompt=String(data.s[r[1]]||''),topic=deriveTopic(category,prompt),rr=rank(category,prompt,topic);
+              const category=String(data.s[r[0]]||''),prompt=String(data.s[r[1]]||''),choices=(r[2]||[]).map(x=>String(data.s[x]||'')),explanation=String(data.s[r[4]]||''),wrongReasons=String(data.s[r[5]]||''),topic=deriveTopic(category,prompt),rr=rank(category,prompt,topic,choices,explanation,wrongReasons);
               rows.push({
                 question_id:id,position,set:si+1,question:qi+1,category,topic,
                 priority:rr.priority,priority_score:rr.score,reasons:rr.reasons,prompt,
+                risk_model:rr.risk_model,
                 source_state:override?.source_state||manifest.defaults?.Published?.source_state||'pending'
               });
               positionPending++;
@@ -102,16 +109,33 @@ jobs:
           summary.urgent=rows.filter(x=>x.priority==='เร่งด่วน').length;
           summary.high=rows.filter(x=>x.priority==='สูง').length;
           summary.normal=rows.filter(x=>x.priority==='ปกติ').length;
+          summary.positions_detail=Object.fromEntries(Object.keys(configs).map(pos=>[pos,{
+            pending:rows.filter(x=>x.position===pos).length,
+            urgent:rows.filter(x=>x.position===pos&&x.priority==='เร่งด่วน').length,
+            high:rows.filter(x=>x.position===pos&&x.priority==='สูง').length,
+            normal:rows.filter(x=>x.position===pos&&x.priority==='ปกติ').length
+          }]));
+          const topicCounts={};for(const r of rows){const k=r.topic||r.category||'อื่น ๆ';topicCounts[k]=(topicCounts[k]||0)+1}
+          summary.top_topics=Object.entries(topicCounts).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'th')).slice(0,12).map(([name,count])=>({name,count}));
           const output={
             schema_version:1,
             generated_at:new Date().toISOString(),
+            generation_mode:'content-risk-ranked',
+            risk_model:RISK_MODEL,
+            risk_thresholds:{urgent:70,high:40},
             note:'รายการนี้เป็นคิวสำหรับตรวจแหล่งอ้างอิง ไม่ได้หมายความว่าข้อใดผิดหรือถูก และไม่ใช่สถานะ source verified',
             summary,
             rows
           };
           fs.writeFileSync('tax-exam/source-verification-backlog.json',JSON.stringify(output,null,2));
           console.log('SOURCE BACKLOG',JSON.stringify(summary));
+          const expectedPending=Object.values(manifest.positions||{}).reduce((n,p)=>n+(p.published_ids||[]).length-(p.source_verified_ids||[]).length,0);
+          const uniqueIds=new Set(rows.map(x=>x.question_id));
+          if(rows.length!==expectedPending)throw new Error('pending count mismatch: '+rows.length+' != '+expectedPending);
+          if(uniqueIds.size!==rows.length)throw new Error('duplicate Question ID in backlog');
           if(rows.length>0&&rows[0].priority_score<=0)throw new Error('backlog ranking failed');
+          if(rows.some(x=>!['เร่งด่วน','สูง','ปกติ'].includes(x.priority)))throw new Error('invalid priority');
+          if(rows.some(x=>x.risk_model!==RISK_MODEL))throw new Error('risk model stamp missing');
           NODE
 
       - name: Publish backlog to gh-pages
