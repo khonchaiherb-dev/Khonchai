@@ -73,6 +73,13 @@ jobs:
           if(previewIds.length>30||new Set(previewIds).size!==previewIds.length)throw new Error('next batch preview invalid/duplicate');
           const waiting=new Set(status.rows.filter(r=>r.status==='waiting_review').map(r=>r.question_id));
           if(previewIds.some(id=>!waiting.has(id)))throw new Error('next batch preview contains non-waiting Question ID');
+          const pilot=status.pilot_preview||{},pilotRows=Array.isArray(pilot.question_ids)?pilot.question_ids:[],pilotIds=pilotRows.map(x=>String(x.question_id||''));
+          if(pilotIds.length>10||new Set(pilotIds).size!==pilotIds.length)throw new Error('pilot preview invalid/duplicate');
+          if(pilotIds.some(id=>!waiting.has(id)))throw new Error('pilot preview contains non-waiting Question ID');
+          for(const r of pilotRows){
+            const st=status.rows.find(x=>x.question_id===r.question_id);
+            if(!st||st.current_signal!=='strong'||st.source_state==='verified'||Number(st.source_risk_score)>=70)throw new Error('pilot preview contains non-low-risk Strong item '+r.question_id);
+          }
 
           if(registry.schema_version!==1||!Array.isArray(registry.batches))throw new Error('academic remediation registry invalid');
           const batchIds=new Set(),activeQuestions=new Set(),now=Date.now();
@@ -122,11 +129,11 @@ jobs:
           ])if(!applyWorkflow.includes(required))throw new Error('apply workflow missing required guard: '+required);
 
           const batchWorkflow=main('.github/workflows/kexam-academic-answer-remediation-batch.yml');
-          for(const required of ['activeReserved','decisionIds','appliedIds','source_risk','reservation_expires_at'])if(!batchWorkflow.includes(required))throw new Error('batch workflow missing required guard: '+required);
+          for(const required of ['activeReserved','decisionIds','appliedIds','source_risk','reservation_expires_at','low-source-risk-pilot','Math.min(requestedSize,10)'])if(!batchWorkflow.includes(required))throw new Error('batch workflow missing required guard: '+required);
 
           const adminIndex=gh('tax-exam/admin/index.html'),adminJs=gh('tax-exam/admin/admin-v13.js');
           for(const required of ['academicRemediationSummary','academicRemediationProgress'])if(!adminIndex.includes(required))throw new Error('Admin index missing '+required);
-          for(const required of ['academicRemediationStatus','academicNextBatchPreviewHtml','Regression Guard'])if(!adminJs.includes(required))throw new Error('Admin JS missing '+required);
+          for(const required of ['academicRemediationStatus','academicNextBatchPreviewHtml','academicPilotPreviewHtml','Regression Guard'])if(!adminJs.includes(required))throw new Error('Admin JS missing '+required);
           fs.writeFileSync('/tmp/admin-v13.js',adminJs);
           cp.execFileSync('node',['--check','/tmp/admin-v13.js'],{stdio:'inherit'});
 
@@ -141,6 +148,7 @@ jobs:
             ready_to_apply:status.summary.ready_to_apply,
             active_batches:status.summary.active_generated_batches,
             preview:previewIds.length,
+            pilot_preview:pilotIds.length,
             registry_batches:registry.batches.length,
             decisions:decisions.records.length
           }));
