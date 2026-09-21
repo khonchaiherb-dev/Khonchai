@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow" />
   <meta name="theme-color" content="#050b16" />
   <title>K-EXAM Analytics Dashboard</title>
-  <link rel="stylesheet" href="admin-v13.css?v=26" />
+  <link rel="stylesheet" href="admin-v13.css?v=27" />
 </head>
 <body>
   <main class="shell">
@@ -49,8 +49,14 @@
         <select class="btn" id="sourceReservation" aria-label="สถานะ Batch"><option value="">ทุกสถานะ Batch</option><option value="available">ว่างสำหรับจัด Batch</option><option value="reserved">อยู่ใน Batch ที่ยังจอง</option></select>
         <input class="btn" id="sourceSearch" type="search" placeholder="ค้นหา Question ID / หัวข้อ" aria-label="ค้นหา source verification backlog" />
         <button class="btn" id="exportSourceBacklog">ส่งออก CSV</button>
+        <button class="btn primary" id="exportNextSourceBatch">ส่งออก Batch 50 ข้อถัดไป</button>
       </div>
       <div id="sourceBacklogSummary"></div>
+      <div id="sourceBacklogModel" style="margin-top:12px"></div>
+      <div class="source-planning-grid" style="margin-top:12px">
+        <div class="source-planning-card"><h4>หัวข้อที่ค้างตรวจมาก</h4><div id="sourceTopTopics"></div></div>
+        <div class="source-planning-card"><h4>Batch ถัดไป 50 ข้อ</h4><div id="sourceNextBatch"></div></div>
+      </div>
       <div id="sourceBacklog" style="margin-top:12px"></div>
     </section>
 
@@ -121,6 +127,6 @@
     <div class="footer">K-EXAM · ติวสอบราชการ อาจารย์คิม · www.k-exam.com</div>
   </main>
   <script src="../analytics-config.js?v=25"></script>
-  <script src="admin-v13.js?v=31"></script>
+  <script src="admin-v13.js?v=32"></script>
 </body>
 </html>
