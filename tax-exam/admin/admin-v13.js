@@ -7,7 +7,7 @@
   const endpoint=()=>{const b=String(CFG.supabaseUrl||'').replace(/\/$/,'');return b&&CFG.dashboardFunction?`${b}/functions/v1/${CFG.dashboardFunction}`:''};
   const connected=()=>Boolean(endpoint()&&CFG.supabaseAnonKey);
   let days=30,qualityRowsCache=[],sourceReservationMap=new Map();
-  let publicationCoverageCache=null,sourceBacklogCache=null,contentIntegrityCache=null,sourceFreshnessCache=null,sourceBatchRegistryCache=null;
+  let publicationCoverageCache=null,sourceBacklogCache=null,contentIntegrityCache=null,sourceFreshnessCache=null,sourceBatchRegistryCache=null,answerConspicuousnessCache=null;
 
   function localEvents(){try{return JSON.parse(localStorage.getItem('kexam_analytics_local_v1')||'[]')||[]}catch{return[]}}
   function localQuestionReports(){
@@ -117,6 +117,16 @@
       return{schema_version:1,generation_mode:'unavailable',summary:{total_pending:0,urgent:0,high:0,normal:0,positions:{}},rows:[],error:true,error_message:String(e?.message||e||'backlog-error')};
     }
   }
+  async function answerConspicuousnessAudit(){
+    if(answerConspicuousnessCache)return answerConspicuousnessCache;
+    try{
+      const r=await fetch('../answer-conspicuousness-audit.json',{cache:'no-store'});if(!r.ok)throw new Error('answer-audit-http-'+r.status);
+      const raw=await r.text();if(!raw.trim())throw new Error('answer-audit-empty');
+      const data=JSON.parse(raw);
+      if(Number(data?.schema_version)!==1||data?.audit_model!=='answer-conspicuousness-v1'||!data?.summary||!Array.isArray(data?.rows))throw new Error('answer-audit-schema');
+      answerConspicuousnessCache=data;return data;
+    }catch(e){return{schema_version:1,audit_model:'answer-conspicuousness-v1',summary:{total:0,strong:0,moderate:0,watch:0,positions:{}},rows:[],error:true,error_message:String(e?.message||e||'answer-audit-error')}}
+  }
   async function sourceReviewBatchRegistry(){
     if(sourceBatchRegistryCache)return sourceBatchRegistryCache;
     try{
@@ -145,7 +155,7 @@
     return `<div class="qa-health-head ${cls}"><strong>${esc(overall)}</strong><span>${bad?bad+' รายการผิดปกติ':warn?warn+' รายการควรตรวจ':'พร้อมติดตามต่อ'}</span></div><div class="qa-health-grid">${checks.map(x=>`<div class="qa-health-card ${x.state}"><div class="qa-health-label">${esc(x.label)}</div><strong>${esc(x.value)}</strong><div class="qa-health-note">${esc(x.note)}</div></div>`).join('')}</div>`;
   }
   function resetQaCaches(){
-    publicationCoverageCache=null;sourceBacklogCache=null;contentIntegrityCache=null;sourceFreshnessCache=null;sourceBatchRegistryCache=null;sourceReservationMap=new Map();
+    publicationCoverageCache=null;sourceBacklogCache=null;contentIntegrityCache=null;sourceFreshnessCache=null;sourceBatchRegistryCache=null;answerConspicuousnessCache=null;sourceReservationMap=new Map();
   }
 
   function sourceBacklogModelHtml(data={}){
@@ -334,6 +344,33 @@
     const max=Math.max(...rows.map(x=>Number(x.value)||0),1);
     return `<div class="list">${rows.slice(0,12).map(x=>`<div class="row"><div><div class="name">${esc(x.name??'ไม่ระบุ')}</div><div class="meta"><span style="display:inline-block;width:${Math.max(6,Math.round((Number(x.value)||0)/max*100))}%;height:4px;border-radius:8px;background:linear-gradient(90deg,#2563eb,#38bdf8);vertical-align:middle"></span></div></div><div class="val">${fmt(x.value)}</div></div>`).join('')}</div>`
   }
+  function answerConspicuousnessSummaryHtml(data={}){
+    if(data?.error)return `<div class="notice">ยังไม่มีรายงาน Answer Conspicuousness Audit หรืออ่านรายงานไม่สำเร็จ: ${esc(data.error_message||'ไม่ทราบสาเหตุ')}</div>`;
+    const s=data.summary||{},flagged=(Number(s.strong)||0)+(Number(s.moderate)||0)+(Number(s.watch)||0);
+    return `<div class="metrics"><div class="panel metric"><div class="label">ตรวจทั้งหมด</div><strong>${fmt(s.total||0)}</strong><small>Question ID ในคลัง</small></div><div class="panel metric"><div class="label">Strong</div><strong>${fmt(s.strong||0)}</strong><small>ควรตรวจเป็นลำดับแรก</small></div><div class="panel metric"><div class="label">Moderate</div><strong>${fmt(s.moderate||0)}</strong><small>ควรตรวจรูปแบบตัวเลือก</small></div><div class="panel metric"><div class="label">Watch</div><strong>${fmt(s.watch||0)}</strong><small>เฝ้าระวังความเด่น</small></div><div class="panel metric"><div class="label">Flagged รวม</div><strong>${fmt(flagged)}</strong><small>${s.total?Math.round(flagged*1000/Number(s.total))/10:0}% ของคลัง</small></div></div>`;
+  }
+  function filteredAnswerConspicuousnessRows(){
+    const rows=answerConspicuousnessCache?.rows||[],level=$('#answerLengthLevel')?.value||'',pos=$('#answerLengthPosition')?.value||'';
+    return rows.filter(r=>(!level||r.level===level)&&(!pos||r.position===pos));
+  }
+  function answerConspicuousnessListHtml(rows=[]){
+    if(!rows.length)return '<div class="empty">ไม่พบรายการตามตัวกรอง</div>';
+    return `<div class="list">${rows.slice(0,100).map(r=>{
+      const pos=r.position==='revenue-academic'?'นักวิชาการสรรพากรฯ':r.position==='tax-auditor'?'นักตรวจสอบภาษีฯ':r.position||'-';
+      const direction=r.correct_strictly_longest?'คำตอบยาวกว่า':r.correct_strictly_shortest?'คำตอบสั้นกว่า':'อยู่นอกช่วงตัวลวง';
+      return `<div class="row"><div><div class="name">${esc(r.question_id||'ไม่มีรหัส')} · ${esc(String(r.level||'').toUpperCase())}</div><div class="meta">${esc(pos)} · ชุด ${fmt(r.set)} ข้อ ${fmt(r.question)} · ${esc(direction)} · คำตอบ ${fmt(r.correct_length)} ตัวอักษร · ตัวลวง ${fmt(r.distractor_min)}–${fmt(r.distractor_max)} · median ${fmt(r.distractor_median)} · ratio ${esc(String(r.ratio_to_distractor_median??'–'))}</div></div><div class="val">${esc(String(r.level||'').toUpperCase())}</div></div>`
+    }).join('')}</div>`;
+  }
+  function refreshAnswerConspicuousness(){
+    if($('#answerConspicuousnessList'))$('#answerConspicuousnessList').innerHTML=answerConspicuousnessListHtml(filteredAnswerConspicuousnessRows());
+  }
+  function exportAnswerConspicuousnessCsv(){
+    const rows=filteredAnswerConspicuousnessRows();if(!rows.length)return;
+    const header=['question_id','position','set','question','level','correct_length','distractor_min','distractor_max','distractor_median','outside_by','ratio_to_distractor_median','correct_strictly_longest','correct_strictly_shortest'];
+    const lines=[header.join(',')];for(const r of rows)lines.push(header.map(k=>csvCell(r[k])).join(','));
+    const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`kexam-answer-conspicuousness-${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0);
+  }
+
   function qualitySummaryHtml(summary={},rows=[]){
     const urgent=Number(summary.urgent??rows.filter(x=>String(x.priority)==='เร่งด่วน').length)||0;
     const review=Number(summary.review??rows.filter(x=>String(x.priority)==='ควรตรวจ').length)||0;
@@ -446,7 +483,7 @@
   }
 
   async function load(){
-    const [pub,sourceBacklog,integrity,freshness,batchRegistry]=await Promise.all([publicationCoverage(),sourceVerificationBacklog(),contentIntegrityCoverage(),sourceFreshnessWatchlist(),sourceReviewBatchRegistry()]);
+    const [pub,sourceBacklog,integrity,freshness,batchRegistry,answerAudit]=await Promise.all([publicationCoverage(),sourceVerificationBacklog(),contentIntegrityCoverage(),sourceFreshnessWatchlist(),sourceReviewBatchRegistry(),answerConspicuousnessAudit()]);
     if($('#qaDataHealth'))$('#qaDataHealth').innerHTML=qaDataHealthHtml(pub,sourceBacklog,integrity,freshness,batchRegistry);
     $('#publicationCoverage').innerHTML=publicationCoverageHtml(pub);
     if($('#lifecycleDecisions'))$('#lifecycleDecisions').innerHTML=lifecycleDecisionList(pub.decisionLog||[]);
@@ -460,6 +497,9 @@
     if($('#sourceBatchHistory'))$('#sourceBatchHistory').innerHTML=sourceBatchHistoryHtml(batchRegistry);
     syncSourcePositionOptions(sourceBacklog.rows||[]);
     refreshSourceBacklog();
+    if($('#answerConspicuousnessSummary'))$('#answerConspicuousnessSummary').innerHTML=answerConspicuousnessSummaryHtml(answerAudit);
+    answerConspicuousnessCache=answerAudit;
+    refreshAnswerConspicuousness();
     if($('#freshnessSummary'))$('#freshnessSummary').innerHTML=sourceFreshnessSummaryHtml(freshness.summary||{});
     syncFreshnessPositionOptions(freshness.rows||[]);
     refreshFreshness();
@@ -493,6 +533,9 @@
   $('#sourceSearch').oninput=refreshSourceBacklog;
   $('#exportSourceBacklog').onclick=exportSourceBacklogCsv;
   $('#exportNextSourceBatch').onclick=exportNextSourceBatchCsv;
+  $('#answerLengthLevel').onchange=refreshAnswerConspicuousness;
+  $('#answerLengthPosition').onchange=refreshAnswerConspicuousness;
+  $('#exportAnswerLength').onclick=exportAnswerConspicuousnessCsv;
   $('#qualityPriority').onchange=refreshQualityQueue;
   $('#qualityPosition').onchange=refreshQualityQueue;
   $('#exportQuality').onclick=exportQualityCsv;
