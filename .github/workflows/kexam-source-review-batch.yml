@@ -60,6 +60,18 @@ jobs:
           if(mode==='pending'){
             queue=JSON.parse(show('tax-exam/source-verification-backlog.json'));
             if(queue.schema_version!==1||!Array.isArray(queue.rows))throw new Error('source backlog invalid');
+            if(queue.generation_mode!=='content-risk-ranked'||queue.risk_model!=='source-risk-v2')throw new Error('source backlog risk model is stale or unsupported');
+            if(Number(queue.risk_thresholds?.urgent)!==120||Number(queue.risk_thresholds?.high)!==70)throw new Error('source backlog risk thresholds do not match review policy');
+            const ids=queue.rows.map(r=>String(r.question_id||''));
+            if(new Set(ids).size!==ids.length)throw new Error('source backlog contains duplicate Question IDs');
+            let prev=Infinity;
+            for(const r of queue.rows){
+              const score=Number(r.priority_score)||0;
+              if(score>prev)throw new Error('source backlog is not sorted by descending risk score');
+              prev=score;
+              const expected=score>=120?'เร่งด่วน':score>=70?'สูง':'ปกติ';
+              if(r.priority!==expected)throw new Error('source backlog priority mismatch for '+r.question_id);
+            }
           }else{
             queue=JSON.parse(show('tax-exam/source-reverification-watchlist.json'));
             if(queue.schema_version!==1||!Array.isArray(queue.rows))throw new Error('source re-verification watchlist invalid');
