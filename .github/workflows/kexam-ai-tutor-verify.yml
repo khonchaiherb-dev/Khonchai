@@ -1,0 +1,67 @@
+name: K-EXAM AI Tutor Verify
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 2 * * *'
+  push:
+    paths:
+      - '.github/workflows/kexam-ai-tutor-verify.yml'
+      - 'docs/KEXAM_AI_TUTOR.md'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 1
+
+      - name: Verify live AI Tutor
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tax-exam/ai-tutor-v26.js
+          node <<'NODE'
+          const fs=require('fs');
+          const js=fs.readFileSync('tax-exam/ai-tutor-v26.js','utf8');
+          const css=fs.readFileSync('tax-exam/ai-tutor-v26.css','utf8');
+          const index=fs.readFileSync('tax-exam/index.html','utf8');
+          const sw=fs.readFileSync('tax-exam/sw-v2.js','utf8');
+          const manifest=JSON.parse(fs.readFileSync('tax-exam/question-publication-manifest.json','utf8'));
+
+          const requiredJs=[
+            "question-publication-manifest.json",
+            "const published=new Set",
+            "if(!published.has(id))return",
+            "label:'ปานกลาง'",
+            "'streak10'",
+            "'hard5'",
+            "'xp500'",
+            "ai_tutor_open",
+            "ai_tutor_answer",
+            "ai_tutor_session_complete",
+            "คะแนนนี้เป็นการประเมินจากการฝึกใน AI Tutor ไม่ใช่การคาดการณ์คะแนนสอบจริง"
+          ];
+          for(const s of requiredJs)if(!js.includes(s))throw new Error('AI Tutor missing guard/feature: '+s);
+
+          for(const k of ['tax-auditor','revenue-academic']){
+            const ids=manifest.positions?.[k]?.published_ids;
+            if(!Array.isArray(ids)||ids.length!==1000)throw new Error(k+' Published IDs must equal 1000');
+            if(new Set(ids).size!==ids.length)throw new Error(k+' Published IDs contain duplicates');
+          }
+
+          if(!index.includes('ai-tutor-v26.js')||!index.includes('ai-tutor-v26.css'))throw new Error('index does not load live AI Tutor');
+          if(!sw.includes('ai-tutor-v26.js')||!sw.includes('ai-tutor-v26.css'))throw new Error('service worker does not include AI Tutor');
+          for(const cls of ['.ait-launch','.ait-back','.ait-diffs','.ait-answers','.ait-result','.ait-badges'])if(!css.includes(cls))throw new Error('AI Tutor CSS missing '+cls);
+
+          if(/fetch\s*\([^)]*(openai|anthropic|gemini|generativelanguage)/i.test(js))throw new Error('AI Tutor must not expose a client-side model API call or key');
+          if(/api[_-]?key|sk-[A-Za-z0-9]/i.test(js))throw new Error('possible API credential exposed in AI Tutor');
+
+          console.log('AI TUTOR VERIFY PASS',JSON.stringify({
+            js_bytes:Buffer.byteLength(js),
+            css_bytes:Buffer.byteLength(css),
+            published_tax_auditor:manifest.positions['tax-auditor'].published_ids.length,
+            published_revenue_academic:manifest.positions['revenue-academic'].published_ids.length
+          }));
+          NODE
