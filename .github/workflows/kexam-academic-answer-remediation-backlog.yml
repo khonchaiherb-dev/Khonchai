@@ -1,0 +1,147 @@
+name: K-EXAM Academic Answer Remediation Backlog
+on:
+  push:
+    paths:
+      - '.github/workflows/kexam-academic-answer-remediation-backlog.yml'
+      - '.github/workflows/kexam-answer-conspicuousness-audit.yml'
+      - 'docs/KEXAM_QUESTION_STANDARD.md'
+  workflow_dispatch:
+  schedule:
+    - cron: '50 0 * * 1'
+
+concurrency:
+  group: kexam-academic-answer-remediation-backlog-writer
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 1
+
+      - name: Build academic answer remediation backlog
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const audit=JSON.parse(fs.readFileSync('tax-exam/answer-conspicuousness-audit.json','utf8'));
+          const manifest=JSON.parse(fs.readFileSync('tax-exam/question-publication-manifest.json','utf8'));
+          const integrity=JSON.parse(fs.readFileSync('tax-exam/question-content-integrity.json','utf8'));
+
+          if(audit.schema_version!==1||audit.audit_model!=='answer-conspicuousness-v1'||!Array.isArray(audit.rows))throw new Error('answer conspicuousness audit invalid');
+          if(integrity.schema_version!==1||integrity.algorithm!=='sha256')throw new Error('content integrity baseline invalid');
+
+          const pos=manifest.positions?.['revenue-academic'];
+          if(!pos)throw new Error('publication manifest missing revenue-academic');
+
+          const lifecycle={};
+          for(const [status,field] of Object.entries({Draft:'draft_ids',Reviewed:'reviewed_ids',Verified:'verified_ids',Published:'published_ids',Retired:'retired_ids'})){
+            for(const id of pos[field]||[])lifecycle[id]=status;
+          }
+          const sourceVerified=new Set(pos.source_verified_ids||[]);
+          const rank={strong:3,moderate:2,watch:1};
+
+          const rows=audit.rows
+            .filter(r=>r.position==='revenue-academic')
+            .map(r=>{
+              const id=String(r.question_id||'');
+              if(!/^RA-S(0[1-9]|10)-Q(0[0-9]{2}|100)$/.test(id))throw new Error('invalid revenue-academic Question ID '+id);
+              const hash=integrity.questions?.[id]?.sha256||null;
+              if(!/^[a-f0-9]{64}$/.test(String(hash||'')))throw new Error('missing content SHA-256 '+id);
+              const override=manifest.source_overrides?.[id]||{};
+              const sourceState=sourceVerified.has(id)||override.source_state==='verified'?'verified':(override.source_state||'pending');
+              return{
+                question_id:id,
+                position:'revenue-academic',
+                set:Number(r.set),
+                question:Number(r.question),
+                signal_level:String(r.level),
+                correct_length:Number(r.correct_length),
+                distractor_min:Number(r.distractor_min),
+                distractor_max:Number(r.distractor_max),
+                distractor_median:Number(r.distractor_median),
+                outside_by:Number(r.outside_by),
+                ratio_to_distractor_median:Number(r.ratio_to_distractor_median),
+                correct_strictly_longest:!!r.correct_strictly_longest,
+                correct_strictly_shortest:!!r.correct_strictly_shortest,
+                lifecycle_status:lifecycle[id]||'unknown',
+                source_state:sourceState,
+                content_sha256:hash
+              };
+            })
+            .sort((a,b)=>rank[b.signal_level]-rank[a.signal_level]||b.outside_by-a.outside_by||Math.abs(Math.log(b.ratio_to_distractor_median))-Math.abs(Math.log(a.ratio_to_distractor_median))||a.question_id.localeCompare(b.question_id));
+
+          const expected=audit.summary?.positions?.['revenue-academic'];
+          if(!expected)throw new Error('audit summary missing revenue-academic');
+          const counts={
+            total_questions:Number(expected.total)||0,
+            flagged_questions:rows.length,
+            strong:rows.filter(x=>x.signal_level==='strong').length,
+            moderate:rows.filter(x=>x.signal_level==='moderate').length,
+            watch:rows.filter(x=>x.signal_level==='watch').length,
+            correct_strictly_longest:rows.filter(x=>x.correct_strictly_longest).length,
+            correct_strictly_shortest:rows.filter(x=>x.correct_strictly_shortest).length,
+            source_verified_flagged:rows.filter(x=>x.source_state==='verified').length,
+            published_flagged:rows.filter(x=>x.lifecycle_status==='Published').length
+          };
+          if(counts.total_questions!==1000)throw new Error('expected 1,000 revenue-academic questions');
+          if(counts.strong!==Number(expected.strong)||counts.moderate!==Number(expected.moderate)||counts.watch!==Number(expected.watch))throw new Error('audit/backlog level counts mismatch');
+          if(new Set(rows.map(x=>x.question_id)).size!==rows.length)throw new Error('duplicate Question ID in remediation backlog');
+
+          const bySet={};
+          for(const r of rows){
+            const k=String(r.set);bySet[k]??={flagged:0,strong:0,moderate:0,watch:0};
+            bySet[k].flagged++;
+            bySet[k][r.signal_level]=(bySet[k][r.signal_level]||0)+1;
+          }
+
+          const output={
+            schema_version:1,
+            generated_at:new Date().toISOString(),
+            backlog_model:'academic-answer-remediation-v1',
+            source_audit_model:audit.audit_model,
+            policy:{
+              note:'Public-safe remediation queue. A signal identifies a review priority and does not by itself prove the question is invalid.',
+              scope:'revenue-academic only',
+              order:'strong then moderate then watch; within level, larger outside-range difference first',
+              preservation:'Preserve Question ID. Do not rewrite Published content outside the atomic remediation pipeline.',
+              source_reset:'If remediation changes substantive legal/tax content of a source-verified question, source verification must be reset and performed again.'
+            },
+            summary:{...counts,sets:bySet},
+            rows
+          };
+          fs.writeFileSync('tax-exam/academic-answer-remediation-backlog.json',JSON.stringify(output,null,2)+'\n');
+          console.log('ACADEMIC ANSWER REMEDIATION',JSON.stringify(output.summary));
+          NODE
+
+      - name: Publish remediation backlog
+        if: github.ref == 'refs/heads/main' || github.event_name == 'schedule'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tax-exam/academic-answer-remediation-backlog.json
+          if git diff --cached --quiet; then
+            echo "Academic answer remediation backlog unchanged"
+            exit 0
+          fi
+          git commit -m "Update academic answer remediation backlog"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin gh-pages
+            if git rebase origin/gh-pages; then
+              if git push origin HEAD:gh-pages; then exit 0; fi
+            else
+              git rebase --abort || true
+            fi
+            sleep $((attempt * 2))
+          done
+          echo "Unable to publish academic answer remediation backlog" >&2
+          exit 1
