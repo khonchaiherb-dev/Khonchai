@@ -1,0 +1,182 @@
+name: K-EXAM Academic Remediation Status
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '40 1 * * *'
+  push:
+    paths:
+      - '.github/workflows/kexam-academic-remediation-status.yml'
+      - 'data/kexam-academic-answer-remediation-decisions.json'
+      - 'docs/KEXAM_QUESTION_STANDARD.md'
+
+concurrency:
+  group: kexam-academic-remediation-status-writer
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 1
+
+      - name: Build academic remediation progress ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --depth=1
+          git show origin/main:data/kexam-academic-answer-remediation-decisions.json > /tmp/academic-remediation-decisions.json
+          node <<'NODE'
+          const fs=require('fs');
+          const audit=JSON.parse(fs.readFileSync('tax-exam/answer-conspicuousness-audit.json','utf8'));
+          const manifest=JSON.parse(fs.readFileSync('tax-exam/question-publication-manifest.json','utf8'));
+          const integrity=JSON.parse(fs.readFileSync('tax-exam/question-content-integrity.json','utf8'));
+          const decisions=JSON.parse(fs.readFileSync('/tmp/academic-remediation-decisions.json','utf8'));
+          if(audit.schema_version!==1||audit.audit_model!=='answer-conspicuousness-v1'||!Array.isArray(audit.rows))throw new Error('answer audit invalid');
+          if(manifest.schema_version!==1)throw new Error('publication manifest invalid');
+          if(integrity.schema_version!==1||integrity.algorithm!=='sha256')throw new Error('content integrity invalid');
+          if(decisions.schema_version!==1||!Array.isArray(decisions.records))throw new Error('academic remediation decisions invalid');
+
+          const current=new Map(audit.rows.filter(r=>r.position==='revenue-academic').map(r=>[String(r.question_id),r]));
+          const decisionMap=new Map();
+          for(const r of decisions.records||[]){
+            const id=String(r.question_id||'');if(!/^RA-S/.test(id))continue;
+            decisionMap.set(id,r);
+          }
+          const logs=(manifest.remediation_log||[]).filter(x=>x.position==='revenue-academic'&&x.remediation_type==='answer-conspicuousness');
+          const appliedMap=new Map();
+          for(const x of logs){
+            const id=String(x.question_id||'');if(!/^RA-S/.test(id))continue;
+            const prev=appliedMap.get(id);
+            const ta=Date.parse(String(x.applied_at||''))||0,tb=Date.parse(String(prev?.applied_at||''))||0;
+            if(!prev||ta>=tb)appliedMap.set(id,x);
+          }
+
+          const pos=manifest.positions?.['revenue-academic'];if(!pos)throw new Error('manifest missing revenue-academic');
+          const sourceVerified=new Set(pos.source_verified_ids||[]);
+          const ids=new Set([...current.keys(),...appliedMap.keys()]);
+          const statusRank={needs_rework:6,decision_incomplete:5,ready_to_apply:4,waiting_review:3,applied_watch:2,resolved:1};
+          const levelRank={strong:3,moderate:2,watch:1,ok:0};
+          const summary={
+            scope_total:ids.size,
+            current_flagged:current.size,
+            waiting_review:0,
+            decision_incomplete:0,
+            ready_to_apply:0,
+            applied_watch:0,
+            resolved:0,
+            needs_rework:0,
+            gate_passed:0,
+            fully_resolved:0,
+            progress_percent:0,
+            strong_remaining:0,
+            moderate_remaining:0,
+            watch_remaining:0,
+            source_verified_current:0,
+            applied_question_ids:appliedMap.size,
+            decision_records:decisionMap.size,
+            sets:{}
+          };
+          const rows=[];
+          for(const id of ids){
+            const cur=current.get(id)||null,dec=decisionMap.get(id)||null,applied=appliedMap.get(id)||null;
+            let status;
+            if(applied){
+              if(cur?.level==='strong'||cur?.level==='moderate')status='needs_rework';
+              else if(cur?.level==='watch')status='applied_watch';
+              else status='resolved';
+            }else if(dec){
+              status=String(dec.action||'')==='replace'?'ready_to_apply':'decision_incomplete';
+            }else status='waiting_review';
+
+            summary[status]=(summary[status]||0)+1;
+            if(status==='applied_watch'||status==='resolved')summary.gate_passed++;
+            if(status==='resolved')summary.fully_resolved++;
+            if(cur?.level==='strong')summary.strong_remaining++;
+            else if(cur?.level==='moderate')summary.moderate_remaining++;
+            else if(cur?.level==='watch')summary.watch_remaining++;
+            if(cur&&sourceVerified.has(id))summary.source_verified_current++;
+
+            const set=Number(cur?.set)||Number((/^RA-S(\d{2})-/.exec(id)||[])[1])||0;
+            const question=Number(cur?.question)||Number((/-Q(\d{3})$/.exec(id)||[])[1])||0;
+            const sk=String(set);summary.sets[sk]??={scope:0,current_flagged:0,gate_passed:0,resolved:0};
+            summary.sets[sk].scope++;
+            if(cur)summary.sets[sk].current_flagged++;
+            if(status==='applied_watch'||status==='resolved')summary.sets[sk].gate_passed++;
+            if(status==='resolved')summary.sets[sk].resolved++;
+
+            const currentHash=integrity.questions?.[id]?.sha256||null;
+            rows.push({
+              question_id:id,
+              set,
+              question,
+              status,
+              current_signal:cur?.level||'ok',
+              current_outside_by:cur?Number(cur.outside_by):null,
+              current_ratio:cur?Number(cur.ratio_to_distractor_median):null,
+              source_state:sourceVerified.has(id)||manifest.source_overrides?.[id]?.source_state==='verified'?'verified':(manifest.source_overrides?.[id]?.source_state||'pending'),
+              current_content_sha256:currentHash,
+              has_decision:!!dec,
+              decision_action:dec?String(dec.action||''):null,
+              remediation_id:applied?.remediation_id||dec?.remediation_id||null,
+              applied_at:applied?.applied_at||null,
+              post_answer_length_signal:applied?.post_answer_length_signal||null,
+              source_verification_reset:applied?!!applied.source_verification_reset:null
+            });
+          }
+          summary.progress_percent=summary.scope_total?Math.round(summary.gate_passed*1000/summary.scope_total)/10:0;
+          rows.sort((a,b)=>(statusRank[b.status]||0)-(statusRank[a.status]||0)||(levelRank[b.current_signal]||0)-(levelRank[a.current_signal]||0)||(Number(b.current_outside_by)||0)-(Number(a.current_outside_by)||0)||a.question_id.localeCompare(b.question_id));
+          if(summary.current_flagged!==summary.strong_remaining+summary.moderate_remaining+summary.watch_remaining)throw new Error('current flagged count mismatch');
+          if(new Set(rows.map(x=>x.question_id)).size!==rows.length)throw new Error('duplicate Question ID in remediation status');
+          if(summary.needs_rework>0)throw new Error('applied academic remediation regressed to Strong/Moderate for '+summary.needs_rework+' question(s)');
+
+          const output={
+            schema_version:1,
+            generated_at:new Date().toISOString(),
+            status_model:'academic-answer-remediation-status-v1',
+            source_audit_generated_at:audit.generated_at||null,
+            regression_guard:audit.regression_guard||null,
+            policy:{
+              waiting_review:'ยังไม่มี remediation decision',
+              decision_incomplete:'มี decision record แต่ยังไม่พร้อม apply',
+              ready_to_apply:'มี replace decision พร้อมเข้าสู่ atomic apply',
+              applied_watch:'ผ่าน atomic gate แล้ว แต่ audit ยังอยู่ระดับ Watch',
+              resolved:'ผ่าน atomic gate และไม่ถูก flag ใน audit ปัจจุบัน',
+              needs_rework:'เคย apply แล้วแต่กลับเป็น Strong/Moderate; ระบบต้องถือเป็น regression'
+            },
+            summary,
+            rows
+          };
+          fs.writeFileSync('tax-exam/academic-answer-remediation-status.json',JSON.stringify(output,null,2)+'\n');
+          console.log('ACADEMIC REMEDIATION STATUS',JSON.stringify(summary));
+          NODE
+
+      - name: Publish remediation status
+        if: github.ref == 'refs/heads/main' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tax-exam/academic-answer-remediation-status.json
+          if git diff --cached --quiet; then
+            echo "Academic remediation status unchanged"
+            exit 0
+          fi
+          git commit -m "Update academic remediation progress"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin gh-pages
+            if git rebase origin/gh-pages; then
+              if git push origin HEAD:gh-pages; then exit 0; fi
+            else
+              git rebase --abort || true
+            fi
+            sleep $((attempt * 2))
+          done
+          echo "Unable to publish academic remediation status" >&2
+          exit 1
