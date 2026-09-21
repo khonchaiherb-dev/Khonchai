@@ -7,7 +7,7 @@
   const endpoint=()=>{const b=String(CFG.supabaseUrl||'').replace(/\/$/,'');return b&&CFG.dashboardFunction?`${b}/functions/v1/${CFG.dashboardFunction}`:''};
   const connected=()=>Boolean(endpoint()&&CFG.supabaseAnonKey);
   let days=30,qualityRowsCache=[],sourceReservationMap=new Map();
-  let publicationCoverageCache=null,sourceBacklogCache=null,contentIntegrityCache=null,sourceFreshnessCache=null,sourceBatchRegistryCache=null,answerConspicuousnessCache=null;
+  let publicationCoverageCache=null,sourceBacklogCache=null,contentIntegrityCache=null,sourceFreshnessCache=null,sourceBatchRegistryCache=null,answerConspicuousnessCache=null,academicRemediationCache=null;
 
   function localEvents(){try{return JSON.parse(localStorage.getItem('kexam_analytics_local_v1')||'[]')||[]}catch{return[]}}
   function localQuestionReports(){
@@ -117,6 +117,16 @@
       return{schema_version:1,generation_mode:'unavailable',summary:{total_pending:0,urgent:0,high:0,normal:0,positions:{}},rows:[],error:true,error_message:String(e?.message||e||'backlog-error')};
     }
   }
+  async function academicAnswerRemediationBacklog(){
+    if(academicRemediationCache)return academicRemediationCache;
+    try{
+      const r=await fetch('../academic-answer-remediation-backlog.json',{cache:'no-store'});if(!r.ok)throw new Error('academic-remediation-http-'+r.status);
+      const raw=await r.text();if(!raw.trim())throw new Error('academic-remediation-empty');
+      const data=JSON.parse(raw);
+      if(Number(data?.schema_version)!==1||data?.backlog_model!=='academic-answer-remediation-v1'||!data?.summary||!Array.isArray(data?.rows))throw new Error('academic-remediation-schema');
+      academicRemediationCache=data;return data;
+    }catch(e){return{schema_version:1,backlog_model:'academic-answer-remediation-v1',summary:{total_questions:1000,flagged_questions:0,strong:0,moderate:0,watch:0,sets:{}},rows:[],error:true,error_message:String(e?.message||e||'academic-remediation-error')}}
+  }
   async function answerConspicuousnessAudit(){
     if(answerConspicuousnessCache)return answerConspicuousnessCache;
     try{
@@ -155,7 +165,7 @@
     return `<div class="qa-health-head ${cls}"><strong>${esc(overall)}</strong><span>${bad?bad+' รายการผิดปกติ':warn?warn+' รายการควรตรวจ':'พร้อมติดตามต่อ'}</span></div><div class="qa-health-grid">${checks.map(x=>`<div class="qa-health-card ${x.state}"><div class="qa-health-label">${esc(x.label)}</div><strong>${esc(x.value)}</strong><div class="qa-health-note">${esc(x.note)}</div></div>`).join('')}</div>`;
   }
   function resetQaCaches(){
-    publicationCoverageCache=null;sourceBacklogCache=null;contentIntegrityCache=null;sourceFreshnessCache=null;sourceBatchRegistryCache=null;answerConspicuousnessCache=null;sourceReservationMap=new Map();
+    publicationCoverageCache=null;sourceBacklogCache=null;contentIntegrityCache=null;sourceFreshnessCache=null;sourceBatchRegistryCache=null;answerConspicuousnessCache=null;academicRemediationCache=null;sourceReservationMap=new Map();
   }
 
   function sourceBacklogModelHtml(data={}){
@@ -344,6 +354,33 @@
     const max=Math.max(...rows.map(x=>Number(x.value)||0),1);
     return `<div class="list">${rows.slice(0,12).map(x=>`<div class="row"><div><div class="name">${esc(x.name??'ไม่ระบุ')}</div><div class="meta"><span style="display:inline-block;width:${Math.max(6,Math.round((Number(x.value)||0)/max*100))}%;height:4px;border-radius:8px;background:linear-gradient(90deg,#2563eb,#38bdf8);vertical-align:middle"></span></div></div><div class="val">${fmt(x.value)}</div></div>`).join('')}</div>`
   }
+  function academicRemediationSummaryHtml(data={}){
+    if(data?.error)return `<div class="notice">ยังไม่สามารถอ่าน Academic Remediation Backlog ได้: ${esc(data.error_message||'ไม่ทราบสาเหตุ')}</div>`;
+    const s=data.summary||{},remaining=(Number(s.strong)||0)+(Number(s.moderate)||0)+(Number(s.watch)||0);
+    return `<div class="metrics"><div class="panel metric"><div class="label">คิวทั้งหมด</div><strong>${fmt(remaining)}</strong><small>Question ID ที่ต้องตรวจ</small></div><div class="panel metric"><div class="label">Strong</div><strong>${fmt(s.strong||0)}</strong><small>แก้เป็นลำดับแรก</small></div><div class="panel metric"><div class="label">Moderate</div><strong>${fmt(s.moderate||0)}</strong><small>ลำดับถัดไป</small></div><div class="panel metric"><div class="label">Watch</div><strong>${fmt(s.watch||0)}</strong><small>เฝ้าระวัง</small></div><div class="panel metric"><div class="label">Source Verified ในคิว</div><strong>${fmt(s.source_verified_flagged||0)}</strong><small>แก้แล้วต้องตรวจ source ใหม่</small></div></div>`;
+  }
+  function filteredAcademicRemediationRows(){
+    const rows=academicRemediationCache?.rows||[],level=$('#academicRemediationLevel')?.value||'',set=$('#academicRemediationSet')?.value||'';
+    return rows.filter(r=>(!level||r.signal_level===level)&&(!set||String(r.set)===set));
+  }
+  function academicRemediationListHtml(rows=[]){
+    if(!rows.length)return '<div class="empty">ไม่พบรายการตามตัวกรอง</div>';
+    return `<div class="list">${rows.slice(0,120).map(r=>{
+      const direction=r.correct_strictly_longest?'คำตอบยาวเด่น':r.correct_strictly_shortest?'คำตอบสั้นเด่น':'อยู่นอกช่วงตัวลวง';
+      const source=r.source_state==='verified'?'Source Verified — ต้อง reset เมื่อแก้':'Source Pending';
+      return `<div class="row"><div><div class="name">${esc(r.question_id)} · ${esc(String(r.signal_level||'').toUpperCase())}</div><div class="meta">ชุด ${fmt(r.set)} ข้อ ${fmt(r.question)} · ${esc(direction)} · outside ${fmt(r.outside_by)} ตัวอักษร · ratio ${esc(String(r.ratio_to_distractor_median??'–'))} · ${esc(source)}</div></div><div class="val">${esc(String(r.signal_level||'').toUpperCase())}</div></div>`
+    }).join('')}</div>`;
+  }
+  function refreshAcademicRemediation(){
+    if($('#academicRemediationList'))$('#academicRemediationList').innerHTML=academicRemediationListHtml(filteredAcademicRemediationRows());
+  }
+  function exportAcademicRemediationCsv(){
+    const rows=filteredAcademicRemediationRows();if(!rows.length)return;
+    const header=['question_id','set','question','signal_level','correct_length','distractor_min','distractor_max','distractor_median','outside_by','ratio_to_distractor_median','correct_strictly_longest','correct_strictly_shortest','lifecycle_status','source_state','content_sha256'];
+    const lines=[header.join(',')];for(const r of rows)lines.push(header.map(k=>csvCell(r[k])).join(','));
+    const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`kexam-academic-answer-remediation-${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0);
+  }
+
   function answerConspicuousnessSummaryHtml(data={}){
     if(data?.error)return `<div class="notice">ยังไม่มีรายงาน Answer Conspicuousness Audit หรืออ่านรายงานไม่สำเร็จ: ${esc(data.error_message||'ไม่ทราบสาเหตุ')}</div>`;
     const s=data.summary||{},flagged=(Number(s.strong)||0)+(Number(s.moderate)||0)+(Number(s.watch)||0);
@@ -483,7 +520,7 @@
   }
 
   async function load(){
-    const [pub,sourceBacklog,integrity,freshness,batchRegistry,answerAudit]=await Promise.all([publicationCoverage(),sourceVerificationBacklog(),contentIntegrityCoverage(),sourceFreshnessWatchlist(),sourceReviewBatchRegistry(),answerConspicuousnessAudit()]);
+    const [pub,sourceBacklog,integrity,freshness,batchRegistry,answerAudit,academicRemediation]=await Promise.all([publicationCoverage(),sourceVerificationBacklog(),contentIntegrityCoverage(),sourceFreshnessWatchlist(),sourceReviewBatchRegistry(),answerConspicuousnessAudit(),academicAnswerRemediationBacklog()]);
     if($('#qaDataHealth'))$('#qaDataHealth').innerHTML=qaDataHealthHtml(pub,sourceBacklog,integrity,freshness,batchRegistry);
     $('#publicationCoverage').innerHTML=publicationCoverageHtml(pub);
     if($('#lifecycleDecisions'))$('#lifecycleDecisions').innerHTML=lifecycleDecisionList(pub.decisionLog||[]);
@@ -500,6 +537,9 @@
     if($('#answerConspicuousnessSummary'))$('#answerConspicuousnessSummary').innerHTML=answerConspicuousnessSummaryHtml(answerAudit);
     answerConspicuousnessCache=answerAudit;
     refreshAnswerConspicuousness();
+    if($('#academicRemediationSummary'))$('#academicRemediationSummary').innerHTML=academicRemediationSummaryHtml(academicRemediation);
+    academicRemediationCache=academicRemediation;
+    refreshAcademicRemediation();
     if($('#freshnessSummary'))$('#freshnessSummary').innerHTML=sourceFreshnessSummaryHtml(freshness.summary||{});
     syncFreshnessPositionOptions(freshness.rows||[]);
     refreshFreshness();
@@ -533,6 +573,9 @@
   $('#sourceSearch').oninput=refreshSourceBacklog;
   $('#exportSourceBacklog').onclick=exportSourceBacklogCsv;
   $('#exportNextSourceBatch').onclick=exportNextSourceBatchCsv;
+  $('#academicRemediationLevel').onchange=refreshAcademicRemediation;
+  $('#academicRemediationSet').onchange=refreshAcademicRemediation;
+  $('#exportAcademicRemediation').onclick=exportAcademicRemediationCsv;
   $('#answerLengthLevel').onchange=refreshAnswerConspicuousness;
   $('#answerLengthPosition').onchange=refreshAnswerConspicuousness;
   $('#exportAnswerLength').onclick=exportAnswerConspicuousnessCsv;
