@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-21T18:56:19.707Z",
+  "generated_at": "2026-09-21T19:02:52.078Z",
   "audit_model": "answer-conspicuousness-v1",
   "policy": {
     "note": "Public-safe QA signal only. A flag does not prove a question is invalid; it identifies answer-length patterns for human review.",
