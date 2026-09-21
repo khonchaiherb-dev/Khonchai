@@ -36,10 +36,12 @@ jobs:
           const audit=JSON.parse(fs.readFileSync('tax-exam/answer-conspicuousness-audit.json','utf8'));
           const manifest=JSON.parse(fs.readFileSync('tax-exam/question-publication-manifest.json','utf8'));
           const integrity=JSON.parse(fs.readFileSync('tax-exam/question-content-integrity.json','utf8'));
+          const registry=JSON.parse(fs.readFileSync('tax-exam/academic-answer-remediation-batch-registry.json','utf8'));
           const decisions=JSON.parse(fs.readFileSync('/tmp/academic-remediation-decisions.json','utf8'));
           if(audit.schema_version!==1||audit.audit_model!=='answer-conspicuousness-v1'||!Array.isArray(audit.rows))throw new Error('answer audit invalid');
           if(manifest.schema_version!==1)throw new Error('publication manifest invalid');
           if(integrity.schema_version!==1||integrity.algorithm!=='sha256')throw new Error('content integrity invalid');
+          if(registry.schema_version!==1||!Array.isArray(registry.batches))throw new Error('academic remediation batch registry invalid');
           if(decisions.schema_version!==1||!Array.isArray(decisions.records))throw new Error('academic remediation decisions invalid');
 
           const current=new Map(audit.rows.filter(r=>r.position==='revenue-academic').map(r=>[String(r.question_id),r]));
@@ -57,15 +59,29 @@ jobs:
             if(!prev||ta>=tb)appliedMap.set(id,x);
           }
 
+          const now=Date.now(),activeReserved=new Set();
+          let activeGeneratedBatches=0,appliedBatches=0,expiredGeneratedBatches=0,latestBatchId=null,latestBatchAt=0;
+          for(const b of registry.batches||[]){
+            const status=String(b.status||''),generated=Date.parse(String(b.generated_at||''))||0,expires=Date.parse(String(b.reservation_expires_at||''))||0;
+            if(generated>latestBatchAt){latestBatchAt=generated;latestBatchId=b.batch_id||null}
+            if(status==='applied'){appliedBatches++;continue}
+            if(status!=='generated')continue;
+            if(expires>now){
+              activeGeneratedBatches++;
+              for(const id of b.question_ids||[])activeReserved.add(String(id));
+            }else expiredGeneratedBatches++;
+          }
+
           const pos=manifest.positions?.['revenue-academic'];if(!pos)throw new Error('manifest missing revenue-academic');
           const sourceVerified=new Set(pos.source_verified_ids||[]);
           const ids=new Set([...current.keys(),...appliedMap.keys()]);
-          const statusRank={needs_rework:6,decision_incomplete:5,ready_to_apply:4,waiting_review:3,applied_watch:2,resolved:1};
+          const statusRank={needs_rework:7,decision_incomplete:6,ready_to_apply:5,reserved_for_review:4,waiting_review:3,applied_watch:2,resolved:1};
           const levelRank={strong:3,moderate:2,watch:1,ok:0};
           const summary={
             scope_total:ids.size,
             current_flagged:current.size,
             waiting_review:0,
+            reserved_for_review:0,
             decision_incomplete:0,
             ready_to_apply:0,
             applied_watch:0,
@@ -80,6 +96,11 @@ jobs:
             source_verified_current:0,
             applied_question_ids:appliedMap.size,
             decision_records:decisionMap.size,
+            active_reserved_question_ids:activeReserved.size,
+            active_generated_batches:activeGeneratedBatches,
+            applied_batches:appliedBatches,
+            expired_generated_batches:expiredGeneratedBatches,
+            latest_batch_id:latestBatchId,
             sets:{}
           };
           const rows=[];
@@ -92,7 +113,8 @@ jobs:
               else status='resolved';
             }else if(dec){
               status=String(dec.action||'')==='replace'?'ready_to_apply':'decision_incomplete';
-            }else status='waiting_review';
+            }else if(activeReserved.has(id))status='reserved_for_review';
+            else status='waiting_review';
 
             summary[status]=(summary[status]||0)+1;
             if(status==='applied_watch'||status==='resolved')summary.gate_passed++;
@@ -142,7 +164,8 @@ jobs:
             source_audit_generated_at:audit.generated_at||null,
             regression_guard:audit.regression_guard||null,
             policy:{
-              waiting_review:'ยังไม่มี remediation decision',
+              waiting_review:'ยังไม่อยู่ใน Batch และยังไม่มี remediation decision',
+              reserved_for_review:'ถูกจองอยู่ใน Private Remediation Batch ที่ยังไม่หมดอายุ',
               decision_incomplete:'มี decision record แต่ยังไม่พร้อม apply',
               ready_to_apply:'มี replace decision พร้อมเข้าสู่ atomic apply',
               applied_watch:'ผ่าน atomic gate แล้ว แต่ audit ยังอยู่ระดับ Watch',
