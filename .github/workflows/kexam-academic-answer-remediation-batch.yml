@@ -16,6 +16,13 @@ on:
           - all
         default: strong
 
+concurrency:
+  group: kexam-academic-answer-remediation-batch-writer
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -45,8 +52,13 @@ jobs:
           const backlog=JSON.parse(show('tax-exam/academic-answer-remediation-backlog.json'));
           const manifest=JSON.parse(show('tax-exam/question-publication-manifest.json'));
           const integrity=JSON.parse(show('tax-exam/question-content-integrity.json'));
+          const decisions=JSON.parse(fs.readFileSync('data/kexam-academic-answer-remediation-decisions.json','utf8'));
+          let registry={schema_version:1,batches:[]};
+          try{registry=JSON.parse(show('tax-exam/academic-answer-remediation-batch-registry.json'))}catch{}
           if(backlog.schema_version!==1||backlog.backlog_model!=='academic-answer-remediation-v1'||!Array.isArray(backlog.rows))throw new Error('academic answer remediation backlog invalid');
           if(integrity.schema_version!==1||integrity.algorithm!=='sha256')throw new Error('content integrity invalid');
+          if(decisions.schema_version!==1||!Array.isArray(decisions.records))throw new Error('academic remediation decisions invalid');
+          if(registry.schema_version!==1||!Array.isArray(registry.batches))throw new Error('academic remediation batch registry invalid');
 
           const files=['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'];
           const b64=files.map(f=>show('tax-exam/'+f).trim()).join('').replace(/\s+/g,'');
@@ -56,8 +68,22 @@ jobs:
           const size=Number(process.env.BATCH_SIZE||30),levels=String(process.env.INCLUDE_LEVELS||'strong');
           const allowed=levels==='strong'?new Set(['strong']):levels==='strong+moderate'?new Set(['strong','moderate']):new Set(['strong','moderate','watch']);
           const rank={strong:3,moderate:2,watch:1};
-          const eligible=backlog.rows.filter(r=>allowed.has(r.signal_level));
-          if(!eligible.length)throw new Error('no eligible remediation rows');
+          const now=Date.now(),RESERVATION_DAYS=14;
+          const reservationExpiry=b=>{
+            const explicit=Date.parse(String(b.reservation_expires_at||''));if(Number.isFinite(explicit))return explicit;
+            const generated=Date.parse(String(b.generated_at||''));return Number.isFinite(generated)?generated+RESERVATION_DAYS*86400000:0;
+          };
+          const activeReserved=new Set();
+          for(const b of registry.batches||[]){
+            if(String(b.status||'')!=='generated'||reservationExpiry(b)<=now)continue;
+            for(const id of b.question_ids||[])activeReserved.add(String(id));
+          }
+          const decisionIds=new Set((decisions.records||[]).map(r=>String(r.question_id||'')).filter(Boolean));
+          const appliedIds=new Set((manifest.remediation_log||[]).filter(x=>x.position==='revenue-academic'&&x.remediation_type==='answer-conspicuousness').map(x=>String(x.question_id||'')));
+          const candidates=backlog.rows.filter(r=>allowed.has(r.signal_level));
+          const eligible=candidates.filter(r=>!activeReserved.has(String(r.question_id||''))&&!decisionIds.has(String(r.question_id||''))&&!appliedIds.has(String(r.question_id||'')));
+          const skipped={reserved:candidates.filter(r=>activeReserved.has(String(r.question_id||''))).length,decision:candidates.filter(r=>decisionIds.has(String(r.question_id||''))).length,applied:candidates.filter(r=>appliedIds.has(String(r.question_id||''))).length};
+          if(!eligible.length)throw new Error('no unreserved remediation rows remain for the selected levels');
 
           const byLevel=new Map();
           for(const r of eligible)(byLevel.get(r.signal_level)??byLevel.set(r.signal_level,[]).get(r.signal_level)).push(r);
@@ -153,7 +179,11 @@ jobs:
             batch_id:batchId,batch_snapshot_sha256:snapshot,batch_size:questions.length,
             levels:questions.reduce((m,q)=>(m[q.signal_level]=(m[q.signal_level]||0)+1,m),{}),
             sets:questions.reduce((m,q)=>(m[q.set]=(m[q.set]||0)+1,m),{}),
-            source_verified:questions.filter(q=>q.source_state==='verified').length
+            source_verified:questions.filter(q=>q.source_state==='verified').length,
+            skipped,
+            active_reserved:activeReserved.size,
+            existing_decisions:decisionIds.size,
+            already_applied:appliedIds.size
           };
           const output={
             schema_version:1,
@@ -201,6 +231,24 @@ jobs:
           ].map(csvCell).join(','));
           fs.writeFileSync('/tmp/kexam-academic-answer-remediation-batch.csv','\ufeff'+lines.join('\r\n'));
 
+          const registryEntry={
+            batch_id:batchId,
+            batch_snapshot_sha256:snapshot,
+            generated_at:generatedAt,
+            reservation_expires_at:new Date(Date.parse(generatedAt)+RESERVATION_DAYS*86400000).toISOString(),
+            status:'generated',
+            include_levels:levels,
+            batch_size:questions.length,
+            levels:summary.levels,
+            sets:summary.sets,
+            source_verified:summary.source_verified,
+            question_ids:questions.map(q=>q.question_id),
+            created_run_id:String(process.env.GITHUB_RUN_ID||'')
+          };
+          const overlap=registryEntry.question_ids.filter(id=>activeReserved.has(id));
+          if(overlap.length)throw new Error('new academic remediation batch overlaps active reservation: '+overlap.join(','));
+          fs.writeFileSync('/tmp/kexam-academic-answer-remediation-registry-entry.json',JSON.stringify(registryEntry,null,2)+'\n');
+
           if(questions.length!==Math.min(size,eligible.length))throw new Error('batch size mismatch');
           if(new Set(questions.map(q=>q.question_id)).size!==questions.length)throw new Error('duplicate Question ID in batch');
           console.log('ACADEMIC ANSWER REMEDIATION BATCH',JSON.stringify(summary));
@@ -216,3 +264,56 @@ jobs:
             /tmp/kexam-academic-answer-remediation-decisions-template.json
           if-no-files-found: error
           retention-days: 30
+
+      - name: Register public-safe remediation batch reservation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages --depth=1
+          git checkout -B gh-pages origin/gh-pages
+          node <<'NODE'
+          const fs=require('fs');
+          const path='tax-exam/academic-answer-remediation-batch-registry.json';
+          const entry=JSON.parse(fs.readFileSync('/tmp/kexam-academic-answer-remediation-registry-entry.json','utf8'));
+          let registry={schema_version:1,updated_at:new Date().toISOString(),batches:[]};
+          if(fs.existsSync(path))registry=JSON.parse(fs.readFileSync(path,'utf8'));
+          if(registry.schema_version!==1||!Array.isArray(registry.batches))throw new Error('academic remediation registry invalid');
+          const now=Date.now(),active=new Set();
+          for(const b of registry.batches){
+            if(b.status!=='generated')continue;
+            const exp=Date.parse(String(b.reservation_expires_at||''))||0;
+            if(exp<=now)continue;
+            for(const id of b.question_ids||[])active.add(String(id));
+          }
+          const overlap=(entry.question_ids||[]).filter(id=>active.has(String(id)));
+          const same=registry.batches.find(b=>b.batch_id===entry.batch_id);
+          if(overlap.length&&!same)throw new Error('registry reservation overlap: '+overlap.slice(0,20).join(','));
+          if(same){
+            if(same.batch_snapshot_sha256!==entry.batch_snapshot_sha256||JSON.stringify(same.question_ids||[])!==JSON.stringify(entry.question_ids||[]))throw new Error('batch_id collision '+entry.batch_id);
+            console.log('ACADEMIC REMEDIATION REGISTRY IDEMPOTENT',entry.batch_id);
+          }else{
+            registry.batches.unshift(entry);
+            registry.batches=registry.batches.slice(0,500);
+          }
+          registry.updated_at=new Date().toISOString();
+          fs.writeFileSync(path,JSON.stringify(registry,null,2)+'\n');
+          NODE
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tax-exam/academic-answer-remediation-batch-registry.json
+          if git diff --cached --quiet; then
+            echo "Academic remediation batch registry unchanged"
+            exit 0
+          fi
+          git commit -m "Register academic remediation batch"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin gh-pages
+            if git rebase origin/gh-pages; then
+              if git push origin HEAD:gh-pages; then exit 0; fi
+            else
+              git rebase --abort || true
+            fi
+            sleep $((attempt * 2))
+          done
+          echo "Unable to register academic remediation batch" >&2
+          exit 1
