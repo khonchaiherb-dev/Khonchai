@@ -7,7 +7,7 @@
   const endpoint=()=>{const b=String(CFG.supabaseUrl||'').replace(/\/$/,'');return b&&CFG.dashboardFunction?`${b}/functions/v1/${CFG.dashboardFunction}`:''};
   const connected=()=>Boolean(endpoint()&&CFG.supabaseAnonKey);
   let days=30,qualityRowsCache=[],sourceReservationMap=new Map();
-  let publicationCoverageCache=null,sourceBacklogCache=null,contentIntegrityCache=null,sourceFreshnessCache=null,sourceBatchRegistryCache=null,answerConspicuousnessCache=null,academicRemediationCache=null;
+  let publicationCoverageCache=null,sourceBacklogCache=null,contentIntegrityCache=null,sourceFreshnessCache=null,sourceBatchRegistryCache=null,answerConspicuousnessCache=null,academicRemediationCache=null,academicRemediationStatusCache=null;
 
   function localEvents(){try{return JSON.parse(localStorage.getItem('kexam_analytics_local_v1')||'[]')||[]}catch{return[]}}
   function localQuestionReports(){
@@ -117,6 +117,16 @@
       return{schema_version:1,generation_mode:'unavailable',summary:{total_pending:0,urgent:0,high:0,normal:0,positions:{}},rows:[],error:true,error_message:String(e?.message||e||'backlog-error')};
     }
   }
+  async function academicRemediationStatus(){
+    if(academicRemediationStatusCache)return academicRemediationStatusCache;
+    try{
+      const r=await fetch('../academic-answer-remediation-status.json',{cache:'no-store'});if(!r.ok)throw new Error('academic-remediation-status-http-'+r.status);
+      const raw=await r.text();if(!raw.trim())throw new Error('academic-remediation-status-empty');
+      const data=JSON.parse(raw);
+      if(Number(data?.schema_version)!==1||data?.status_model!=='academic-answer-remediation-status-v1'||!data?.summary||!Array.isArray(data?.rows))throw new Error('academic-remediation-status-schema');
+      academicRemediationStatusCache=data;return data;
+    }catch(e){return{schema_version:1,status_model:'academic-answer-remediation-status-v1',summary:{scope_total:0,current_flagged:0,waiting_review:0,decision_incomplete:0,ready_to_apply:0,applied_watch:0,resolved:0,needs_rework:0,gate_passed:0,fully_resolved:0,progress_percent:0,strong_remaining:0,moderate_remaining:0,watch_remaining:0,sets:{}},rows:[],error:true,error_message:String(e?.message||e||'academic-remediation-status-error')}}
+  }
   async function academicAnswerRemediationBacklog(){
     if(academicRemediationCache)return academicRemediationCache;
     try{
@@ -165,7 +175,7 @@
     return `<div class="qa-health-head ${cls}"><strong>${esc(overall)}</strong><span>${bad?bad+' รายการผิดปกติ':warn?warn+' รายการควรตรวจ':'พร้อมติดตามต่อ'}</span></div><div class="qa-health-grid">${checks.map(x=>`<div class="qa-health-card ${x.state}"><div class="qa-health-label">${esc(x.label)}</div><strong>${esc(x.value)}</strong><div class="qa-health-note">${esc(x.note)}</div></div>`).join('')}</div>`;
   }
   function resetQaCaches(){
-    publicationCoverageCache=null;sourceBacklogCache=null;contentIntegrityCache=null;sourceFreshnessCache=null;sourceBatchRegistryCache=null;answerConspicuousnessCache=null;academicRemediationCache=null;sourceReservationMap=new Map();
+    publicationCoverageCache=null;sourceBacklogCache=null;contentIntegrityCache=null;sourceFreshnessCache=null;sourceBatchRegistryCache=null;answerConspicuousnessCache=null;academicRemediationCache=null;academicRemediationStatusCache=null;sourceReservationMap=new Map();
   }
 
   function sourceBacklogModelHtml(data={}){
@@ -354,6 +364,30 @@
     const max=Math.max(...rows.map(x=>Number(x.value)||0),1);
     return `<div class="list">${rows.slice(0,12).map(x=>`<div class="row"><div><div class="name">${esc(x.name??'ไม่ระบุ')}</div><div class="meta"><span style="display:inline-block;width:${Math.max(6,Math.round((Number(x.value)||0)/max*100))}%;height:4px;border-radius:8px;background:linear-gradient(90deg,#2563eb,#38bdf8);vertical-align:middle"></span></div></div><div class="val">${fmt(x.value)}</div></div>`).join('')}</div>`
   }
+  function academicRemediationProgressHtml(data={}){
+    if(data?.error)return `<div class="notice">ยังไม่สามารถอ่าน Progress Ledger ได้: ${esc(data.error_message||'ไม่ทราบสาเหตุ')}</div>`;
+    const s=data.summary||{},g=data.regression_guard||{},pct=Math.max(0,Math.min(100,Number(s.progress_percent)||0));
+    const guardOk=!g.comparable||g.result==='pass';
+    const setRows=Object.entries(s.sets||{}).sort((a,b)=>Number(a[0])-Number(b[0])).map(([k,v])=>{
+      const sp=Number(v.scope)||0,done=Number(v.gate_passed)||0,p=sp?Math.round(done*100/sp):0;
+      return `<div class="remediation-set"><span>ชุด ${esc(k)}</span><div><i style="width:${p}%"></i></div><strong>${fmt(done)}/${fmt(sp)}</strong></div>`
+    }).join('');
+    return `<div class="remediation-progress-card">
+      <div class="remediation-progress-head"><div><span>ความคืบหน้า Atomic Remediation</span><strong>${pct}%</strong></div><div class="guard-badge ${guardOk?'pass':'fail'}">Regression Guard: ${guardOk?'PASS':'FAIL'}</div></div>
+      <div class="remediation-progress-track"><i style="width:${pct}%"></i></div>
+      <div class="batch-preview-stats" style="margin-top:10px">
+        <span>ขอบเขต <strong>${fmt(s.scope_total||0)}</strong></span>
+        <span>รอตรวจ <strong>${fmt(s.waiting_review||0)}</strong></span>
+        <span>พร้อม Apply <strong>${fmt(s.ready_to_apply||0)}</strong></span>
+        <span>ผ่าน Gate <strong>${fmt(s.gate_passed||0)}</strong></span>
+        <span>Resolved <strong>${fmt(s.resolved||0)}</strong></span>
+        <span>Needs Rework <strong>${fmt(s.needs_rework||0)}</strong></span>
+      </div>
+      <div class="meta" style="margin-top:8px">คงเหลือ Strong ${fmt(s.strong_remaining||0)} · Moderate ${fmt(s.moderate_remaining||0)} · Watch ${fmt(s.watch_remaining||0)} · Source Verified ในคิว ${fmt(s.source_verified_current||0)}</div>
+      <div class="meta" style="margin-top:5px">Audit เทียบรอบก่อน: ดีขึ้น ${fmt(g.improved||0)} · Resolved ${fmt(g.resolved||0)} · แย่ลง ${fmt(g.worsened||0)} · Flag ใหม่ ${fmt(g.new_flags||0)}</div>
+      <div class="remediation-sets">${setRows}</div>
+    </div>`;
+  }
   function academicRemediationSummaryHtml(data={}){
     if(data?.error)return `<div class="notice">ยังไม่สามารถอ่าน Academic Remediation Backlog ได้: ${esc(data.error_message||'ไม่ทราบสาเหตุ')}</div>`;
     const s=data.summary||{},remaining=(Number(s.strong)||0)+(Number(s.moderate)||0)+(Number(s.watch)||0);
@@ -368,7 +402,9 @@
     return `<div class="list">${rows.slice(0,120).map(r=>{
       const direction=r.correct_strictly_longest?'คำตอบยาวเด่น':r.correct_strictly_shortest?'คำตอบสั้นเด่น':'อยู่นอกช่วงตัวลวง';
       const source=r.source_state==='verified'?'Source Verified — ต้อง reset เมื่อแก้':'Source Pending';
-      return `<div class="row"><div><div class="name">${esc(r.question_id)} · ${esc(String(r.signal_level||'').toUpperCase())}</div><div class="meta">ชุด ${fmt(r.set)} ข้อ ${fmt(r.question)} · ${esc(direction)} · outside ${fmt(r.outside_by)} ตัวอักษร · ratio ${esc(String(r.ratio_to_distractor_median??'–'))} · ${esc(source)}</div></div><div class="val">${esc(String(r.signal_level||'').toUpperCase())}</div></div>`
+      const st=(academicRemediationStatusCache?.rows||[]).find(x=>x.question_id===r.question_id);
+      const statusLabel={waiting_review:'รอตรวจ',decision_incomplete:'Decision ยังไม่ครบ',ready_to_apply:'พร้อม Apply',applied_watch:'Apply แล้ว · Watch',resolved:'Resolved',needs_rework:'ต้องแก้ซ้ำ'}[st?.status]||'รอตรวจ';
+      return `<div class="row"><div><div class="name">${esc(r.question_id)} · ${esc(String(r.signal_level||'').toUpperCase())}</div><div class="meta">ชุด ${fmt(r.set)} ข้อ ${fmt(r.question)} · ${esc(direction)} · outside ${fmt(r.outside_by)} ตัวอักษร · ratio ${esc(String(r.ratio_to_distractor_median??'–'))} · ${esc(source)} · ${esc(statusLabel)}</div></div><div class="val">${esc(statusLabel)}</div></div>`
     }).join('')}</div>`;
   }
   function refreshAcademicRemediation(){
@@ -520,7 +556,7 @@
   }
 
   async function load(){
-    const [pub,sourceBacklog,integrity,freshness,batchRegistry,answerAudit,academicRemediation]=await Promise.all([publicationCoverage(),sourceVerificationBacklog(),contentIntegrityCoverage(),sourceFreshnessWatchlist(),sourceReviewBatchRegistry(),answerConspicuousnessAudit(),academicAnswerRemediationBacklog()]);
+    const [pub,sourceBacklog,integrity,freshness,batchRegistry,answerAudit,academicRemediation,academicRemediationStatusData]=await Promise.all([publicationCoverage(),sourceVerificationBacklog(),contentIntegrityCoverage(),sourceFreshnessWatchlist(),sourceReviewBatchRegistry(),answerConspicuousnessAudit(),academicAnswerRemediationBacklog(),academicRemediationStatus()]);
     if($('#qaDataHealth'))$('#qaDataHealth').innerHTML=qaDataHealthHtml(pub,sourceBacklog,integrity,freshness,batchRegistry);
     $('#publicationCoverage').innerHTML=publicationCoverageHtml(pub);
     if($('#lifecycleDecisions'))$('#lifecycleDecisions').innerHTML=lifecycleDecisionList(pub.decisionLog||[]);
@@ -539,6 +575,8 @@
     refreshAnswerConspicuousness();
     if($('#academicRemediationSummary'))$('#academicRemediationSummary').innerHTML=academicRemediationSummaryHtml(academicRemediation);
     academicRemediationCache=academicRemediation;
+    academicRemediationStatusCache=academicRemediationStatusData;
+    if($('#academicRemediationProgress'))$('#academicRemediationProgress').innerHTML=academicRemediationProgressHtml(academicRemediationStatusData);
     refreshAcademicRemediation();
     if($('#freshnessSummary'))$('#freshnessSummary').innerHTML=sourceFreshnessSummaryHtml(freshness.summary||{});
     syncFreshnessPositionOptions(freshness.rows||[]);
