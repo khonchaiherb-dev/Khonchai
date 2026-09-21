@@ -31,6 +31,10 @@ jobs:
           const p='data/kexam-academic-answer-remediation-decisions.json';
           const d=JSON.parse(fs.readFileSync(p,'utf8'));
           if(d.schema_version!==1||!Array.isArray(d.records))throw new Error('academic remediation decision schema invalid');
+          if(d.records.length){
+            if(!/^RA-ANS-\d{8}-[a-f0-9]{12}$/.test(String(d.batch_id||'')))throw new Error('academic remediation batch_id invalid/missing');
+            if(!/^[a-f0-9]{64}$/.test(String(d.batch_snapshot_sha256||'')))throw new Error('academic remediation batch_snapshot_sha256 invalid/missing');
+          }
           const ids=new Set(),rids=new Set();
           for(const r of d.records){
             const id=String(r?.question_id||''),rid=String(r?.remediation_id||'');
@@ -77,11 +81,14 @@ jobs:
           const bank=JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8'));
           const manifestPath='tax-exam/question-publication-manifest.json';
           const integrityPath='tax-exam/question-content-integrity.json';
+          const registryPath='tax-exam/academic-answer-remediation-batch-registry.json';
           const manifest=JSON.parse(fs.readFileSync(manifestPath,'utf8'));
           const integrity=JSON.parse(fs.readFileSync(integrityPath,'utf8'));
+          const registry=JSON.parse(fs.readFileSync(registryPath,'utf8'));
           if(!Array.isArray(bank.q)||bank.q.length!==10||bank.q.some(s=>!Array.isArray(s)||s.length!==100))throw new Error('revenue-academic bank must be 10 x 100');
           if(manifest.schema_version!==1)throw new Error('publication manifest schema invalid');
           if(integrity.schema_version!==1||integrity.algorithm!=='sha256')throw new Error('content integrity schema invalid');
+          if(registry.schema_version!==1||!Array.isArray(registry.batches))throw new Error('academic remediation batch registry invalid');
 
           const canonical=(data,r)=>JSON.stringify({
             category:String(data.s[r[0]]??''),
@@ -108,6 +115,23 @@ jobs:
           };
 
           const p=manifest.positions?.['revenue-academic'];if(!p)throw new Error('manifest missing revenue-academic');
+
+          const batchId=String(decisions.batch_id||''),batchSnapshot=String(decisions.batch_snapshot_sha256||'');
+          const registryEntry=registry.batches.find(b=>String(b.batch_id||'')===batchId);
+          if(!registryEntry)throw new Error('academic remediation batch is not registered: '+batchId);
+          if(String(registryEntry.batch_snapshot_sha256||'')!==batchSnapshot)throw new Error('batch snapshot does not match registry');
+          if(!['generated','applied'].includes(String(registryEntry.status||'')))throw new Error('batch registry status is not applicable: '+registryEntry.status);
+          if(registryEntry.status==='generated'){
+            const expires=Date.parse(String(registryEntry.reservation_expires_at||''))||0;
+            if(expires<=Date.now())throw new Error('academic remediation batch reservation expired; generate a fresh batch');
+          }
+          const registryIds=[...(registryEntry.question_ids||[])].map(String).sort();
+          const decisionQuestionIds=decisions.records.map(r=>String(r.question_id||'')).sort();
+          if(JSON.stringify(registryIds)!==JSON.stringify(decisionQuestionIds))throw new Error('decision Question IDs must exactly match the registered batch');
+          const snapshotPayload=decisions.records.map(r=>({question_id:String(r.question_id),content_sha256:String(r.expected_content_sha256)})).sort((a,b)=>a.question_id.localeCompare(b.question_id));
+          const calculatedSnapshot=sha256(JSON.stringify(snapshotPayload));
+          if(calculatedSnapshot!==batchSnapshot)throw new Error('decision batch snapshot does not match Question IDs/content hashes');
+
           const published=new Set(p.published_ids||[]);
           const sourceVerified=new Set(p.source_verified_ids||[]);
           manifest.remediation_log=Array.isArray(manifest.remediation_log)?manifest.remediation_log:[];
@@ -261,8 +285,19 @@ jobs:
           const verifyBank=JSON.parse(zlib.gunzipSync(Buffer.from(paths.map(p=>fs.readFileSync(p,'utf8').trim()).join(''),'base64')).toString('utf8'));
           if(verifyBank.q.length!==10||verifyBank.q.some(s=>s.length!==100))throw new Error('written academic bank failed 10 x 100 verification');
 
+          registryEntry.status='applied';
+          registryEntry.applied_at=new Date().toISOString();
+          registryEntry.applied_count=changed.length;
+          registryEntry.decision_count=decisions.records.length;
+          registryEntry.result_summary={
+            post_signals:changed.reduce((m,x)=>(m[x.postSignal.level]=(m[x.postSignal.level]||0)+1,m),{}),
+            source_resets:changed.filter(x=>manifest.source_overrides?.[x.id]?.review_result==='academic_answer_remediation_requires_reverification').length
+          };
+          registry.updated_at=new Date().toISOString();
+
           fs.writeFileSync(integrityPath,JSON.stringify(integrity,null,2)+'\n');
           fs.writeFileSync(manifestPath,JSON.stringify(manifest,null,2)+'\n');
+          fs.writeFileSync(registryPath,JSON.stringify(registry,null,2)+'\n');
           fs.writeFileSync('/tmp/academic-remediation-result.json',JSON.stringify({
             applied:changed.length,
             question_ids:changed.map(x=>x.id),
@@ -279,7 +314,7 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tax-exam/ra-bank-*.txt tax-exam/question-content-integrity.json tax-exam/question-publication-manifest.json
+          git add tax-exam/ra-bank-*.txt tax-exam/question-content-integrity.json tax-exam/question-publication-manifest.json tax-exam/academic-answer-remediation-batch-registry.json
           if git diff --cached --quiet; then
             echo "No academic remediation changes to publish"
             exit 0
