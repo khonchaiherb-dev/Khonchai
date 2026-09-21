@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-21T18:50:37.398Z",
+  "generated_at": "2026-09-21T18:54:31.191Z",
   "generation_mode": "content-risk-ranked",
   "risk_model": "source-risk-v2",
   "risk_thresholds": {
