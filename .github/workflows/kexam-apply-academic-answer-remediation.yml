@@ -1,0 +1,316 @@
+name: K-EXAM Apply Academic Answer Remediation
+on:
+  push:
+    paths:
+      - 'data/kexam-academic-answer-remediation-decisions.json'
+      - 'docs/KEXAM_QUESTION_STANDARD.md'
+  workflow_dispatch:
+
+concurrency:
+  group: kexam-publication-manifest-writer
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  validate-and-apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Validate academic remediation decision queue
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const p='data/kexam-academic-answer-remediation-decisions.json';
+          const d=JSON.parse(fs.readFileSync(p,'utf8'));
+          if(d.schema_version!==1||!Array.isArray(d.records))throw new Error('academic remediation decision schema invalid');
+          const ids=new Set(),rids=new Set();
+          for(const r of d.records){
+            const id=String(r?.question_id||''),rid=String(r?.remediation_id||'');
+            if(!/^RA-S(0[1-9]|10)-Q(0[0-9]{2}|100)$/.test(id))throw new Error('invalid revenue-academic Question ID '+id);
+            if(rid.length<8)throw new Error(id+' remediation_id missing/too short');
+            if(ids.has(id))throw new Error('duplicate remediation for '+id);ids.add(id);
+            if(rids.has(rid))throw new Error('duplicate remediation_id '+rid);rids.add(rid);
+            if(!/^[a-f0-9]{64}$/.test(String(r.expected_content_sha256||'')))throw new Error(id+' expected_content_sha256 invalid');
+            if(String(r.action||'')!=='replace')throw new Error(id+' action must be replace');
+            if(String(r.new_prompt||'').trim().length<25)throw new Error(id+' new_prompt too short');
+            if(!Array.isArray(r.new_choices)||r.new_choices.length!==4||r.new_choices.some(x=>String(x||'').trim().length<2))throw new Error(id+' new_choices must contain 4 non-empty choices');
+            if(new Set(r.new_choices.map(x=>String(x).trim())).size!==4)throw new Error(id+' new_choices contain duplicates');
+            if(!Number.isInteger(r.new_answer)||r.new_answer<0||r.new_answer>3)throw new Error(id+' new_answer invalid');
+            if(String(r.new_explanation||'').trim().length<40)throw new Error(id+' new_explanation too short');
+            if(String(r.new_wrong_reasons||'').trim().length<40)throw new Error(id+' new_wrong_reasons too short');
+            if(!/^\d{4}-\d{2}-\d{2}$/.test(String(r.reviewed_at||'')))throw new Error(id+' reviewed_at invalid');
+            if(String(r.review_note||'').trim().length<12)throw new Error(id+' review_note too short');
+            if(typeof r.substantive_change!=='boolean')throw new Error(id+' substantive_change must be boolean');
+            if(typeof r.reset_source_verification!=='boolean')throw new Error(id+' reset_source_verification must be boolean');
+          }
+          console.log('ACADEMIC REMEDIATION DECISIONS SCHEMA PASS',JSON.stringify({records:d.records.length}));
+          NODE
+
+      - name: Build and validate atomic academic remediation
+        shell: bash
+        run: |
+          set -euo pipefail
+          COUNT="$(node -p "require('./data/kexam-academic-answer-remediation-decisions.json').records.length")"
+          if [ "$COUNT" = "0" ]; then
+            echo "No academic remediation decisions to apply"
+            exit 0
+          fi
+
+          cp data/kexam-academic-answer-remediation-decisions.json /tmp/academic-remediation-decisions.json
+          git fetch origin gh-pages --depth=1
+          git checkout -B gh-pages origin/gh-pages
+
+          node <<'NODE'
+          const fs=require('fs'),zlib=require('zlib'),crypto=require('crypto');
+          const decisions=JSON.parse(fs.readFileSync('/tmp/academic-remediation-decisions.json','utf8'));
+          const bankFiles=['ra-bank-01.txt','ra-bank-02a.txt','ra-bank-02b.txt','ra-bank-03a.txt','ra-bank-03b.txt','ra-bank-04.txt','ra-bank-05.txt','ra-bank-06.txt','ra-bank-07.txt','ra-bank-08.txt','ra-bank-09.txt','ra-bank-10.txt'];
+          const paths=bankFiles.map(f=>'tax-exam/'+f);
+          const b64=paths.map(p=>fs.readFileSync(p,'utf8').trim()).join('').replace(/\s+/g,'');
+          const bank=JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8'));
+          const manifestPath='tax-exam/question-publication-manifest.json';
+          const integrityPath='tax-exam/question-content-integrity.json';
+          const manifest=JSON.parse(fs.readFileSync(manifestPath,'utf8'));
+          const integrity=JSON.parse(fs.readFileSync(integrityPath,'utf8'));
+          if(!Array.isArray(bank.q)||bank.q.length!==10||bank.q.some(s=>!Array.isArray(s)||s.length!==100))throw new Error('revenue-academic bank must be 10 x 100');
+          if(manifest.schema_version!==1)throw new Error('publication manifest schema invalid');
+          if(integrity.schema_version!==1||integrity.algorithm!=='sha256')throw new Error('content integrity schema invalid');
+
+          const canonical=(data,r)=>JSON.stringify({
+            category:String(data.s[r[0]]??''),
+            prompt:String(data.s[r[1]]??''),
+            choices:(r[2]||[]).map(i=>String(data.s[i]??'')),
+            answer:r[3],
+            explanation:String(data.s[r[4]]??''),
+            wrong_reasons:String(data.s[r[5]]??'')
+          });
+          const sha256=s=>crypto.createHash('sha256').update(s,'utf8').digest('hex');
+          const norm=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu,'');
+          const parseId=id=>{const m=/^RA-S(0[1-9]|10)-Q(0[0-9]{2}|100)$/.exec(id);if(!m)throw new Error('invalid Question ID '+id);return{si:Number(m[1])-1,qi:Number(m[2])-1}};
+          const put=s=>{bank.s.push(String(s));return bank.s.length-1};
+          const today=new Date().toISOString().slice(0,10);
+          const validDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(String(s||''))&&String(s)<=today&&!Number.isNaN(Date.parse(String(s)+'T00:00:00Z'));
+          const median=a=>{const x=[...a].sort((m,n)=>m-n);return x.length%2?x[(x.length-1)/2]:(x[x.length/2-1]+x[x.length/2])/2};
+          const conspicuousLevel=(choices,answer)=>{
+            const lens=choices.map(x=>String(x).trim().length),correct=lens[answer],others=lens.filter((_,i)=>i!==answer);
+            const maxOther=Math.max(...others),minOther=Math.min(...others),med=median(others),above=Math.max(0,correct-maxOther),below=Math.max(0,minOther-correct),ratio=med?correct/med:1;
+            if((above>=18&&ratio>=1.55)||(below>=18&&ratio<=0.65))return{level:'strong',correct,others,above,below,ratio};
+            if((above>=12&&ratio>=1.35)||(below>=12&&ratio<=0.74))return{level:'moderate',correct,others,above,below,ratio};
+            if((above>=8&&ratio>=1.25)||(below>=8&&ratio<=0.80))return{level:'watch',correct,others,above,below,ratio};
+            return{level:'ok',correct,others,above,below,ratio};
+          };
+
+          const p=manifest.positions?.['revenue-academic'];if(!p)throw new Error('manifest missing revenue-academic');
+          const published=new Set(p.published_ids||[]);
+          const sourceVerified=new Set(p.source_verified_ids||[]);
+          manifest.remediation_log=Array.isArray(manifest.remediation_log)?manifest.remediation_log:[];
+          const appliedById=new Map(manifest.remediation_log.map(x=>[String(x.remediation_id||''),x]));
+          const decisionIds=new Set(),changed=[];
+
+          for(const rec of decisions.records){
+            const id=String(rec.question_id),rid=String(rec.remediation_id);
+            if(decisionIds.has(rid))throw new Error('duplicate remediation_id '+rid);decisionIds.add(rid);
+            const signature=sha256(JSON.stringify({
+              remediation_id:rid,question_id:id,expected_content_sha256:String(rec.expected_content_sha256),
+              action:String(rec.action),new_prompt:String(rec.new_prompt).trim(),
+              new_choices:rec.new_choices.map(x=>String(x).trim()),new_answer:rec.new_answer,
+              new_explanation:String(rec.new_explanation).trim(),new_wrong_reasons:String(rec.new_wrong_reasons).trim(),
+              reviewed_at:String(rec.reviewed_at),review_note:String(rec.review_note).trim(),
+              substantive_change:Boolean(rec.substantive_change),reset_source_verification:Boolean(rec.reset_source_verification)
+            }));
+            const prior=appliedById.get(rid);
+            if(prior){
+              if(prior.remediation_signature!==signature)throw new Error('remediation_id collision with different content '+rid);
+              console.log('SKIP already applied',rid,id);continue;
+            }
+            if(!published.has(id))throw new Error(id+' must currently be Published for atomic remediation');
+            if(!validDate(rec.reviewed_at))throw new Error(id+' reviewed_at invalid/future');
+            const loc=parseId(id),row=bank.q[loc.si]?.[loc.qi];if(!row)throw new Error('bank row missing '+id);
+            const baseline=integrity.questions?.[id];if(!baseline||baseline.position!=='revenue-academic')throw new Error('integrity baseline missing/mismatch '+id);
+            const oldHash=sha256(canonical(bank,row));
+            if(oldHash!==baseline.sha256||oldHash!==String(rec.expected_content_sha256))throw new Error(id+' expected/live/baseline SHA mismatch');
+
+            const isSourceVerified=sourceVerified.has(id)||manifest.source_overrides?.[id]?.source_state==='verified';
+            if(isSourceVerified&&!rec.reset_source_verification)throw new Error(id+' is source-verified and requires reset_source_verification=true');
+
+            const newPrompt=String(rec.new_prompt).trim(),newChoices=rec.new_choices.map(x=>String(x).trim()),newAnswer=Number(rec.new_answer);
+            const newExp=String(rec.new_explanation).trim(),newWrong=String(rec.new_wrong_reasons).trim();
+            if(new Set(newChoices.map(norm)).size!==4)throw new Error(id+' new choices duplicate after normalization');
+            if(!newExp.includes(newChoices[newAnswer]))throw new Error(id+' new explanation must include exact correct choice text');
+            for(let ci=0;ci<4;ci++)if(ci!==newAnswer&&!newWrong.includes(newChoices[ci]))throw new Error(id+' wrong-reason text must include wrong choice '+(ci+1));
+            if((newPrompt.match(/ไม่|มิใช่|ยกเว้น/g)||[]).length>=3)throw new Error(id+' new prompt has excessive nested negatives');
+
+            const postSignal=conspicuousLevel(newChoices,newAnswer);
+            if(postSignal.level==='strong'||postSignal.level==='moderate')throw new Error(id+' remediation still leaves answer conspicuous at '+postSignal.level);
+
+            row[1]=put(newPrompt);
+            row[2]=newChoices.map(put);
+            row[3]=newAnswer;
+            row[4]=put(newExp);
+            row[5]=put(newWrong);
+            const newHash=sha256(canonical(bank,row));
+            if(newHash===oldHash)throw new Error(id+' remediation does not change content');
+
+            if(isSourceVerified){
+              p.source_verified_ids=(p.source_verified_ids||[]).filter(x=>x!==id);
+              manifest.source_overrides=manifest.source_overrides||{};
+              const o=manifest.source_overrides[id]||(manifest.source_overrides[id]={});
+              o.source_state='pending';
+              o.review_result='academic_answer_remediation_requires_reverification';
+              o.reviewed_at=String(rec.reviewed_at);
+              o.review_note=String(rec.review_note).trim();
+              delete o.content_hash_algorithm;
+              delete o.content_sha256;
+            }
+
+            integrity.questions[id]={
+              ...(integrity.questions[id]||{}),
+              sha256:newHash,
+              position:'revenue-academic',
+              lifecycle_status:'Published',
+              source_state:isSourceVerified?'pending':(manifest.source_overrides?.[id]?.source_state||integrity.questions[id]?.source_state||'pending')
+            };
+            const logEntry={
+              remediation_id:rid,
+              remediation_signature:signature,
+              remediation_type:'answer-conspicuousness',
+              question_id:id,
+              position:'revenue-academic',
+              internal_transition:['Published','Reviewed','Verified','Published'],
+              reviewed_at:String(rec.reviewed_at),
+              review_note:String(rec.review_note).trim(),
+              substantive_change:Boolean(rec.substantive_change),
+              old_content_sha256:oldHash,
+              new_content_sha256:newHash,
+              source_verification_reset:Boolean(isSourceVerified),
+              post_answer_length_signal:postSignal.level,
+              qa_state:'pending-final-bank-validation',
+              applied_at:new Date().toISOString()
+            };
+            manifest.remediation_log.push(logEntry);appliedById.set(rid,logEntry);
+            changed.push({id,rid,newHash,postSignal,newChoiceKey:JSON.stringify([...newChoices].map(norm).sort())});
+          }
+
+          if(!changed.length){
+            console.log('No new academic remediation records after idempotency check');
+            process.exit(0);
+          }
+
+          const all=[],promptCounts=new Map(),choiceSetCounts=new Map();
+          bank.q.forEach((set,si)=>{
+            if(set.length!==100)throw new Error('set '+(si+1)+' must contain 100 questions');
+            const answers=[0,0,0,0];let maxRun=1,run=1,last=null;
+            set.forEach((r,qi)=>{
+              const id='RA-S'+String(si+1).padStart(2,'0')+'-Q'+String(qi+1).padStart(3,'0');
+              const prompt=String(bank.s[r[1]]??'').trim(),choices=(r[2]||[]).map(i=>String(bank.s[i]??'').trim()),answer=Number(r[3]);
+              const exp=String(bank.s[r[4]]??'').trim(),wrong=String(bank.s[r[5]]??'').trim();
+              if(prompt.length<1||choices.length!==4||!Number.isInteger(answer)||answer<0||answer>3||!exp||!wrong)throw new Error('invalid final question '+id);
+              answers[answer]++;
+              if(answer===last){run++;maxRun=Math.max(maxRun,run)}else{last=answer;run=1}
+              const pk=norm(prompt);promptCounts.set(pk,(promptCounts.get(pk)||0)+1);
+              const ck=JSON.stringify([...choices].map(norm).sort());choiceSetCounts.set(ck,(choiceSetCounts.get(ck)||0)+1);
+              if(changed.some(x=>x.id===id)){
+                if(prompt.length<25||exp.length<40||wrong.length<40)throw new Error(id+' remediated content below minimum quality');
+                if(new Set(choices.map(norm)).size!==4)throw new Error(id+' remediated choices invalid');
+                if(!exp.includes(choices[answer]))throw new Error(id+' remediated explanation mismatch');
+                for(let ci=0;ci<4;ci++)if(ci!==answer&&!wrong.includes(choices[ci]))throw new Error(id+' remediated wrong reason missing choice '+(ci+1));
+                const signal=conspicuousLevel(choices,answer);
+                if(signal.level==='strong'||signal.level==='moderate')throw new Error(id+' final answer-length signal still '+signal.level);
+              }
+              all.push({id,prompt,choices,answer,exp,wrong,choiceKey:ck});
+            });
+            if(answers.some(n=>n<22||n>28))throw new Error('set '+(si+1)+' answer balance outside 22–28: '+answers.join('/'));
+            if(maxRun>4)throw new Error('set '+(si+1)+' answer run '+maxRun+' > 4');
+          });
+          if(all.length!==1000)throw new Error('revenue-academic bank must remain exactly 1,000 questions');
+          if(promptCounts.size!==1000)throw new Error('final revenue-academic prompts must remain unique after normalization');
+          for(const x of changed){
+            const item=all.find(y=>y.id===x.id);if(!item)throw new Error('changed item missing '+x.id);
+            if((choiceSetCounts.get(item.choiceKey)||0)>10)throw new Error(x.id+' remediation creates/retains an over-reused choice set');
+          }
+
+          bank.q.forEach((set,si)=>set.forEach((r,qi)=>{
+            const id='RA-S'+String(si+1).padStart(2,'0')+'-Q'+String(qi+1).padStart(3,'0');
+            const actual=sha256(canonical(bank,r));
+            if(integrity.questions?.[id]?.sha256!==actual)throw new Error('final integrity mismatch '+id);
+          }));
+
+          if(new Set(p.published_ids||[]).size!==1000)throw new Error('revenue-academic Published count must remain 1,000');
+          for(const x of changed)if(!published.has(x.id))throw new Error('changed ID unexpectedly left Published '+x.id);
+          for(const x of changed){const log=manifest.remediation_log.find(y=>y.remediation_id===x.rid);if(log)log.qa_state='verified'}
+
+          manifest.generated_at=today;
+          integrity.generated_at=new Date().toISOString();
+          integrity.summary=integrity.summary||{};
+          integrity.summary['revenue-academic']={questions:1000};
+
+          const enc=zlib.gzipSync(Buffer.from(JSON.stringify(bank)),{level:9}).toString('base64');
+          let pos=0;
+          for(let i=0;i<paths.length;i++){
+            let end=i===paths.length-1?enc.length:Math.floor(enc.length*(i+1)/paths.length);
+            if(i<paths.length-1)end-=end%4;
+            fs.writeFileSync(paths[i],enc.slice(pos,end));pos=end;
+          }
+          const verifyBank=JSON.parse(zlib.gunzipSync(Buffer.from(paths.map(p=>fs.readFileSync(p,'utf8').trim()).join(''),'base64')).toString('utf8'));
+          if(verifyBank.q.length!==10||verifyBank.q.some(s=>s.length!==100))throw new Error('written academic bank failed 10 x 100 verification');
+
+          fs.writeFileSync(integrityPath,JSON.stringify(integrity,null,2)+'\n');
+          fs.writeFileSync(manifestPath,JSON.stringify(manifest,null,2)+'\n');
+          fs.writeFileSync('/tmp/academic-remediation-result.json',JSON.stringify({
+            applied:changed.length,
+            question_ids:changed.map(x=>x.id),
+            source_resets:changed.filter(x=>x.postSignal&&manifest.source_overrides?.[x.id]?.review_result==='academic_answer_remediation_requires_reverification').length,
+            post_signals:changed.reduce((m,x)=>(m[x.postSignal.level]=(m[x.postSignal.level]||0)+1,m),{})
+          },null,2)+'\n');
+          console.log('ATOMIC ACADEMIC REMEDIATION QA PASS',JSON.stringify({changed:changed.length,questions:all.length,published:p.published_ids.length}));
+          NODE
+
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "DRY RUN PASS — transaction validated; gh-pages not modified"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tax-exam/ra-bank-*.txt tax-exam/question-content-integrity.json tax-exam/question-publication-manifest.json
+          if git diff --cached --quiet; then
+            echo "No academic remediation changes to publish"
+            exit 0
+          fi
+          git commit -m "Apply reviewed academic answer remediation"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin gh-pages
+            if git rebase origin/gh-pages; then
+              if git push origin HEAD:gh-pages; then exit 0; fi
+            else
+              git rebase --abort || true
+            fi
+            sleep $((attempt * 2))
+          done
+          echo "Unable to publish academic remediation after 5 attempts" >&2
+          exit 1
+
+      - name: Refresh dependent QA
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$(node -p "require('./data/kexam-academic-answer-remediation-decisions.json').records.length")" = "0" ]; then
+            echo "No academic remediation decisions; skip dependent refresh"
+            exit 0
+          fi
+          gh workflow run kexam-answer-conspicuousness-audit.yml --ref main
+          gh workflow run kexam-academic-answer-remediation-backlog.yml --ref main
+          gh workflow run kexam-academic-quality.yml --ref main
+          gh workflow run kexam-publication-lifecycle-verify.yml --ref main
+          gh workflow run kexam-source-verification-backlog.yml --ref main
+          gh workflow run kexam-source-freshness.yml --ref main
