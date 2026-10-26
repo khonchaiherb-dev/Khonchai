@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-25T06:14:31.726Z",
+  "generated_at": "2026-10-26T06:23:02.308Z",
   "audit_model": "answer-conspicuousness-v1",
   "policy": {
     "note": "Public-safe QA signal only. A flag does not prove a question is invalid; it identifies answer-length patterns for human review.",
@@ -9,7 +9,7 @@
     "watch": "outside by >=8 chars and ratio >=1.25 or <=0.80"
   },
   "regression_guard": {
-    "compared_to_generated_at": "2026-10-24T05:59:10.839Z",
+    "compared_to_generated_at": "2026-10-25T06:14:31.726Z",
     "comparable": true,
     "previous_flagged": 600,
     "current_flagged": 600,
