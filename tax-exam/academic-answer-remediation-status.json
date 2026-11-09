@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-08T07:54:35.415Z",
+  "generated_at": "2026-11-09T08:06:16.288Z",
   "status_model": "academic-answer-remediation-status-v1",
-  "source_audit_generated_at": "2026-11-08T07:28:27.522Z",
+  "source_audit_generated_at": "2026-11-09T08:06:03.769Z",
   "regression_guard": {
-    "compared_to_generated_at": "2026-11-07T07:16:21.327Z",
+    "compared_to_generated_at": "2026-11-08T07:28:27.522Z",
     "comparable": true,
     "previous_flagged": 600,
     "current_flagged": 600,
