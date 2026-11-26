@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-26T09:39:15.554Z",
+  "generated_at": "2026-11-26T09:59:37.329Z",
   "status_model": "academic-answer-remediation-status-v1",
   "source_audit_generated_at": "2026-11-26T09:38:57.789Z",
   "regression_guard": {
